@@ -33,7 +33,7 @@ public:
 
 private:
 	FILE* traceInput;
-
+	std::string traceName;
 };
 
 }

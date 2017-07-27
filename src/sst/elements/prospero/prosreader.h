@@ -21,6 +21,8 @@
 #include <sst/core/output.h>
 #include <sst/core/subcomponent.h>
 #include <sst/core/params.h>
+#include "atomichandler.h"
+
 
 namespace SST {
 namespace Prospero {
@@ -36,21 +38,25 @@ public:
 		const uint64_t eCyc,
 		const uint64_t eAddr,
 		const uint32_t eLen,
-		const ProsperoTraceEntryOperation eOp) :
-		cycles(eCyc), address(eAddr), length(eLen), op(eOp) {
+		const ProsperoTraceEntryOperation eOp,
+		const uint32_t eAtom) :
+		cycles(eCyc), address(eAddr), length(eLen), op(eOp), atomic(eAtom) {
 
 		}
 
 	bool isRead() const { return op == READ;  }
 	bool isWrite() const { return op == WRITE; }
+	bool isAtomic() const { return atomic != NON_ATOMIC; }
 	uint64_t getAddress() const { return address; }
 	uint32_t getLength() const { return length; }
 	uint64_t getIssueAtCycle() const { return cycles; }
+	uint64_t getAtomic() const { return atomic; }
 	ProsperoTraceEntryOperation getOperationType() const { return op; }
 private:
 	const uint64_t cycles;
 	const uint64_t address;
 	const uint32_t length;
+	const uint32_t atomic;
 	const ProsperoTraceEntryOperation op;
 };
 
@@ -64,7 +70,8 @@ public:
 
 protected:
 	Output* output;
-
+	uint64_t atomifyDrift;
+	uint32_t pimSupport;
 };
 
 }

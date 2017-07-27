@@ -37,6 +37,8 @@ void printUsage() {
 	printf("Trace-Options:\n");
 	printf("  -o <file>     Name of trace output files.\n");
 	printf("  -f <format>   Output <format> = {text, binary, compressed}\n");
+	printf("  -a <atomic>   Enable atomic instruction tracing 0->disable, 1->enable\n");
+	printf("  -p <pim>      Enable pim support, non-atomic instructions are re-instrumented to atomics, 0->disable, 1->enable\n");
 	printf("  -t <maxthr>   Maximum number of threads to trace, if not set will search for OMP_NUM_THREADS or set to 1\n");
 	printf("\n");
 }
@@ -106,8 +108,11 @@ int main(int argc, char* argv[]) {
 	}
 
 	int threadCount = 0;
+	int atomicProfileLevel = 0;
+	int pimSupportLevel = 0;
 	char* outputFile = const_cast<char*>("prospero-trace");
 	char* outputFormat = const_cast<char*>("text");
+	char* traceFunc = const_cast<char*>("main");
 
 	for(int i = 0; i < prosParams.size(); i++) {
 		if( std::strcmp(prosParams[i], "-t") == 0 ) {
@@ -118,7 +123,45 @@ int main(int argc, char* argv[]) {
 				threadCount = std::atoi(prosParams[i+1]);
 				i++;
 			}
-		} else if( std::strcmp(prosParams[i], "-o") == 0 ) {
+		}
+		else if( std::strcmp(prosParams[i], "-a") == 0 ) {
+			if(i == (prosParams.size() - 1) ) {
+				fprintf(stderr, "-a needs 0 or 1, 0->disable, 1->enable, atomic insturctions profiling\n");
+				exit(-1);
+			}
+			else{
+				atomicProfileLevel = std::atoi(prosParams[i+1]);
+				if( atomicProfileLevel < 0 || atomicProfileLevel > 1 ){
+					fprintf(stderr, "-a needs 0 or 1, 0->disable, 1->enable, atomic insturctions profiling\n");
+					exit(-1);
+				}
+				i++;
+			}
+		}
+		else if( std::strcmp(prosParams[i], "-p") == 0 ) {
+			if(i == (prosParams.size() - 1) ) {
+				fprintf(stderr, "-p needs 0 or 1, 0->disable, 1->enable, atomic insturctions profiling\n");
+				exit(-1);
+			}
+			else{
+				pimSupportLevel = std::atoi(prosParams[i+1]);
+				if( pimSupportLevel < 0 || pimSupportLevel > 1 ){
+					fprintf(stderr, "-p needs 0 or 1, 0->disable, 1->enable, pim support\n");
+					exit(-1);
+				}
+				i++;
+			}
+		}
+		else if( std::strcmp(prosParams[i], "-r") == 0 ) {
+			if(i == (prosParams.size() - 1) ) {
+				fprintf(stderr, "-o needs a function to be specified\n");
+				exit(-1);
+			} else {
+				traceFunc = prosParams[i+1];
+				i++;
+			}
+		}
+		else if( std::strcmp(prosParams[i], "-o") == 0 ) {
 			if(i == (prosParams.size() - 1) ) {
 				fprintf(stderr, "-o needs a file to be specified\n");
 				exit(-1);
@@ -240,4 +283,3 @@ int main(int argc, char* argv[]) {
 
 	return 0;
 }
-

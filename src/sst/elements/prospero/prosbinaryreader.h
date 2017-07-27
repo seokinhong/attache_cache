@@ -35,6 +35,7 @@ private:
 	FILE* traceInput;
 	char* buffer;
 	uint32_t recordLength;
+	std::string traceName;
 
 };
 

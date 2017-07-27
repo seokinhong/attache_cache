@@ -31,7 +31,7 @@ ProsperoCompressedBinaryTraceReader::ProsperoCompressedBinaryTraceReader( Compon
 		exit(-1);
 	}
 
-	recordLength = sizeof(uint64_t) + sizeof(char) + sizeof(uint64_t) + sizeof(uint32_t);
+	recordLength = sizeof(uint64_t) + sizeof(char) + sizeof(uint64_t) + sizeof(uint32_t) + sizeof(uint32_t);
 	buffer = (char*) malloc(sizeof(char) * recordLength);
 };
 
@@ -60,6 +60,7 @@ ProsperoTraceEntry* ProsperoCompressedBinaryTraceReader::readNextEntry() {
 	uint64_t reqCycles  = 0;
 	char reqType = 'R';
 	uint32_t reqLength  = 0;
+	uint32_t reqAtomic = NON_ATOMIC;
 
 	if(gzeof(traceInput)) {
 		output->verbose(CALL_INFO, 2, 0, "End of trace file reached, returning empty request.\n");
@@ -74,10 +75,11 @@ ProsperoTraceEntry* ProsperoCompressedBinaryTraceReader::readNextEntry() {
 		copy((char*) &reqType,    buffer, sizeof(uint64_t), sizeof(char));
 		copy((char*) &reqAddress, buffer, sizeof(uint64_t) + sizeof(char), sizeof(uint64_t));
 		copy((char*) &reqLength,  buffer, sizeof(uint64_t) + sizeof(char) + sizeof(uint64_t), sizeof(uint32_t));
+		copy((char*) &reqAtomic,  buffer, sizeof(uint64_t) + sizeof(char) + sizeof(uint64_t) + sizeof(uint32_t), sizeof(uint32_t));
 
 		return new ProsperoTraceEntry(reqCycles, reqAddress,
 			reqLength,
-			(reqType == 'R' || reqType == 'r') ? READ : WRITE);
+			(reqType == 'R' || reqType == 'r') ? READ : WRITE, reqAtomic);
 	} else {
 		output->verbose(CALL_INFO, 2, 0, "Did not read a full record from the compressed trace, returning empty request.\n");
 		// Did not get a full read?
