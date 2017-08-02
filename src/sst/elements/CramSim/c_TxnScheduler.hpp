@@ -43,7 +43,9 @@ namespace SST {
         class c_Controller;
 
         enum class e_txnSchedulingPolicy {FCFS, FRFCFS};
-        typedef std::list<c_Transaction*> TxnQueue;
+        enum class e_queueSchedulingPolicy {DEFAULT, ATOMIC};
+
+	typedef std::list<c_Transaction*> TxnQueue;
 
         class c_TxnScheduler: public c_CtrlSubComponent <c_Transaction*,c_Transaction*>  {
         public:
@@ -82,7 +84,9 @@ namespace SST {
 
             //parameters
             e_txnSchedulingPolicy k_txnSchedulingPolicy;
-            unsigned k_numTxnQEntries;
+            e_queueSchedulingPolicy k_queueSchedulingPolicy;
+
+	    unsigned k_numTxnQEntries;
             float k_maxPendingWriteThreshold;
             float k_minPendingWriteThreshold;
             bool k_isReadFirstScheduling;
