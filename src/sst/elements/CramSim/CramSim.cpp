@@ -38,6 +38,9 @@
 #include "c_BankReceiver.hpp"
 #include "c_Dimm.hpp"
 #include "c_Controller.hpp"
+#include "c_TxnDispatcher.hpp"
+#include "c_TxnGen.hpp"
+#include "c_TraceReader.hpp"
 
 
 // namespaces
@@ -58,6 +61,12 @@ create_c_MemhBridge(SST::ComponentId_t id, SST::Params& params) {
 
 // c_TxnGenSeq
 static Component*
+create_c_TxnGen(SST::ComponentId_t id, SST::Params& params) {
+	return new c_TxnGen(id, params);
+}
+
+// c_TxnGenSeq
+static Component*
 create_c_TxnGenSeq(SST::ComponentId_t id, SST::Params& params) {
 	return new c_TxnGenSeq(id, params);
 }
@@ -72,6 +81,12 @@ create_c_TxnGenRand(SST::ComponentId_t id, SST::Params& params){
 static Component*
 create_c_TracefileReader(SST::ComponentId_t id, SST::Params& params){
 	return new c_TracefileReader(id, params);
+}
+
+// c_TraceReader
+static Component*
+create_c_TraceReader(SST::ComponentId_t id, SST::Params& params){
+	return new c_TraceReader(id, params);
 }
 
 // c_DramSimTraceReader
@@ -106,6 +121,10 @@ create_c_BankReceiver(SST::ComponentId_t id, SST::Params& params){
 	return new c_BankReceiver(id, params);
 }
 
+static Component*
+create_c_TxnDispatcher(SST::ComponentId_t id, SST::Params& params) {
+	return new c_TxnDispatcher(id, params);
+}
 // c_Dimm
 static Component*
 create_c_Dimm(SST::ComponentId_t id, SST::Params& params) {
@@ -146,6 +165,20 @@ static SubComponent*
 create_c_CmdScheduler(Component * owner, Params& params) {
 	return new c_CmdScheduler(owner, params);
 }
+
+static const char* c_TxnDispatcher_port_events[] = { "MemEvent", NULL };
+
+/*----SETUP c_AddressHasher  STRUCTURES----*/
+static const ElementInfoParam c_TxnDispatcher_params[] = {
+		{"numLanes", "Total number of lanes", NULL},
+		{"laneIdxPosition", "Bit posiiton of the lane index in the address.. [End:Start]", NULL},
+		{ NULL, NULL, NULL } };
+
+
+static const ElementInfoPort c_TxnDispatcher_ports[] = {
+		{ "txnGen", "link to/from a transaction generator",c_TxnDispatcher_port_events},
+		{ "lane_%(lanes)d", "link to/from lanes", c_TxnDispatcher_port_events},
+		{ NULL, NULL, NULL } };
 
 /*----SETUP c_AddressHasher  STRUCTURES----*/
 static const ElementInfoParam c_AddressHasher_params[] = {
@@ -201,6 +234,24 @@ static const ElementInfoPort c_TxnGenSeq_ports[] = {
 		{ "outTxnGenResQTokenChg", "link to c_TxnGen for outgoing res token",c_TxnGenSeq_token_port_events },
 		{ NULL, NULL, NULL } };
 
+/*----SETUP c_TxnGen STRUCTURES----*/
+static const ElementInfoParam c_TxnGen_params[] = {
+		{"maxOutstandingReqs", "Maximum number of the outstanding requests", NULL},
+		{"numTxnPerCycle", "The number of transactions generated per cycle", NULL},
+		{"readWriteRatio", "Ratio of read txn's to generate : write txn's to generate", NULL},
+		{ NULL, NULL, NULL } };
+
+static const char* c_TxnGen_port_events[] = { "c_TxnReqEvent", "c_TxnResEvent", NULL };
+
+static const ElementInfoPort c_TxnGen_ports[] = {
+		{ "lowLink", "link to memory-side components (txn dispatcher or controller)", c_TxnGen_port_events },
+		{ NULL, NULL, NULL } };
+
+static const ElementInfoStatistic c_TxnGen_stats[] = {
+  {"readTxnsCompleted", "Number of read transactions completed", "reads", 1}, // Name, Desc, Units, Enable Level
+  {"writeTxnsCompleted", "Number of write transactions completed", "writes", 1},
+  {NULL, NULL, NULL, 0}
+};
 
 /*----SETUP c_TxnGenRand STRUCTURES----*/
 static const ElementInfoParam c_TxnGenRand_params[] = {
@@ -246,6 +297,27 @@ static const ElementInfoPort c_TracefileReader_ports[] = {
 		{ "outTxnGenResQTokenChg", "link to c_TxnGen for outgoing res token",c_TxnGenRand_token_port_events },
 		{ NULL, NULL, NULL } };
 
+
+
+
+/*----SETUP c_TraceReader STRUCTURES----*/
+static const ElementInfoParam c_TraceReader_params[] = {
+		{"maxOutstandingReqs", "Maximum number of the outstanding requests", NULL},
+		{"numTxnPerCycle", "The number of transactions generated per cycle", NULL},
+		{"traceFile", "Location of trace file to read", NULL},
+		{ NULL, NULL, NULL } };
+
+static const char* c_TraceReader_port_events[] = { "c_TxnReqEvent", "c_TxnResEvent", NULL };
+
+static const ElementInfoPort c_TraceReader_ports[] = {
+		{ "lowLink", "link to memory-side components (txn dispatcher or controller)", c_TraceReader_port_events },
+		{ NULL, NULL, NULL } };
+
+static const ElementInfoStatistic c_TraceReader_stats[] = {
+		{"readTxnsCompleted", "Number of read transactions completed", "reads", 1}, // Name, Desc, Units, Enable Level
+		{"writeTxnsCompleted", "Number of write transactions completed", "writes", 1},
+		{NULL, NULL, NULL, 0}
+};
 
 /*----SETUP c_DramSimTraceReader STRUCTURES----*/
 static const ElementInfoParam c_DramSimTraceReader_params[] = {
@@ -1783,7 +1855,15 @@ static const ElementInfoStatistic c_Dimm_stats[] = {
 
 
 static const ElementInfoComponent CramSimComponents[] = {
-		{ "c_TxnGenSeq", 							// Name
+		{ "c_TxnGen", 							// Name
+		"Test Txn Generator",			// Description
+		NULL, 										// PrintHelp
+		create_c_TxnGen, 						// Allocator
+		c_TxnGen_params, 						// Parameters
+		c_TxnGen_ports, 							// Ports
+		COMPONENT_CATEGORY_UNCATEGORIZED, 			// Category
+		c_TxnGen_stats 										// Statistics
+		},{ "c_TxnGenSeq", 							// Name
 		"Test Txn Sequential Generator",			// Description
 		NULL, 										// PrintHelp
 		create_c_TxnGenSeq, 						// Allocator
@@ -1809,6 +1889,15 @@ static const ElementInfoComponent CramSimComponents[] = {
 		c_TracefileReader_ports, 						// Ports
 		COMPONENT_CATEGORY_UNCATEGORIZED, 			// Category
 		NULL 										// Statistics
+		},
+		{ "c_TraceReader", 							// Name
+		"Test Trace file Generator",			 	// Description
+		NULL, 										// PrintHelp
+		create_c_TraceReader, 						// Allocator
+		c_TraceReader_params, 						// Parameters
+		c_TraceReader_ports, 						// Ports
+		COMPONENT_CATEGORY_UNCATEGORIZED, 			// Category
+		c_TraceReader_stats							// Statistics
 		},
 		{ "c_DramSimTraceReader", 							// Name
 		"Test DRAMSim2 Trace file Generator",			 	// Description
@@ -1879,6 +1968,15 @@ static const ElementInfoComponent CramSimComponents[] = {
 					create_c_Controller, 						// Allocator
 					c_Controller_params, 						// Parameters
 					c_Controller_ports, 						// Ports
+					COMPONENT_CATEGORY_UNCATEGORIZED, 			// Category
+					NULL 										// Statistics
+		},
+		{ "c_TxnDispatcher",			 						// Name
+			"Transaction dispatcher",				 				// Description
+			NULL, 										// PrintHelp
+					create_c_TxnDispatcher, 						// Allocator
+					c_TxnDispatcher_params, 						// Parameters
+					c_TxnDispatcher_ports, 						// Ports
 					COMPONENT_CATEGORY_UNCATEGORIZED, 			// Category
 					NULL 										// Statistics
 		},

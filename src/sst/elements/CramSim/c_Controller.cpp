@@ -248,7 +248,7 @@ bool c_Controller::clockTic(SST::Cycle_t clock) {
 
     // 7. send token to the transaction generator
     m_thisCycleTxnQTknChg = m_thisCycleTxnQTknChg-m_ReqQ.size();
-    if (m_thisCycleTxnQTknChg > 0) {
+    if (m_outTxnGenReqQTokenChgLink && m_thisCycleTxnQTknChg > 0) {
         sendTokenChg();
     }
 
@@ -295,9 +295,14 @@ void c_Controller::sendResponse() {
                 //break;
                 c_TxnResEvent* l_txnResEvPtr = new c_TxnResEvent();
                 l_txnResEvPtr->m_payload = l_txnRes;
-                m_outTxnGenResPtrLink->send(l_txnResEvPtr);
 
-                --m_txnGenResQTokens;
+                if(m_outTxnGenResPtrLink)
+                    m_outTxnGenResPtrLink->send(l_txnResEvPtr);
+                else
+                    m_inTxnGenReqPtrLink->send(l_txnResEvPtr);
+
+                if(m_outTxnGenReqQTokenChgLink)
+                  --m_txnGenResQTokens;
             }
             else
             {
@@ -317,6 +322,9 @@ void c_Controller::handleIncomingTransaction(SST::Event *ev){
     if (l_txnReqEventPtr) {
         c_Transaction* newTxn=l_txnReqEventPtr->m_payload;
 
+        #ifdef __SST_DEBUG_OUTPUT__
+        newTxn->print(output,"[c_Controller.handleIncommingTransaction]");
+        #endif
 
         m_ReqQ.push_back(newTxn);
         m_ResQ.push_back(newTxn);
@@ -365,7 +373,7 @@ void c_Controller::handleInDeviceResPtrEvent(SST::Event *ev){
         }
 
         delete l_cmdResEventPtr->m_payload;         //now, free the memory space allocated to the commands for a transaction
-        //delete l_cmdResEventPtr;
+        delete l_cmdResEventPtr;
 
     } else {
         std::cout << __PRETTY_FUNCTION__ << "ERROR:: Bad event type!"
