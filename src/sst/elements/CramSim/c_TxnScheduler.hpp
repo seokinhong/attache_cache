@@ -47,7 +47,7 @@ namespace SST {
 
 	typedef std::list<c_Transaction*> TxnQueue;
 
-        class c_TxnScheduler: public c_CtrlSubComponent <c_Transaction*,c_Transaction*>  {
+        class c_TxnScheduler: public SubComponent{
         public:
 
             c_TxnScheduler(SST::Component *comp, SST::Params &x_params);
