@@ -269,7 +269,7 @@ bool ProsperoComponent::tick(SST::Cycle_t currentCycle) {
 		cyclesNoInstr++;
 		statCyclesNoInstr->addData(1);
 
-		if(0 == currentOutstanding) {
+		if(0 == currentOutstanding && currentOutstandingUC == 0) {
 			primaryComponentOKToEndSim();
 			return true;
 		}
@@ -280,6 +280,8 @@ bool ProsperoComponent::tick(SST::Cycle_t currentCycle) {
 	const uint64_t outstandingBeforeIssueUC = currentOutstandingUC;
 	const uint64_t issuedAtomicBefore = issuedAtomic;
 	bool ls_full = false;
+
+		
 	// Wait to see if the current operation can be issued, if yes then
 	// go ahead and issue it, otherwise we will stall
 	for(uint32_t i = 0; i < maxIssuePerCycle; ++i) {
@@ -489,8 +491,19 @@ void ProsperoComponent::issueRequest(const ProsperoTraceEntry* entry) {
 		statInstructionCount->addData(2);
 	}
 	else{
+		
+		SimpleMem::Addr addr = memMgr->translate(entryAddress);
+		SimpleMem::Request::Command cmd = isRead ? SimpleMem::Request::Read : SimpleMem::Request::Write;
+		uint64_t size = entryLength;
+		
+		//if(isAtomic && pimSupport == 2){
+		//	cmd = SimpleMem::Request::FlushLine;
+		//	size = cacheLineSize;
+		//	addr = addr - (addr % cacheLineSize);
+		//}
 		// Perform a single load
-		SimpleMem::Request* request = new SimpleMem::Request(isRead ? SimpleMem::Request::Read : SimpleMem::Request::Write, memMgr->translate(entryAddress), entryLength); request->setVirtualAddress(entryAddress);
+		SimpleMem::Request* request = new SimpleMem::Request(cmd, addr, size);
+	       	request->setVirtualAddress(entryAddress);
 
 		output->verbose(CALL_INFO, 8, 0, "Issuing request id: %" PRIu64 ", cacheable %" PRIu32" \n", request->id, isAtomic);
 
