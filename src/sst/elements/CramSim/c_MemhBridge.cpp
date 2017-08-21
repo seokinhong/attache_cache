@@ -161,7 +161,6 @@ void c_MemhBridge::createTxn() {
 				mTxn = new c_Transaction(event->getReqId(), e_TransactionType::READ, addr, 1);
 
 			m_txnReqQ.push(mTxn);
-                        mTxn->print();
                         if(k_printTxnTrace)
                             printTxn(event->getIsWrite(),addr);
 		}
