@@ -117,11 +117,11 @@ KNOB<UINT32> TrapAtomicProfile(KNOB_MODE_WRITEONCE, "pintool",
 		"a", "0", "Atomic instruction profiling level (0 = disabled, 1 = enabled)");
 KNOB<UINT32> TrapPIMSupport(KNOB_MODE_WRITEONCE, "pintool",
 		"p", "0", "PIM support level (0 = disabled, 1 = enabled)");
-KNOB<UINT32> KnobSimpointInterval(KNOB_MODE_WRITEONCE, "pintool",
+KNOB<UINT64> KnobSimpointInterval(KNOB_MODE_WRITEONCE, "pintool",
     "i", "0", "The number of instructions between simulation points, default=0");
-KNOB<UINT32> KnobNumSimInst(KNOB_MODE_WRITEONCE, "pintool",
+KNOB<UINT64> KnobNumSimInst(KNOB_MODE_WRITEONCE, "pintool",
     "s", "1125899906842624", "The number of instructions executed in the simulation points, default=1125899906842624");
-KNOB<UINT32> KnobNumSimpoint(KNOB_MODE_WRITEONCE, "pintool",
+KNOB<UINT64> KnobNumSimpoint(KNOB_MODE_WRITEONCE, "pintool",
     "n", "1125899906842624", "The number of the simulation points, default=1125899906842624");
 
 
@@ -471,7 +471,7 @@ VOID IncrementInstructionCount(THREADID id) {
 				{
 					thread_instr_id[id].flagRecord=true;
 					thread_instr_id[id].tmpInstCnt=0;
-					printf("Indigo: Start recording.. InstCnt:%lu\n",thread_instr_id[id].insCount);
+					printf("Indigo: Start recording.. InstCnt:%llu\n",thread_instr_id[id].insCount);
 					thread_instr_id[id].simpointCnt++;
 				}
 				else
@@ -498,7 +498,7 @@ VOID IncrementInstructionCount(THREADID id) {
 			{
 				thread_instr_id[id].flagRecord=false;
 				thread_instr_id[id].tmpInstCnt=0;
-				printf("Indigo: Pause recording... InstCnt:%lu\n",thread_instr_id[id].insCount);
+				printf("Indigo: Pause recording... InstCnt:%llu\n",thread_instr_id[id].insCount);
 			}
 		}
 		
@@ -786,13 +786,13 @@ int main(int argc, char *argv[])
 	printf("Indigo: Next file trip count set to %lu instructions.\n", nextFileTrip);
 	
 	simpointInterval = KnobSimpointInterval.Value();
-    printf("Indigo: The number of instructions between simulation points: %lu\n", simpointInterval);
+    printf("Indigo: The number of instructions between simulation points: %llu\n", simpointInterval);
 
     numSimInst = KnobNumSimInst.Value();
-    printf("Indigo: The number of simulated instructions : %lu\n", numSimInst);
+    printf("Indigo: The number of simulated instructions : %llu\n", numSimInst);
 	
 	numSimpoint = KnobNumSimpoint.Value();
-    printf("Indigo: The number of simulation point: %lu\n", numSimpoint);
+    printf("Indigo: The number of simulation point: %llu\n", numSimpoint);
 
 
 
