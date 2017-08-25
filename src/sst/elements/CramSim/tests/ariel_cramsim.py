@@ -113,7 +113,7 @@ cacheFrequency = "2 Ghz"
 defaultLevel = 0
 cacheLineSize = 64
 
-corecount = 8
+corecount = 1
 
 ## Application Info
 os.environ['SIM_DESC'] = 'EIGHT_CORES'
@@ -240,6 +240,8 @@ def genMemHierarchy(cores):
    comp_memhBridge = sst.Component("memh_bridge", "CramSim.c_MemhBridge")
    comp_memhBridge.addParams(g_params);
    comp_memhBridge.addParams({
+                        "verbose" : "0",
+                        "numTxnPerCycle" : g_params["numChannels"],
                         "strTxnTraceFile" : "arielTrace",
                         "boolPrintTxnTrace" : "1"
                         })
@@ -247,6 +249,7 @@ def genMemHierarchy(cores):
    comp_controller0 = sst.Component("MemController0", "CramSim.c_Controller")
    comp_controller0.addParams(g_params)
    comp_controller0.addParams({
+                        "verbose" : "0",
 			"TxnConverter" : "CramSim.c_TxnConverter",
 			"AddrHasher" : "CramSim.c_AddressHasher",
 			"CmdScheduler" : "CramSim.c_CmdScheduler" ,
@@ -263,22 +266,9 @@ def genMemHierarchy(cores):
    link_dir_cramsim_link.connect( (memory, "cube_link", "2ns"), (comp_memhBridge, "linkCPU", "2ns") )
 
    # memhBridge(=TxnGen) <- Memory Controller (Req)(Token)
-   txnReqLink_0 = sst.Link("txnReqLink_0")
-   txnReqLink_0.connect( (comp_memhBridge, "outTxnGenReqPtr", g_params["clockCycle"]), (comp_controller0, "inTxnGenReqPtr", g_params["clockCycle"]) )
-
-   # TxnGen <- Memory Controller (Res)(Txn)
-   txnResLink_0 = sst.Link("txnResLink_0")
-   txnResLink_0.connect( (comp_memhBridge, "inCtrlResPtr", g_params["clockCycle"]), (comp_controller0, "outTxnGenResPtr", g_params["clockCycle"]) )
-
-
-   # TxnGen <- Memory Controller (Req)(Token)
-   txnTokenLink_0 = sst.Link("txnTokenLink_0")
-   txnTokenLink_0.connect( (comp_memhBridge, "inCtrlReqQTokenChg", g_params["clockCycle"]), (comp_controller0, "outTxnGenReqQTokenChg", g_params["clockCycle"]) )
-
    # TxnGen -> Memory Controller (Res)(Token)
-   txnTokenLink_1 = sst.Link("txnTokenLink_1")
-   txnTokenLink_1.connect( (comp_memhBridge, "outTxnGenResQTokenChg", g_params["clockCycle"]), (comp_controller0, "inTxnGenResQTokenChg", g_params["clockCycle"]) )
-
+   txnTokenLink_1 = sst.Link("txnReqLink_1")
+   txnTokenLink_1.connect( (comp_memhBridge, "lowLink", g_params["clockCycle"]), (comp_controller0, "inTxnGenReqPtr", g_params["clockCycle"]) )
 
    # Controller -> Dimm (Req)
    cmdReqLink_1 = sst.Link("cmdReqLink_1")
@@ -287,8 +277,14 @@ def genMemHierarchy(cores):
    # Controller <- Dimm (Res) (Cmd)
    cmdResLink_1 = sst.Link("cmdResLink_1")
    cmdResLink_1.connect( (comp_controller0, "inDeviceResPtr", g_params["clockCycle"]), (comp_dimm0, "outCtrlResPtr", g_params["clockCycle"]) )
+   
+   comp_controller0.enableAllStatistics()
+   comp_memhBridge.enableAllStatistics()
+   comp_dimm0.enableAllStatistics()
 
 
+sst.setStatisticLoadLevel(7)
+sst.setStatisticOutput("sst.statOutputConsole")
 
 genMemHierarchy(corecount)        
 

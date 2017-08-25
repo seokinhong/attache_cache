@@ -197,23 +197,28 @@ static const ElementInfoParam c_AddressHasher_params[] = {
 
 /*----SETUP c_MemhBridge STRUCTURES----*/
 static const ElementInfoParam c_MemhBridge_params[] = {
-		{"numTxnGenReqQEntries", "Total entries allowed in the Req queue", NULL},
-		{"numTxnGenResQEntries", "Total entries allowed in the Res queue", NULL},
-		{"numCtrlReqQEntries", "Total entries in the neighbor TxnConverter's Req queue", NULL},
+                {"maxOutstandingReqs", "Maximum number of the outstanding requests", NULL},
 		{ NULL, NULL, NULL } };
 
-static const char* c_MemhBridge_req_port_events[] = { "c_TxnReqEvent", NULL };
-static const char* c_MemhBridge_res_port_events[] = { "c_TxnResEvent", NULL };
-static const char* c_MemhBridge_token_port_events[] = {"c_TokenChgEvent", NULL};
+static const char* c_MemhBridge_mem_port_events[] = { "c_TxnReqEvent","c_TxnResEvent", NULL };
 static const char* c_MemhBridge_CPU_events[] = {"c_CPUevent", NULL};
 
 static const ElementInfoPort c_MemhBridge_ports[] = {
 		{ "linkCPU", "link to/from CPU",c_MemhBridge_CPU_events},
-		{ "outTxnGenReqPtr", "link to c_MemhBridge for outgoing req txn", c_MemhBridge_req_port_events },
-		{ "inCtrlReqQTokenChg", "link to c_MemhBridge for incoming req token", c_MemhBridge_token_port_events },
-		{ "inCtrlResPtr", "link to c_MemhBrdige for incoming res txn", c_MemhBridge_res_port_events },
-		{ "outTxnGenResQTokenChg", "link to c_MemhBridge for outgoing res token",c_MemhBridge_token_port_events },
+		{ "lowLink", "link to memory-side components (txn dispatcher or controller)", c_MemhBridge_mem_port_events },
 		{ NULL, NULL, NULL } };
+
+static const ElementInfoStatistic c_MemhBridge_stats[] = {
+  {"readTxnsSent", "Number of read transactions sent", "reads", 1}, // Name, Desc, Units, Enable Level
+  {"writeTxnsSent", "Number of write transactions sent", "writes", 1}, // Name, Desc, Units, Enable Level
+  {"readTxnsCompleted", "Number of read transactions completed", "reads", 1}, // Name, Desc, Units, Enable Level
+  {"writeTxnsCompleted", "Number of write transactions completed", "writes", 1},
+  {"txnsPerCycle", "Transactions Per Cycle", "Txns/Cycle", 1},
+  {"readTxnsLatency", "Average latency of read transactions", "cycles", 1},
+  {"writeTxnsLatency", "Average latency of write transactions", "cycles", 1},
+  {"txnsLatency", "Average latency of (read/write) transactions", "cycles", 1},
+  {NULL, NULL, NULL, 0}
+};
 
 /*----SETUP c_TxnGenSeq STRUCTURES----*/
 static const ElementInfoParam c_TxnGenSeq_params[] = {
@@ -248,8 +253,14 @@ static const ElementInfoPort c_TxnGen_ports[] = {
 		{ NULL, NULL, NULL } };
 
 static const ElementInfoStatistic c_TxnGen_stats[] = {
+  {"readTxnsSent", "Number of read transactions sent", "reads", 1}, // Name, Desc, Units, Enable Level
+  {"writeTxnsSent", "Number of write transactions sent", "writes", 1}, // Name, Desc, Units, Enable Level
   {"readTxnsCompleted", "Number of read transactions completed", "reads", 1}, // Name, Desc, Units, Enable Level
   {"writeTxnsCompleted", "Number of write transactions completed", "writes", 1},
+  {"txnsPerCycle", "Transactions Per Cycle", "Txns/Cycle", 1},
+  {"readTxnsLatency", "Average latency of read transactions", "cycles", 1},
+  {"writeTxnsLatency", "Average latency of write transactions", "cycles", 1},
+  {"txnsLatency", "Average latency of (read/write) transactions", "cycles", 1},
   {NULL, NULL, NULL, 0}
 };
 
@@ -314,9 +325,15 @@ static const ElementInfoPort c_TraceReader_ports[] = {
 		{ NULL, NULL, NULL } };
 
 static const ElementInfoStatistic c_TraceReader_stats[] = {
-		{"readTxnsCompleted", "Number of read transactions completed", "reads", 1}, // Name, Desc, Units, Enable Level
-		{"writeTxnsCompleted", "Number of write transactions completed", "writes", 1},
-		{NULL, NULL, NULL, 0}
+  {"readTxnsSent", "Number of read transactions sent", "reads", 1}, // Name, Desc, Units, Enable Level
+  {"writeTxnsSent", "Number of write transactions sent", "writes", 1}, // Name, Desc, Units, Enable Level
+  {"readTxnsCompleted", "Number of read transactions completed", "reads", 1}, // Name, Desc, Units, Enable Level
+  {"writeTxnsCompleted", "Number of write transactions completed", "writes", 1},
+  {"txnsPerCycle", "Transactions Per Cycle", "Txns/Cycle", 1},
+  {"readTxnsLatency", "Average latency of read transactions", "cycles", 1},
+  {"writeTxnsLatency", "Average latency of write transactions", "cycles", 1},
+  {"txnsLatency", "Average latency of (read/write) transactions", "cycles", 1},
+  {NULL, NULL, NULL, 0}
 };
 
 /*----SETUP c_DramSimTraceReader STRUCTURES----*/
@@ -1961,7 +1978,7 @@ static const ElementInfoComponent CramSimComponents[] = {
 		c_MemhBridge_params, 						// Parameters
 		c_MemhBridge_ports, 						// Ports
 		COMPONENT_CATEGORY_UNCATEGORIZED, 			// Category
-		NULL 										// Statistics
+		c_MemhBridge_stats 										// Statistics
 		},
 		{ "c_Controller",			 						// Name
 			"Memory Controller",				 				// Description
