@@ -1,0 +1,262 @@
+ =======================================================
+ ============== Printing Statistics [id:0]==============
+   Total Return Transactions : 0 (0 bytes) aggregate average bandwidth 0.000GB/s
+      -Rank   0 : 
+        -Reads  : 0 (0 bytes)
+        -Writes : 0 (0 bytes)
+        -Bandwidth / Latency  (Bank 0): 0.000 GB/s		-nan ns
+        -Bandwidth / Latency  (Bank 1): 0.000 GB/s		-nan ns
+        -Bandwidth / Latency  (Bank 2): 0.000 GB/s		-nan ns
+        -Bandwidth / Latency  (Bank 3): 0.000 GB/s		-nan ns
+        -Bandwidth / Latency  (Bank 4): 0.000 GB/s		-nan ns
+        -Bandwidth / Latency  (Bank 5): 0.000 GB/s		-nan ns
+        -Bandwidth / Latency  (Bank 6): 0.000 GB/s		-nan ns
+        -Bandwidth / Latency  (Bank 7): 0.000 GB/s		-nan ns
+ == Power Data for Rank        0
+   Average Power (watts)     : 0.000
+     -Background (watts)     : 0.000
+     -Act/Pre    (watts)     : 0.000
+     -Burst      (watts)     : 0.000
+     -Refresh    (watts)     : 0.000
+
+ == Pending Transactions : 0 (0)==
+ =======================================================
+ ============== Printing Statistics [id:0]==============
+   Total Return Transactions : 121 (7744 bytes) aggregate average bandwidth 0.058GB/s
+      -Rank   0 : 
+        -Reads  : 121 (7744 bytes)
+        -Writes : 0 (0 bytes)
+        -Bandwidth / Latency  (Bank 0): 0.007 GB/s		48.500 ns
+        -Bandwidth / Latency  (Bank 1): 0.006 GB/s		50.865 ns
+        -Bandwidth / Latency  (Bank 2): 0.009 GB/s		45.556 ns
+        -Bandwidth / Latency  (Bank 3): 0.008 GB/s		38.382 ns
+        -Bandwidth / Latency  (Bank 4): 0.008 GB/s		38.015 ns
+        -Bandwidth / Latency  (Bank 5): 0.009 GB/s		39.375 ns
+        -Bandwidth / Latency  (Bank 6): 0.006 GB/s		42.812 ns
+        -Bandwidth / Latency  (Bank 7): 0.005 GB/s		40.000 ns
+ == Power Data for Rank        0
+   Average Power (watts)     : 1.214
+     -Background (watts)     : 1.100
+     -Act/Pre    (watts)     : 0.027
+     -Burst      (watts)     : 0.021
+     -Refresh    (watts)     : 0.065
+
+ == Pending Transactions : 0 (100000)==
+ =======================================================
+ ============== Printing Statistics [id:0]==============
+   Total Return Transactions : 191 (12224 bytes) aggregate average bandwidth 0.033GB/s
+      -Rank   0 : 
+        -Reads  : 70 (4480 bytes)
+        -Writes : 0 (0 bytes)
+        -Bandwidth / Latency  (Bank 0): 0.004 GB/s		40.833 ns
+        -Bandwidth / Latency  (Bank 1): 0.005 GB/s		42.125 ns
+        -Bandwidth / Latency  (Bank 2): 0.006 GB/s		38.229 ns
+        -Bandwidth / Latency  (Bank 3): 0.004 GB/s		37.639 ns
+        -Bandwidth / Latency  (Bank 4): 0.005 GB/s		39.750 ns
+        -Bandwidth / Latency  (Bank 5): 0.004 GB/s		39.688 ns
+        -Bandwidth / Latency  (Bank 6): 0.002 GB/s		37.500 ns
+        -Bandwidth / Latency  (Bank 7): 0.003 GB/s		39.643 ns
+ == Power Data for Rank        0
+   Average Power (watts)     : 1.193
+     -Background (watts)     : 1.098
+     -Act/Pre    (watts)     : 0.017
+     -Burst      (watts)     : 0.012
+     -Refresh    (watts)     : 0.065
+
+ == Pending Transactions : 0 (200000)==
+ =======================================================
+ ============== Printing Statistics [id:0]==============
+   Total Return Transactions : 227 (14528 bytes) aggregate average bandwidth 0.017GB/s
+      -Rank   0 : 
+        -Reads  : 36 (2304 bytes)
+        -Writes : 0 (0 bytes)
+        -Bandwidth / Latency  (Bank 0): 0.002 GB/s		39.000 ns
+        -Bandwidth / Latency  (Bank 1): 0.002 GB/s		39.000 ns
+        -Bandwidth / Latency  (Bank 2): 0.002 GB/s		40.000 ns
+        -Bandwidth / Latency  (Bank 3): 0.001 GB/s		40.000 ns
+        -Bandwidth / Latency  (Bank 4): 0.001 GB/s		40.000 ns
+        -Bandwidth / Latency  (Bank 5): 0.002 GB/s		38.750 ns
+        -Bandwidth / Latency  (Bank 6): 0.003 GB/s		40.208 ns
+        -Bandwidth / Latency  (Bank 7): 0.002 GB/s		38.000 ns
+ == Power Data for Rank        0
+   Average Power (watts)     : 1.176
+     -Background (watts)     : 1.096
+     -Act/Pre    (watts)     : 0.009
+     -Burst      (watts)     : 0.006
+     -Refresh    (watts)     : 0.065
+
+ == Pending Transactions : 0 (300000)==
+ =======================================================
+ ============== Printing Statistics [id:0]==============
+   Total Return Transactions : 266 (17024 bytes) aggregate average bandwidth 0.019GB/s
+      -Rank   0 : 
+        -Reads  : 39 (2496 bytes)
+        -Writes : 0 (0 bytes)
+        -Bandwidth / Latency  (Bank 0): 0.003 GB/s		40.000 ns
+        -Bandwidth / Latency  (Bank 1): 0.003 GB/s		41.667 ns
+        -Bandwidth / Latency  (Bank 2): 0.003 GB/s		39.167 ns
+        -Bandwidth / Latency  (Bank 3): 0.001 GB/s		42.917 ns
+        -Bandwidth / Latency  (Bank 4): 0.002 GB/s		38.000 ns
+        -Bandwidth / Latency  (Bank 5): 0.002 GB/s		41.562 ns
+        -Bandwidth / Latency  (Bank 6): 0.002 GB/s		39.375 ns
+        -Bandwidth / Latency  (Bank 7): 0.002 GB/s		39.375 ns
+ == Power Data for Rank        0
+   Average Power (watts)     : 1.175
+     -Background (watts)     : 1.093
+     -Act/Pre    (watts)     : 0.009
+     -Burst      (watts)     : 0.007
+     -Refresh    (watts)     : 0.065
+
+ == Pending Transactions : 0 (400000)==
+ =======================================================
+ ============== Printing Statistics [id:0]==============
+   Total Return Transactions : 463 (29632 bytes) aggregate average bandwidth 0.094GB/s
+      -Rank   0 : 
+        -Reads  : 197 (12608 bytes)
+        -Writes : 0 (0 bytes)
+        -Bandwidth / Latency  (Bank 0): 0.010 GB/s		37.898 ns
+        -Bandwidth / Latency  (Bank 1): 0.010 GB/s		37.841 ns
+        -Bandwidth / Latency  (Bank 2): 0.013 GB/s		38.380 ns
+        -Bandwidth / Latency  (Bank 3): 0.012 GB/s		39.250 ns
+        -Bandwidth / Latency  (Bank 4): 0.012 GB/s		39.600 ns
+        -Bandwidth / Latency  (Bank 5): 0.011 GB/s		38.646 ns
+        -Bandwidth / Latency  (Bank 6): 0.012 GB/s		39.183 ns
+        -Bandwidth / Latency  (Bank 7): 0.012 GB/s		40.000 ns
+ == Power Data for Rank        0
+   Average Power (watts)     : 1.261
+     -Background (watts)     : 1.113
+     -Act/Pre    (watts)     : 0.048
+     -Burst      (watts)     : 0.035
+     -Refresh    (watts)     : 0.065
+
+ == Pending Transactions : 0 (500000)==
+ =======================================================
+ ============== Printing Statistics [id:0]==============
+   Total Return Transactions : 1279 (81856 bytes) aggregate average bandwidth 0.389GB/s
+      -Rank   0 : 
+        -Reads  : 816 (52224 bytes)
+        -Writes : 0 (0 bytes)
+        -Bandwidth / Latency  (Bank 0): 0.050 GB/s		41.923 ns
+        -Bandwidth / Latency  (Bank 1): 0.049 GB/s		39.114 ns
+        -Bandwidth / Latency  (Bank 2): 0.049 GB/s		39.709 ns
+        -Bandwidth / Latency  (Bank 3): 0.049 GB/s		40.502 ns
+        -Bandwidth / Latency  (Bank 4): 0.047 GB/s		40.240 ns
+        -Bandwidth / Latency  (Bank 5): 0.049 GB/s		39.272 ns
+        -Bandwidth / Latency  (Bank 6): 0.047 GB/s		37.955 ns
+        -Bandwidth / Latency  (Bank 7): 0.049 GB/s		41.189 ns
+ == Power Data for Rank        0
+   Average Power (watts)     : 1.559
+     -Background (watts)     : 1.159
+     -Act/Pre    (watts)     : 0.191
+     -Burst      (watts)     : 0.143
+     -Refresh    (watts)     : 0.065
+
+ == Pending Transactions : 0 (600000)==
+ =======================================================
+ ============== Printing Statistics [id:0]==============
+   Total Return Transactions : 1840 (117760 bytes) aggregate average bandwidth 0.268GB/s
+      -Rank   0 : 
+        -Reads  : 561 (35904 bytes)
+        -Writes : 0 (0 bytes)
+        -Bandwidth / Latency  (Bank 0): 0.035 GB/s		37.860 ns
+        -Bandwidth / Latency  (Bank 1): 0.035 GB/s		41.798 ns
+        -Bandwidth / Latency  (Bank 2): 0.029 GB/s		38.340 ns
+        -Bandwidth / Latency  (Bank 3): 0.033 GB/s		40.018 ns
+        -Bandwidth / Latency  (Bank 4): 0.034 GB/s		40.810 ns
+        -Bandwidth / Latency  (Bank 5): 0.038 GB/s		39.003 ns
+        -Bandwidth / Latency  (Bank 6): 0.031 GB/s		41.250 ns
+        -Bandwidth / Latency  (Bank 7): 0.033 GB/s		38.821 ns
+ == Power Data for Rank        0
+   Average Power (watts)     : 1.471
+     -Background (watts)     : 1.170
+     -Act/Pre    (watts)     : 0.137
+     -Burst      (watts)     : 0.099
+     -Refresh    (watts)     : 0.065
+
+ == Pending Transactions : 0 (700000)==
+ =======================================================
+ ============== Printing Statistics [id:0]==============
+   Total Return Transactions : 3011 (192704 bytes) aggregate average bandwidth 0.558GB/s
+      -Rank   0 : 
+        -Reads  : 1171 (74944 bytes)
+        -Writes : 0 (0 bytes)
+        -Bandwidth / Latency  (Bank 0): 0.067 GB/s		38.626 ns
+        -Bandwidth / Latency  (Bank 1): 0.065 GB/s		39.681 ns
+        -Bandwidth / Latency  (Bank 2): 0.069 GB/s		40.534 ns
+        -Bandwidth / Latency  (Bank 3): 0.072 GB/s		40.707 ns
+        -Bandwidth / Latency  (Bank 4): 0.071 GB/s		40.372 ns
+        -Bandwidth / Latency  (Bank 5): 0.072 GB/s		39.742 ns
+        -Bandwidth / Latency  (Bank 6): 0.071 GB/s		39.530 ns
+        -Bandwidth / Latency  (Bank 7): 0.071 GB/s		39.312 ns
+ == Power Data for Rank        0
+   Average Power (watts)     : 1.797
+     -Background (watts)     : 1.246
+     -Act/Pre    (watts)     : 0.280
+     -Burst      (watts)     : 0.206
+     -Refresh    (watts)     : 0.065
+
+ == Pending Transactions : 0 (800000)==
+ =======================================================
+ ============== Printing Statistics [id:0]==============
+   Total Return Transactions : 3787 (242368 bytes) aggregate average bandwidth 0.370GB/s
+      -Rank   0 : 
+        -Reads  : 776 (49664 bytes)
+        -Writes : 0 (0 bytes)
+        -Bandwidth / Latency  (Bank 0): 0.047 GB/s		38.687 ns
+        -Bandwidth / Latency  (Bank 1): 0.051 GB/s		39.139 ns
+        -Bandwidth / Latency  (Bank 2): 0.043 GB/s		40.639 ns
+        -Bandwidth / Latency  (Bank 3): 0.045 GB/s		39.056 ns
+        -Bandwidth / Latency  (Bank 4): 0.046 GB/s		39.562 ns
+        -Bandwidth / Latency  (Bank 5): 0.049 GB/s		39.853 ns
+        -Bandwidth / Latency  (Bank 6): 0.046 GB/s		38.686 ns
+        -Bandwidth / Latency  (Bank 7): 0.043 GB/s		40.220 ns
+ == Power Data for Rank        0
+   Average Power (watts)     : 1.620
+     -Background (watts)     : 1.225
+     -Act/Pre    (watts)     : 0.194
+     -Burst      (watts)     : 0.136
+     -Refresh    (watts)     : 0.065
+
+ == Pending Transactions : 0 (900000)==
+==== Channel [0] ====
+ =======================================================
+ ============== Printing Statistics [id:0]==============
+   Total Return Transactions : 4300 (275200 bytes) aggregate average bandwidth 0.295GB/s
+      -Rank   0 : 
+        -Reads  : 513 (32832 bytes)
+        -Writes : 0 (0 bytes)
+        -Bandwidth / Latency  (Bank 0): 0.037 GB/s		44.038 ns
+        -Bandwidth / Latency  (Bank 1): 0.039 GB/s		39.720 ns
+        -Bandwidth / Latency  (Bank 2): 0.039 GB/s		43.041 ns
+        -Bandwidth / Latency  (Bank 3): 0.037 GB/s		39.788 ns
+        -Bandwidth / Latency  (Bank 4): 0.034 GB/s		40.167 ns
+        -Bandwidth / Latency  (Bank 5): 0.038 GB/s		39.583 ns
+        -Bandwidth / Latency  (Bank 6): 0.036 GB/s		39.742 ns
+        -Bandwidth / Latency  (Bank 7): 0.034 GB/s		40.083 ns
+ == Power Data for Rank        0
+   Average Power (watts)     : 1.540
+     -Background (watts)     : 1.211
+     -Act/Pre    (watts)     : 0.157
+     -Burst      (watts)     : 0.109
+     -Refresh    (watts)     : 0.064
+ ---  Latency list (16)
+       [lat] : #
+       [10-19] : 63
+       [20-29] : 1461
+       [30-39] : 2617
+       [40-49] : 38
+       [50-59] : 30
+       [60-69] : 57
+       [70-79] : 4
+       [80-89] : 4
+       [90-99] : 3
+       [100-109] : 2
+       [110-119] : 4
+       [120-129] : 7
+       [130-139] : 3
+       [140-149] : 5
+       [150-159] : 1
+       [170-179] : 1
+
+ == Pending Transactions : 0 (982929)==
+//// Channel [0] ////

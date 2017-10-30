@@ -27,8 +27,17 @@ namespace ArielComponent {
 class ArielWriteEvent : public ArielEvent {
 
 	public:
-		ArielWriteEvent(uint64_t wAddr, uint32_t length) :
-			writeAddress(wAddr), writeLength(length) {
+		ArielWriteEvent(uint64_t wAddr, uint32_t length, uint64_t *data) :
+			writeAddress(wAddr), writeLength(length){
+                        uint8_t* ptr=(uint8_t*)data;
+                        for(int i=0;i<8;i++)
+                                for(int j=0;j<8;j++)
+                                {
+                                    cacheLineData.push_back(*ptr);
+                                    ptr++;
+                                }
+
+
 		}
 
 		~ArielWriteEvent() {
@@ -46,10 +55,15 @@ class ArielWriteEvent : public ArielEvent {
 		uint32_t getLength() const {
 			return writeLength;
 		}
+                
+                std::vector<uint8_t> getData() const{
+                    return cacheLineData;
+                }
 
 	private:
 		const uint64_t writeAddress;
 		const uint32_t writeLength;
+                std::vector<uint8_t> cacheLineData;
 
 };
 

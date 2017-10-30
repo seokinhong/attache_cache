@@ -126,10 +126,10 @@ void ArielCore::printTraceEntry(const bool isRead,
 }
 
 void ArielCore::commitReadEvent(const uint64_t address,
-		const uint64_t virtAddress, const uint32_t length) {
+		const uint64_t virtAddress, const uint32_t length, std::vector<uint8_t> data) {
 
 	if(length > 0) {
-		SimpleMem::Request *req = new SimpleMem::Request(SimpleMem::Request::Read, address, length);
+		SimpleMem::Request *req = new SimpleMem::Request(SimpleMem::Request::Read, address, length, data);
 		req->setVirtualAddress(virtAddress);
 
 		pending_transaction_count++;
@@ -138,17 +138,20 @@ void ArielCore::commitReadEvent(const uint64_t address,
 		if(enableTracing) {
 			printTraceEntry(true, (const uint64_t) req->addrs[0], (const uint32_t) length);
 		}
-
+                
+                for(int i=0;i<req->data.size();i++)
+                    fprintf(stderr,"data in arielcore:%d\n",req->data[i]);
+                
 		// Actually send the event to the cache
 		cacheLink->sendRequest(req);
 	}
 }
 
 void ArielCore::commitWriteEvent(const uint64_t address,
-		const uint64_t virtAddress, const uint32_t length) {
+		const uint64_t virtAddress, const uint32_t length, std::vector<uint8_t> data) {
 
 	if(length > 0) {
-		SimpleMem::Request *req = new SimpleMem::Request(SimpleMem::Request::Write, address, length);
+		SimpleMem::Request *req = new SimpleMem::Request(SimpleMem::Request::Write, address, length, data);
 		req->setVirtualAddress(virtAddress);
 
 		// TODO BJM:  DO we need to fill in dummy data?
@@ -216,11 +219,11 @@ void ArielCore::createNoOpEvent() {
 	ARIEL_CORE_VERBOSE(4, output->verbose(CALL_INFO, 4, 0, "Generated a No Op event on core %" PRIu32 "\n", coreID));
 }
 
-void ArielCore::createReadEvent(uint64_t address, uint32_t length) {
-	ArielReadEvent* ev = new ArielReadEvent(address, length);
+void ArielCore::createReadEvent(uint64_t address, uint32_t length, uint64_t* data) {
+	ArielReadEvent* ev = new ArielReadEvent(address, length, data);
 	coreQ->push(ev);
 
-	ARIEL_CORE_VERBOSE(4, output->verbose(CALL_INFO, 4, 0, "Generated a READ event, addr=%" PRIu64 ", length=%" PRIu32 "\n", address, length));
+	ARIEL_CORE_VERBOSE(4, output->verbose(CALL_INFO, 4, 0, "Generated a READ event, addr=%" PRIu64 ", length=%" PRIu32 ", data=%" PRIu64"\n", address, length, data));
 }
 
 void ArielCore::createAllocateEvent(uint64_t vAddr, uint64_t length, uint32_t level, uint64_t instPtr) {
@@ -238,11 +241,11 @@ void ArielCore::createFreeEvent(uint64_t vAddr) {
 	ARIEL_CORE_VERBOSE(2, output->verbose(CALL_INFO, 2, 0, "Generated a free event for virtual address=%" PRIu64 "\n", vAddr));
 }
 
-void ArielCore::createWriteEvent(uint64_t address, uint32_t length) {
-	ArielWriteEvent* ev = new ArielWriteEvent(address, length);
+void ArielCore::createWriteEvent(uint64_t address, uint32_t length, uint64_t *data) {
+	ArielWriteEvent* ev = new ArielWriteEvent(address, length, data);
 	coreQ->push(ev);
 
-	ARIEL_CORE_VERBOSE(4, output->verbose(CALL_INFO, 4, 0, "Generated a WRITE event, addr=%" PRIu64 ", length=%" PRIu32 "\n", address, length));
+	ARIEL_CORE_VERBOSE(4, output->verbose(CALL_INFO, 4, 0, "Generated a WRITE event, addr=%" PRIu64 ", length=%" PRIu32 ", data=%" PRIu64 "\n", address, length, data));
 }
 
 void ArielCore::createExitEvent() {
@@ -318,11 +321,11 @@ bool ArielCore::refillQueue() {
 
 					switch(ac.command) {
 						case ARIEL_PERFORM_READ:
-							createReadEvent(ac.inst.addr, ac.inst.size);
+							createReadEvent(ac.inst.addr, ac.inst.size, ac.inst.data);
 							break;
 
 						case ARIEL_PERFORM_WRITE:
-							createWriteEvent(ac.inst.addr, ac.inst.size);
+							createWriteEvent(ac.inst.addr, ac.inst.size, ac.inst.data);
 							break;
 
 						case ARIEL_END_INSTRUCTION:
@@ -393,6 +396,7 @@ void ArielCore::handleReadRequest(ArielReadEvent* rEv) {
 
 	const uint64_t readAddress = rEv->getAddress();
 	const uint64_t readLength  = (uint64_t) rEv->getLength();
+        std::vector<uint8_t> data = rEv->getData();
 
 	if(readLength > cacheLineSize) {
 		output->verbose(CALL_INFO, 4, 0, "Potential error? request for a read of length=%" PRIu64 " is larger than cache line which is not allowed (coreID=%" PRIu32 ", cache line: %" PRIu64 "\n",
@@ -412,7 +416,7 @@ void ArielCore::handleReadRequest(ArielReadEvent* rEv) {
 		ARIEL_CORE_VERBOSE(4, output->verbose(CALL_INFO, 4, 0, "Core %" PRIu32 " issuing read, VAddr=%" PRIu64 ", Size=%" PRIu64 ", PhysAddr=%" PRIu64 "\n", 
 					coreID, readAddress, readLength, physAddr));
 
-		commitReadEvent(physAddr, readAddress, (uint32_t) readLength);
+		commitReadEvent(physAddr, readAddress, (uint32_t) readLength, data);
 	} else {
 		ARIEL_CORE_VERBOSE(4, output->verbose(CALL_INFO, 4, 0, "Core %" PRIu32 " generating a split read request: Addr=%" PRIu64 " Length=%" PRIu64 "\n",
 					coreID, readAddress, readLength));
@@ -447,8 +451,8 @@ void ArielCore::handleReadRequest(ArielReadEvent* rEv) {
 			}
 		}
 
-		commitReadEvent(physLeftAddr, leftAddr, (uint32_t) leftSize);
-		commitReadEvent(physRightAddr, rightAddr, (uint32_t) rightSize);
+		commitReadEvent(physLeftAddr, leftAddr, (uint32_t) leftSize, data);
+		commitReadEvent(physRightAddr, rightAddr, (uint32_t) rightSize, data);
 
 		statSplitReadRequests->addData(1);
 	}
@@ -462,6 +466,8 @@ void ArielCore::handleWriteRequest(ArielWriteEvent* wEv) {
 
 	const uint64_t writeAddress = wEv->getAddress();
 	const uint64_t writeLength  = wEv->getLength();
+        std::vector<uint8_t> data = wEv->getData();
+            
 
 	if(writeLength > cacheLineSize) {
 		output->verbose(CALL_INFO, 4, 0, "Potential error? request for a write of length=%" PRIu64 " is larger than cache line which is not allowed (coreID=%" PRIu32 ", cache line: %" PRIu64 "\n",
@@ -481,7 +487,7 @@ void ArielCore::handleWriteRequest(ArielWriteEvent* wEv) {
 		ARIEL_CORE_VERBOSE(4, output->verbose(CALL_INFO, 4, 0, "Core %" PRIu32 " issuing write, VAddr=%" PRIu64 ", Size=%" PRIu64 ", PhysAddr=%" PRIu64 "\n", 
 					coreID, writeAddress, writeLength, physAddr));
 
-		commitWriteEvent(physAddr, writeAddress, (uint32_t) writeLength);
+		commitWriteEvent(physAddr, writeAddress, (uint32_t) writeLength, data);
 	} else {
 		ARIEL_CORE_VERBOSE(4, output->verbose(CALL_INFO, 4, 0, "Core %" PRIu32 " generating a split write request: Addr=%" PRIu64 " Length=%" PRIu64 "\n",
 					coreID, writeAddress, writeLength));
@@ -516,8 +522,8 @@ void ArielCore::handleWriteRequest(ArielWriteEvent* wEv) {
 			}
 		}
 
-		commitWriteEvent(physLeftAddr, leftAddr, (uint32_t) leftSize);
-		commitWriteEvent(physRightAddr, rightAddr, (uint32_t) rightSize);
+		commitWriteEvent(physLeftAddr, leftAddr, (uint32_t) leftSize, data);
+		commitWriteEvent(physRightAddr, rightAddr, (uint32_t) rightSize, data);
 		statSplitWriteRequests->addData(1);
 	}
 

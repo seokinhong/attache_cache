@@ -295,22 +295,27 @@ void MemController::performRequest(MemEvent* event) {
 
     Addr addr = event->queryFlag(MemEvent::F_NONCACHEABLE) ?  event->getAddr() : event->getBaseAddr();
 
-    if (event->getCmd() == PutM) {  /* Write request to memory */
-        Debug(_L10_,"WRITE.  Addr = %" PRIx64 ", Request size = %i\n", addr, event->getSize());
-
-        for ( size_t i = 0 ; i < event->getSize() ; i++)
-             backing_->set( addr + i, event->getPayload()[i] );
-
-    } else {
-        bool noncacheable  = event->queryFlag(MemEvent::F_NONCACHEABLE);
-
-        if (noncacheable && event->getCmd()== GetX) {
-            Debug(_L10_,"WRITE. Noncacheable request, Addr = %" PRIx64 ", Request size = %i\n", addr, event->getSize());
-
-            for ( size_t i = 0 ; i < event->getSize() ; i++)
-                    backing_->set( addr + i, event->getPayload()[i] );
-        }
-    }
+     for ( size_t i = 0 ; i < event->getSize() ; i++)
+     {
+         fprintf(stderr,"memcontroller, addr:%lld data:%d\n", addr+i, event->getPayload()[i]);
+            backing_->set( addr + i, event->getPayload()[i] );
+     }
+//   if (event->getCmd() == PutM) {  /* Write request to memory */
+//       Debug(_L10_,"WRITE.  Addr = %" PRIx64 ", Request size = %i\n", addr, event->getSize());
+//
+//       for ( size_t i = 0 ; i < event->getSize() ; i++)
+//            backing_->set( addr + i, event->getPayload()[i] );
+//
+//   } else {
+//       bool noncacheable  = event->queryFlag(MemEvent::F_NONCACHEABLE);
+//
+//       if (noncacheable && event->getCmd()== GetX) {
+//           Debug(_L10_,"WRITE. Noncacheable request, Addr = %" PRIx64 ", Request size = %i\n", addr, event->getSize());
+//
+//           for ( size_t i = 0 ; i < event->getSize() ; i++)
+//                   backing_->set( addr + i, event->getPayload()[i] );
+//       }
+//   }
 }
 
 void MemController::performResponse(MemEvent* event) { 

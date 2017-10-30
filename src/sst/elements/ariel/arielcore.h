@@ -72,8 +72,8 @@ class ArielCore {
 		void tick();
 		void halt();
 		void finishCore();
-		void createReadEvent(uint64_t addr, uint32_t size);
-		void createWriteEvent(uint64_t addr, uint32_t size);
+		void createReadEvent(uint64_t addr, uint32_t size, uint64_t*);
+		void createWriteEvent(uint64_t addr, uint32_t size, uint64_t*);
     		void createAllocateEvent(uint64_t vAddr, uint64_t length, uint32_t level, uint64_t ip);
 		void createNoOpEvent();
 		void createFreeEvent(uint64_t vAddr);
@@ -88,8 +88,8 @@ class ArielCore {
 		void handleFreeEvent(ArielFreeEvent* aFE);
 		void handleSwitchPoolEvent(ArielSwitchPoolEvent* aSPE);
 
-		void commitReadEvent(const uint64_t address, const uint64_t virtAddr, const uint32_t length);
-		void commitWriteEvent(const uint64_t address, const uint64_t virtAddr, const uint32_t length);
+		void commitReadEvent(const uint64_t address, const uint64_t virtAddr, const uint32_t length, std::vector<uint8_t> data);
+		void commitWriteEvent(const uint64_t address, const uint64_t virtAddr, const uint32_t length, std::vector<uint8_t> data);
 
 		// Setting the max number of instructions to be simulated
 		void setMaxInsts(long long int i){max_insts=i;}

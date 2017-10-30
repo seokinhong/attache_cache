@@ -548,6 +548,7 @@ void Cache::finish() {
 /* Main handler for links to upper and lower caches/cores/buses/etc */
 void Cache::processIncomingEvent(SST::Event* ev) {
 	MemEvent* event = static_cast<MemEvent*>(ev);
+
 	if (!clockIsOn_) {
 		Cycle_t time = reregisterClock(defaultTimeBase_, clockHandler_); 
 		timestamp_ = time - 1;

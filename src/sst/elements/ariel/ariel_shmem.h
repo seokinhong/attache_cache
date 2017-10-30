@@ -17,6 +17,7 @@
 #define SST_ARIEL_SHMEM_H 1
 
 #include <inttypes.h>
+#include <vector>
 
 #include <sst/core/interprocess/ipctunnel.h>
 #include "ariel_inst_class.h"
@@ -48,6 +49,7 @@ struct ArielCommand {
             uint64_t addr;
             uint32_t instClass;
 	    uint32_t simdElemCount;
+            uint64_t data[8]; //cacheline data, assume size is 64B
         } inst;
         struct {
             uint64_t vaddr;
