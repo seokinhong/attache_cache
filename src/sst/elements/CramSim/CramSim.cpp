@@ -41,6 +41,7 @@
 #include "c_TxnDispatcher.hpp"
 #include "c_TxnGen.hpp"
 #include "c_TraceReader.hpp"
+#include "c_MemhBridgeContent.hpp"
 
 
 // namespaces
@@ -57,6 +58,11 @@ using namespace SST::Statistics;
 static Component*
 create_c_MemhBridge(SST::ComponentId_t id, SST::Params& params) {
 	return new c_MemhBridge(id, params);
+}
+// c_MemhBridge
+static Component*
+create_c_MemhBridgeContent(SST::ComponentId_t id, SST::Params& params) {
+	return new c_MemhBridgeContent(id, params);
 }
 
 // c_TxnGenSeq
@@ -219,6 +225,16 @@ static const ElementInfoStatistic c_MemhBridge_stats[] = {
   {"txnsLatency", "Average latency of (read/write) transactions", "cycles", 1},
   {NULL, NULL, NULL, 0}
 };
+
+/*----SETUP c_MemhBridge STRUCTURES----*/
+static const char* c_MemhBridgeContent_Content_events[] = {"c_ContentEvent", NULL};
+
+static const ElementInfoPort c_MemhBridgeContent_ports[] = {
+        { "linkCPU", "link to/from CPU",c_MemhBridge_CPU_events},
+        { "lowLink", "link to memory-side components (txn dispatcher or controller)", c_MemhBridge_mem_port_events },
+		{ "contentLink", "link from CPU for receiving memory contents", c_MemhBridgeContent_Content_events},
+        { NULL, NULL, NULL } };
+
 
 /*----SETUP c_TxnGenSeq STRUCTURES----*/
 static const ElementInfoParam c_TxnGenSeq_params[] = {
@@ -1977,6 +1993,15 @@ static const ElementInfoComponent CramSimComponents[] = {
 		create_c_MemhBridge, 						// Allocator
 		c_MemhBridge_params, 						// Parameters
 		c_MemhBridge_ports, 						// Ports
+		COMPONENT_CATEGORY_UNCATEGORIZED, 			// Category
+		c_MemhBridge_stats 										// Statistics
+		},
+		{ "c_MemhBridgeContent",			 						// Name
+		"Bridge to communicate with MemoryHierarchy and store memory content",				 				// Description
+		NULL, 										// PrintHelp
+		create_c_MemhBridgeContent, 						// Allocator
+		c_MemhBridge_params, 						// Parameters
+		c_MemhBridgeContent_ports, 						// Ports
 		COMPONENT_CATEGORY_UNCATEGORIZED, 			// Category
 		c_MemhBridge_stats 										// Statistics
 		},

@@ -297,7 +297,7 @@ void MemController::performRequest(MemEvent* event) {
 
      for ( size_t i = 0 ; i < event->getSize() ; i++)
      {
-         fprintf(stderr,"memcontroller, addr:%lld data:%d\n", addr+i, event->getPayload()[i]);
+         fprintf(stderr,"memcontroller, addr:%llx data:%d\n", addr+i, event->getPayload()[i]);
             backing_->set( addr + i, event->getPayload()[i] );
      }
 //   if (event->getCmd() == PutM) {  /* Write request to memory */

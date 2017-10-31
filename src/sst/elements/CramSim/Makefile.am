@@ -88,7 +88,9 @@ libCramSim_la_SOURCES = \
 	c_TxnGen.cpp \
 	c_TraceReader.cpp \
 	c_TraceReader.hpp \
-	memReqEvent.hpp 
+	memReqEvent.hpp \
+    c_MemhBridgeContent.cpp \
+    c_MemhBridgeContent.hpp
 
 EXTRA_DIST = \
 	README \

@@ -138,10 +138,12 @@ void ArielCore::commitReadEvent(const uint64_t address,
 		if(enableTracing) {
 			printTraceEntry(true, (const uint64_t) req->addrs[0], (const uint32_t) length);
 		}
-                
-                for(int i=0;i<req->data.size();i++)
-                    fprintf(stderr,"data in arielcore:%d\n",req->data[i]);
-                
+
+		//comp_debug
+
+        for(int i=0;i<length;i++)
+            fprintf(stderr,"[arielcore] commit read event addr: %llx vaddr: %llx length:%d data:%x\n",address+i, virtAddress+i, length, req->data[i]);
+
 		// Actually send the event to the cache
 		cacheLink->sendRequest(req);
 	}
@@ -162,6 +164,10 @@ void ArielCore::commitWriteEvent(const uint64_t address,
 		if(enableTracing) {
 			printTraceEntry(false, (const uint64_t) req->addrs[0], (const uint32_t) length);
 		}
+
+		//comp_debug
+		for(int i=0;i<length;i++)
+			fprintf(stderr,"[arielcore] commit write event addr: %llx vaddr: %llx length:%d data:%x data size:%d\n",address+i, virtAddress+i, length, req->data[i]);
 
 		// Actually send the event to the cache
 		cacheLink->sendRequest(req);

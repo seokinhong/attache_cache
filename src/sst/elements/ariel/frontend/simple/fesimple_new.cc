@@ -119,6 +119,7 @@ bool enable_memcomp;
 string memcomp_tracefile;
 UINT32 memcomp_interval;
 
+#if 0
 class RowCompInfo {
     private:
         UINT32 row_size;
@@ -176,6 +177,7 @@ class RowCompInfo {
 
 }
         
+#endif
 
 /****************************************************************/
 /********************** SHADOW STACK ****************************/
@@ -393,7 +395,7 @@ VOID ReadCacheLine(uint64_t addr, uint64_t * data)
         for(int i=0;i<8;i++)
         {
 
-            fprintf(stderr,"cacheline read [%d] addr:%lld data:%lld \n", i, addr_new+i*8, *(data+i));
+            fprintf(stderr,"[PINTOOL] cacheline read [%d] addr:%llx data:%llx \n", i, addr_new+i*8, *(data+i));
         }
 
 
@@ -425,7 +427,7 @@ VOID WriteInstructionRead(UINT64 addr, UINT32 size, THREADID thr, ADDRINT ip,
         for(int i=0;i<8;i++)
         {
             ac.inst.data[i]=*(data+i);
-            fprintf(stderr,"[%d] addr:%lld data:%lld ac.inst.data:%lld\n", i, addr, *(data+i), ac.inst.data[i]);
+            fprintf(stderr,"[PINTOOL] [%d] read addr:%llx data:%llx ac.inst.data:%llx\n", i, addr, *(data+i), ac.inst.data[i]);
         }
         
         
@@ -451,10 +453,10 @@ VOID WriteInstructionWrite(UINT64 addr, UINT32 size, THREADID thr, ADDRINT ip,
         ArielCommand ac;
 
         ac.command = ARIEL_PERFORM_WRITE;
-	ac.instPtr = (uint64_t) ip;
+	    ac.instPtr = (uint64_t) ip;
         ac.inst.addr = addr;
         ac.inst.size = size;
-	ac.inst.instClass = instClass;
+	    ac.inst.instClass = instClass;
         ac.inst.simdElemCount = simdOpWidth;
 
         //assume that cache line size is 64B
@@ -464,7 +466,7 @@ VOID WriteInstructionWrite(UINT64 addr, UINT32 size, THREADID thr, ADDRINT ip,
         {
             ac.inst.data[i]=*(data+i);
 
-            fprintf(stderr,"[%d] addr:%lld data:%lld ac.inst.data:%lld\n", i, addr, *(data+i), ac.inst.data[i]);
+            fprintf(stderr,"[PINTOOL] [%d] write addr:%llx data:%llx ac.inst.data:%llx\n", i, addr, *(data+i), ac.inst.data[i]);
         }
 
         tunnel->writeMessage(thr, ac);
@@ -1188,9 +1190,9 @@ int main(int argc, char *argv[])
 		enable_output = true;
     }
 
-    enable_memcomp = MemCompProfile.value();
-    memcomp_tracefile = MemCompTraceName();
-    memcomp_interval = MemCompTraceInterval();
+//    enable_memcomp = MemCompProfile.value();
+ //   memcomp_tracefile = MemCompTraceName();
+  //  memcomp_interval = MemCompTraceInterval();
 
 
     INS_AddInstrumentFunction(InstrumentInstruction, 0);

@@ -82,7 +82,8 @@ CacheAction L1CoherenceController::handleEviction(CacheLine* wbCacheLine, string
 CacheAction L1CoherenceController::handleRequest(MemEvent* event, CacheLine* cacheLine, bool replay){
     
     Command cmd = event->getCmd();
-
+    //comp_debug
+    fprintf(stderr,"[l1coherencecontroller handlerequest] vaddr:%llx size:%d\n", event->getVirtualAddress(), event->getSize());
     switch(cmd) {
         case GetS:
             return handleGetSRequest(event, cacheLine, replay);
@@ -275,13 +276,15 @@ CacheAction L1CoherenceController::handleGetXRequest(MemEvent* event, CacheLine*
     switch (state) {
         case I:
             notifyListenerOfAccess(event, NotifyAccessType::WRITE, NotifyResultType::MISS);
-            sendTime = forwardMessage(event, cacheLine->getBaseAddr(), cacheLine->getSize(), 0, NULL);
+           // sendTime = forwardMessage(event, cacheLine->getBaseAddr(), cacheLine->getSize(), 0, NULL);
+            sendTime = forwardMessage(event, cacheLine->getBaseAddr(), cacheLine->getSize(), 0, &event->getPayload());
             cacheLine->setState(IM);
             cacheLine->setTimestamp(sendTime);
             return STALL;
         case S:
             notifyListenerOfAccess(event, NotifyAccessType::WRITE, NotifyResultType::MISS);
-            sendTime = forwardMessage(event, cacheLine->getBaseAddr(), cacheLine->getSize(), cacheLine->getTimestamp(), NULL);
+            //sendTime = forwardMessage(event, cacheLine->getBaseAddr(), cacheLine->getSize(), cacheLine->getTimestamp(), NULL);
+            sendTime = forwardMessage(event, cacheLine->getBaseAddr(), cacheLine->getSize(), cacheLine->getTimestamp(), &event->getPayload());
             cacheLine->setState(SM);
             cacheLine->setTimestamp(sendTime);
             return STALL;

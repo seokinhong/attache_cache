@@ -40,7 +40,7 @@ public:
 	~c_MemhBridge();
 
 
-private:
+protected:
 	void createTxn();
 	void readResponse(); //read from res q to output
 

@@ -30,13 +30,16 @@ class ArielReadEvent : public ArielEvent {
                 ArielReadEvent(uint64_t rAddr, uint32_t length, uint64_t *data) :
 			readAddress(rAddr), readLength(length) {
                             uint8_t* ptr=(uint8_t*)data;
-                            for(int i=0;i<8;i++)
-                                for(int j=0;j<8;j++)
-                                {
-                                    fprintf(stderr,"read data:%d\n",*ptr);
-                                    cacheLineData.push_back(*ptr);
-                                    ptr++;
-                                }
+							uint64_t* ptr_64 = data;
+                            for(int i=0;i<8;i++) {
+								//comp_debug
+								//	fprintf(stderr, "[arielreadevent] addr:%llx read data: %x\n",rAddr, *ptr_64);
+                                ptr_64++;
+								for (int j = 0; j < 8; j++) {
+									cacheLineData.push_back(*ptr);
+									ptr++;
+								}
+							}
 		}
 
 
