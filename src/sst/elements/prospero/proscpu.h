@@ -47,8 +47,9 @@ namespace SST {
 				ProsperoComponent(ComponentId_t id, Params& params);
 				~ProsperoComponent();
 
-				void setup() { }
-				void finish();
+  void setup() { }
+  void init(unsigned int phase);
+  void finish();
 
 			private:
 				ProsperoComponent();                         // Serialization only

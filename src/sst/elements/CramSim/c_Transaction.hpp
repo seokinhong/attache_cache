@@ -40,6 +40,8 @@
 #include <memory>
 
 //sst includes
+
+#include <sst/core/component.h>
 #include <sst/core/serialization/serializable.h>
 #include <output.h>
 //local includes
@@ -58,7 +60,7 @@ class c_Transaction : public SST::Core::Serialization::serializable
 {
 
 private:
-  ulong m_seqNum;
+  uint64_t m_seqNum;
   e_TransactionType m_txnMnemonic;
   ulong m_addr;
   //std::map<e_TransactionType,std::string> m_txnToString;
@@ -103,7 +105,7 @@ public:
   bool isProcessed() const;
   void isProcessed(bool x_processed);
   void print() const;
-  void print(SST::Output *x_output, std::string x_prefix) const;
+  void print(SST::Output *x_output, std::string x_prefix, SimTime_t x_cycle) const;
 
   const c_HashedAddress& getHashedAddress() const {
          return (m_hashedAddr);

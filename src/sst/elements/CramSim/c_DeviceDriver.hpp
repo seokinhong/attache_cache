@@ -55,7 +55,6 @@ typedef unsigned long ulong;
 namespace SST {
 namespace n_Bank{
 
-//	class c_BankCommand;
 	class c_Controller;
 	enum class e_BankCommandType;
   
@@ -82,7 +81,6 @@ public:
 private:
 
 	c_DeviceDriver(); // for serialization only
-	//void update();
 	bool sendRefresh(unsigned rank);
 
 	void sendRequest(); // send request function that models close bank policy
@@ -104,6 +102,7 @@ private:
 	c_Controller *m_Owner;
 
 	std::deque<c_BankCommand*> m_inputQ;
+	std::deque<c_BankCommand*> m_outputQ;
 	std::vector<bool> m_blockBank;
 	std::set<unsigned> m_inflightWrites; // track inflight write commands
 	std::deque<unsigned> m_blockRowCmd; //command bus occupancy info

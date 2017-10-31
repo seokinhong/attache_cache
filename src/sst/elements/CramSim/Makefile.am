@@ -9,22 +9,8 @@ compdir = $(pkglibdir)
 comp_LTLIBRARIES = libCramSim.la
 libCramSim_la_SOURCES = \
 	CramSim.cpp \
-	c_TxnGenSeq.hpp \
-	c_TxnGenSeq.cpp \
-	c_TxnGenRand.hpp \
-	c_TxnGenRand.cpp \
-	c_TracefileReader.hpp \
-	c_TracefileReader.cpp \
-	c_DramSimTraceReader.hpp \
-	c_DramSimTraceReader.cpp \
-	c_USimmTraceReader.hpp \
-	c_USimmTraceReader.cpp \
-	c_TxnDriver.hpp \
-	c_TxnDriver.cpp \
-	c_CmdDriver.hpp \
-	c_CmdDriver.cpp \
-	c_BankReceiver.hpp \
-	c_BankReceiver.cpp \
+	c_TraceFileReader.hpp \
+	c_TraceFileReader.cpp \
 	c_Dimm.hpp \
 	c_Dimm.cpp \
 	c_Bank.hpp \
@@ -86,24 +72,28 @@ libCramSim_la_SOURCES = \
 	c_TxnDispatcher.cpp \
 	c_TxnGen.hpp \
 	c_TxnGen.cpp \
-	c_TraceReader.cpp \
-	c_TraceReader.hpp \
 	memReqEvent.hpp \
     c_MemhBridgeContent.cpp \
     c_MemhBridgeContent.hpp
 
 EXTRA_DIST = \
 	README \
+	ddr3.cfg \
+	ddr4.cfg \
+	ddr4_2400.cfg \
+	ddr4_2667.cfg \
+	ddr4_3200.cfg \
 	ddr4_verimem.cfg \
+	ddr4_verimem_openbank.cfg \
+	hbm_legacy_4h.cfg \
+	hbm_legacy_4h_sbr.cfg \
+	hbm_pseudo_4h.cfg \
+	test_system.cfg \
+	test_device.cfg \
+	ddr3_power.cfg \
 	tests/VeriMem/test_verimem1.py \
-	tests/test_txngenrand1.py \
-	tests/test_txntrace3.py \
-	tests/test_txntrace1.py \
-	tests/test_txntrace2.py \
-	tests/test_txngenseq1.py \
-	tests/test_txngenseq2.py \
-	tests/test_txngenrand2.py \
-	tests/test_txntrace4.py
+	tests/test_txngen.py \
+	tests/test_txntrace.py
 
 libCramSim_la_LDFLAGS = -module -avoid-version
 

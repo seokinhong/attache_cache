@@ -92,11 +92,9 @@ std::vector<c_BankInfo*>& c_Rank::getBankPtrs() {
 }
 
 void c_Rank::updateOtherBanksNextCommandCycles(c_BankGroup* x_initBankGroupPtr,
-					       c_BankCommand* x_cmdPtr) {
+					       c_BankCommand* x_cmdPtr, SimTime_t x_cycle) {
 
-  //	std::cout << __PRETTY_FUNCTION__ << " Updating " << std::endl;
-  //	x_cmdPtr->print();
-
+  SimTime_t l_time = x_cycle;
   for (auto& l_bankGroupPtr : m_bankGroupPtrs) {
 
     // skip the bank given as param
@@ -105,11 +103,7 @@ void c_Rank::updateOtherBanksNextCommandCycles(c_BankGroup* x_initBankGroupPtr,
 
     for (auto& l_bankPtr : l_bankGroupPtr->getBankPtrs()) {
 
-      //			std::cout << __PRETTY_FUNCTION__ << " Updating " << std::endl;
-      //			l_bankPtr->print();
-      //			std::cout << std::endl;
 
-      SimTime_t l_time = Simulation::getSimulation()->getCurrentSimCycle();
 
       switch (x_cmdPtr->getCommandMnemonic()) {
       case e_BankCommandType::ACT: {
@@ -198,5 +192,5 @@ void c_Rank::updateOtherBanksNextCommandCycles(c_BankGroup* x_initBankGroupPtr,
 
     }
   }
-  m_channelPtr->updateOtherBanksNextCommandCycles(this, x_cmdPtr);
+  m_channelPtr->updateOtherBanksNextCommandCycles(this, x_cmdPtr, l_time);
 }

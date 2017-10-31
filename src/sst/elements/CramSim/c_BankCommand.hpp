@@ -34,6 +34,8 @@
 #include <string>
 
 //sst includes
+
+#include <sst/core/component.h>
 #include <sst/core/serialization/serializable.h>
 #include "output.h"
 
@@ -56,7 +58,7 @@ class c_BankCommand : public SST::Core::Serialization::serializable {
 
 private:
 
-	ulong m_seqNum;
+	uint64_t m_seqNum;
 	ulong    m_addr;
 	unsigned m_row;
 	unsigned m_bankId;
@@ -85,9 +87,9 @@ public:
 	c_BankCommand(c_BankCommand&&) = delete;
 	c_BankCommand& operator=(c_BankCommand) = delete;
 
-	void print(SST::Output *) const;
-	void print(SST::Output *x_debugOutput,const std::string x_prefix) const;
-	void print() const;
+	void print(SST::Output *, SimTime_t x_cycle) const;
+	void print(SST::Output *x_debugOutput,const std::string x_prefix, SimTime_t x_cycle) const;
+	void print(SimTime_t x_cycle) const;
 
         const c_HashedAddress *getHashedAddress() const {
 	  return (&m_hashedAddr);
@@ -133,16 +135,6 @@ public:
 
 	ulong getAddress() const; //<! returns the address accessed by this command
 	std::string getCommandString() const;//<! returns the mnemonic of command
-
-	// FIXME: implement operator<<
-	//    friend inline std::ostream& operator<< (
-	//        std::ostream&        x_stream,
-	//        const c_BankCommand& x_bankCommand
-	//    )
-	//    {
-	//        x_stream<<"[CMD: "<<x_bankCommand.getCommandString()<<", SEQNUM: "<<std::dec<<x_bankCommand.getSeqNum()<<" , ADDR: "<<std::hex<<x_bankCommand.getAddress()<<" , isResponseReady: "<<std::boolalpha<<x_bankCommand.isResponseReady()<<"]";
-	//        return x_stream;
-	//    }
 
         void serialize_order(SST::Core::Serialization::serializer &ser) override ;
   

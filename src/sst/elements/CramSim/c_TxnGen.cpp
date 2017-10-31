@@ -20,6 +20,7 @@
 #include <iostream>
 #include <string>
 #include <ctime>
+#include <cmath>
 
 //local includes
 #include "c_TxnGen.hpp"
@@ -34,12 +35,12 @@ using namespace SST::n_Bank;
 c_TxnGenBase::c_TxnGenBase(ComponentId_t x_id, Params& x_params) :
         Component(x_id) {
 
-
+    
     int verbosity = x_params.find<int>("verbose", 0);
     output = new SST::Output("CramSim.TxnGen[@f:@l:@p] ",
                              verbosity, 0, SST::Output::STDOUT);
 
-
+    m_simCycle=0;
     /*---- LOAD PARAMS ----*/
 
     //used for reading params
@@ -72,14 +73,22 @@ c_TxnGenBase::c_TxnGenBase(ComponentId_t x_id, Params& x_params) :
                   << std::endl;
         //exit(-1);
     }
-
+    
+    uint32_t k_numBytesPerTransaction = x_params.find<std::uint32_t>("numBytesPerTransaction", 32, l_found);
+    if (!l_found) {
+        std::cout << "TxnGen:: numBytesPerTransaction is missing...  exiting"
+                  << std::endl;
+        exit(-1);
+    }
+    m_sizeOffset = (uint)log2(k_numBytesPerTransaction);
+    
     /*---- CONFIGURE LINKS ----*/
 
     // request-related links
     //// send to txn unit
     //// send token chg to txn unit
-    m_lowLink = configureLink(
-            "lowLink",
+    m_memLink = configureLink(
+            "memLink",
             new Event::Handler<c_TxnGenBase>(this, &c_TxnGenBase::handleResEvent));
 
     // get configured clock frequency
@@ -110,8 +119,31 @@ c_TxnGenBase::c_TxnGenBase() :
     // for serialization only
 }
 
+void c_TxnGenBase::finish()
+{
+    printf("\n======= CramSim Simulation Report [Transaction Generator] ============================\n");
+    printf("Total Read-Txns Requests sent: %llu\n", m_resReadCount);
+    printf("Total Write-Txns Requests sent: %llu\n", m_resWriteCount);
+    printf("Total Txns Sents: %llu\n", m_resReadCount + m_resWriteCount);
+
+    printf("Total Read-Txns Responses received: %llu\n", m_resReadCount);
+    printf("Total Write-Txns Responses received: %llu\n", m_resWriteCount);
+    printf("Total Txns Received: %llu\n", m_resReadCount + m_resWriteCount);
+    std::cout << "Cycles Per Transaction (CPT) = "
+                << std::dec << static_cast<double>(m_simCycle)
+                               / static_cast<double>(m_resReadCount + m_resWriteCount) << std::endl;
+    printf("Component Finished.\n");
+    printf("========================================================================================\n\n");
+
+    double l_txnsPerCycle=  static_cast<double>(m_resReadCount + m_resWriteCount) /static_cast<double>(m_simCycle);
+
+    s_txnsPerCycle->addData(l_txnsPerCycle);
+}
 
 bool c_TxnGenBase::clockTic(Cycle_t) {
+    
+    m_simCycle++;
+
     createTxn();
 
     for(int i=0;i<k_numTxnPerCycle;i++) {
@@ -160,7 +192,7 @@ void c_TxnGenBase::handleResEvent(SST::Event* ev) {
 	m_txnResQ.push_back(l_txn);
         
         delete l_txnResEventPtr;
-        uint64_t l_currentCycle = Simulation::getSimulation()->getCurrentSimCycle();
+        uint64_t l_currentCycle = m_simCycle;
         uint64_t l_seqnum=l_txn->getSeqNum();
         
         
@@ -175,7 +207,7 @@ void c_TxnGenBase::handleResEvent(SST::Event* ev) {
         s_txnsLatency->addData(l_latency);
 
 #ifdef __SST_DEBUG_OUTPUT__
-        output->verbose(CALL_INFO,1,0,"[cycle:%lld] addr: 0x%x isRead:%d seqNum:%lld birthTime:%lld latency:%lld \n",l_currentCycle,l_txn->getAddress(),l_txn->isRead(), l_seqnum,m_outstandingReqs[l_seqnum],l_latency);
+        output->verbose(CALL_INFO,1,0,"[cycle:%lld] addr: 0x%lx isRead:%d seqNum:%lld birthTime:%lld latency:%lld \n",l_currentCycle,l_txn->getAddress(),l_txn->isRead(), l_seqnum,m_outstandingReqs[l_seqnum],l_latency);
 #endif
 
 
@@ -195,7 +227,7 @@ bool c_TxnGenBase::sendRequest()
     assert(k_maxOutstandingReqs==0 || m_numOutstandingReqs<=k_maxOutstandingReqs);
     if(!m_txnReqQ.empty())
     {
-        uint64_t l_cycle=Simulation::getSimulation()->getCurrentSimCycle();
+        uint64_t l_cycle=m_simCycle;
 
         // confirm that interval timer has run out before contiuing
         if (m_txnReqQ.front().second > l_cycle) {
@@ -222,8 +254,8 @@ bool c_TxnGenBase::sendRequest()
         l_txnReqEvPtr->m_payload = m_txnReqQ.front().first;
         m_txnReqQ.pop_front(); 
 
-        assert(m_lowLink!=NULL);
-        m_lowLink->send(l_txnReqEvPtr);
+        assert(m_memLink!=NULL);
+        m_memLink->send(l_txnReqEvPtr);
         
 
         c_Transaction *l_txn=l_txnReqEvPtr->m_payload;
@@ -304,6 +336,8 @@ c_TxnGen::c_TxnGen(ComponentId_t x_id, Params& x_params) :
         k_randSeed = (SimTime_t)std::strtoul(l_randSeedStr.c_str(),NULL,0);
     }
     std::srand(k_randSeed);
+    registerAsPrimaryComponent();
+    primaryComponentDoNotEndSim();
 
 }
 
@@ -312,15 +346,15 @@ c_TxnGen::c_TxnGen(ComponentId_t x_id, Params& x_params) :
 
 uint64_t c_TxnGen::getNextAddress() {
     if(m_mode==e_TxnMode::RAND)
-        return (rand());
+        return (rand()<<m_sizeOffset);
     else
-        return (m_prevAddress+1);
+        return (m_prevAddress+(1<<m_sizeOffset));
 }
 
 
 void c_TxnGen::createTxn() {
 
-    uint64_t l_cycle = Simulation::getSimulation()->getCurrentSimCycle();
+    uint64_t l_cycle = m_simCycle;
 
     while(m_txnReqQ.size()<k_numTxnPerCycle)
     {

@@ -21,6 +21,15 @@
 using namespace SST;
 using namespace SST::MemHierarchy;
 
+/* Debug macros */
+#ifdef __SST_DEBUG_OUTPUT__ /* From sst-core, enable with --enable-debug */
+#define is_debug_addr(addr) (DEBUG_ADDR.empty() || DEBUG_ADDR.find(addr) != DEBUG_ADDR.end())
+#define is_debug_event(ev) (DEBUG_ADDR.empty() || ev->doDebug(DEBUG_ADDR))
+#else
+#define is_debug_addr(addr) false
+#define is_debug_event(ev) false
+#endif
+
 
 CoherenceController::CoherenceController(Component * comp, Params &params) : SubComponent(comp) {
     /* Output stream */
@@ -79,9 +88,9 @@ CoherenceController::CoherenceController(Component * comp, Params &params) : Sub
     stat_latency_GetX_IM =      registerStatistic<uint64_t>("latency_GetX_IM");
     stat_latency_GetX_SM =      registerStatistic<uint64_t>("latency_GetX_SM");
     stat_latency_GetX_M =       registerStatistic<uint64_t>("latency_GetX_M");
-    stat_latency_GetSEx_IM =    registerStatistic<uint64_t>("latency_GetSEx_IM");
-    stat_latency_GetSEx_SM =    registerStatistic<uint64_t>("latency_GetSEx_SM");
-    stat_latency_GetSEx_M =     registerStatistic<uint64_t>("latency_GetSEx_M");
+    stat_latency_GetSX_IM =    registerStatistic<uint64_t>("latency_GetSX_IM");
+    stat_latency_GetSX_SM =    registerStatistic<uint64_t>("latency_GetSX_SM");
+    stat_latency_GetSX_M =     registerStatistic<uint64_t>("latency_GetSX_M");
 }
 
 
@@ -100,30 +109,39 @@ void CoherenceController::sendNACK(MemEvent * event, bool up, SimTime_t timeInNa
     if (up) addToOutgoingQueueUp(resp);
     else addToOutgoingQueue(resp);
 
-#ifdef __SST_DEBUG_OUTPUT__
-        if (DEBUG_ALL || DEBUG_ADDR == event->getBaseAddr()) debug->debug(_L3_,"Sending NACK at cycle = %" PRIu64 "\n", deliveryTime);
-#endif
+    if (is_debug_event(event)) debug->debug(_L3_,"Sending NACK at cycle = %" PRIu64 "\n", deliveryTime);
 }
 
 
+    
 /* Send response towards the CPU. L1s need to implement their own to split out the requested block */
-uint64_t CoherenceController::sendResponseUp(MemEvent * event, State grantedState, vector<uint8_t>* data, bool replay, uint64_t baseTime, bool atomic) {
-    MemEvent * responseEvent = event->makeResponse(grantedState);
+uint64_t CoherenceController::sendResponseUp(MemEvent * event, vector<uint8_t>* data, bool replay, uint64_t baseTime, bool atomic) {
+    return sendResponseUp(event, CommandResponse[(int)event->getCmd()], data, false, replay, baseTime, atomic);
+}
+   
+
+/* Send response towards the CPU. L1s need to implement their own to split out the requested block */
+uint64_t CoherenceController::sendResponseUp(MemEvent * event, Command cmd, vector<uint8_t>* data, bool dirty, bool replay, uint64_t baseTime, bool atomic) {
+    MemEvent * responseEvent = event->makeResponse(cmd);
     responseEvent->setDst(event->getSrc());
     responseEvent->setSize(event->getSize());
     if (data != NULL) responseEvent->setPayload(*data);
+    responseEvent->setDirty(dirty);
     
     if (baseTime < timestamp_) baseTime = timestamp_;
     uint64_t deliveryTime = baseTime + (replay ? mshrLatency_ : accessLatency_);
     Response resp = {responseEvent, deliveryTime, packetHeaderBytes + responseEvent->getPayloadSize() };
     addToOutgoingQueueUp(resp);
     
-#ifdef __SST_DEBUG_OUTPUT__
-    if (DEBUG_ALL || DEBUG_ADDR == event->getBaseAddr()) debug->debug(_L3_,"Sending Response at cycle = %" PRIu64 ". Current Time = %" PRIu64 ", Addr = %" PRIx64 ", Dst = %s, Payload Bytes = %i, Granted State = %s\n", 
-            deliveryTime, timestamp_, event->getAddr(), responseEvent->getDst().c_str(), responseEvent->getPayloadSize(), StateString[responseEvent->getGrantedState()]);
-#endif
+    if (is_debug_event(event)) debug->debug(_L3_,"Sending Response at cycle = %" PRIu64 ". Current Time = %" PRIu64 ", Addr = %" PRIx64 ", Dst = %s, Payload Bytes = %zu\n", 
+            deliveryTime, timestamp_, event->getAddr(), responseEvent->getDst().c_str(), responseEvent->getPayloadSize());
 
     return deliveryTime;
+}
+    
+/* Send response towards the CPU. L1s need to implement their own to split out the requested block */
+uint64_t CoherenceController::sendResponseUp(MemEvent * event, Command cmd, vector<uint8_t>* data, bool replay, uint64_t baseTime, bool atomic) {
+    return sendResponseUp(event, cmd, data, false, replay, baseTime, atomic);
 }
     
 
@@ -142,10 +160,7 @@ void CoherenceController::resendEvent(MemEvent * event, bool up) {
     if (!up) addToOutgoingQueue(resp);
     else addToOutgoingQueueUp(resp);
 
-#ifdef __SST_DEBUG_OUTPUT__
-    if (DEBUG_ALL || DEBUG_ADDR == event->getBaseAddr()) debug->debug(_L3_,"Sending request: Addr = %" PRIx64 ", BaseAddr = %" PRIx64 ", Cmd = %s\n", 
-            event->getAddr(), event->getBaseAddr(), CommandString[event->getCmd()]);
-#endif
+    if (is_debug_event(event)) debug->debug(_L3_,"Sending request: %s\n", event->getBriefString().c_str());
 }
   
 
@@ -158,7 +173,7 @@ uint64_t CoherenceController::forwardMessage(MemEvent * event, Addr baseAddr, un
     if (data == NULL) forwardEvent->setPayload(0, NULL);
     
     forwardEvent->setSrc(parent->getName());
-    forwardEvent->setDst(getDestination(baseAddr));
+    forwardEvent->setDst(linkDown_->findTargetDestination(baseAddr));
     forwardEvent->setSize(requestSize);
 
     if (data != NULL) forwardEvent->setPayload(*data);
@@ -174,13 +189,32 @@ uint64_t CoherenceController::forwardMessage(MemEvent * event, Addr baseAddr, un
     Response fwdReq = {forwardEvent, deliveryTime, packetHeaderBytes + forwardEvent->getPayloadSize() };
     addToOutgoingQueue(fwdReq);
 
-#ifdef __SST_DEBUG_OUTPUT__
-    if (DEBUG_ALL || DEBUG_ADDR == event->getBaseAddr()) debug->debug(_L3_,"Forwarding request at cycle = %" PRIu64 "\n", deliveryTime);        
-#endif
+    if (is_debug_event(event)) debug->debug(_L3_,"Forwarding request at cycle = %" PRIu64 "\n", deliveryTime);        
+    
     return deliveryTime;
 }
-    
 
+uint64_t CoherenceController::forwardTowardsMem(MemEventBase * event) {
+    event->setSrc(parent->getName());
+    event->setDst(linkDown_->findTargetDestination(event->getRoutingAddress()));
+
+    Response fwdReq = {event, timestamp_ + 1, packetHeaderBytes + event->getPayloadSize()};
+    addToOutgoingQueue(fwdReq);
+    return timestamp_ + 1;
+}
+
+uint64_t CoherenceController::forwardTowardsCPU(MemEventBase * event, std::string dst) {
+    event->setSrc(parent->getName());
+    event->setDst(dst);
+
+    Response fwdReq = {event, timestamp_ + 1, packetHeaderBytes + event->getPayloadSize()};
+    addToOutgoingQueueUp(fwdReq);
+    return timestamp_ + 1;
+}
+    
+std::string CoherenceController::getSrc() {
+    return linkUp_->getSources()->begin()->name;
+}
 
 /**************************************/
 /******* Manage outgoing events *******/
@@ -195,7 +229,7 @@ bool CoherenceController::sendOutgoingCommands(SimTime_t curTime) {
     // Check for ready events in outgoing 'down' queue
     uint64_t bytesLeft = maxBytesDown;
     while (!outgoingEventQueue_.empty() && outgoingEventQueue_.front().deliveryTime <= timestamp_) {
-        MemEvent *outgoingEvent = outgoingEventQueue_.front().event;
+        MemEventBase *outgoingEvent = outgoingEventQueue_.front().event;
         if (maxBytesDown != 0) {
             if (bytesLeft == 0) break;
             if (bytesLeft >= outgoingEventQueue_.front().size) {
@@ -205,27 +239,23 @@ bool CoherenceController::sendOutgoingCommands(SimTime_t curTime) {
                 break;
             }
         }
-        if (bottomNetworkLink_) {
-            outgoingEvent->setDst(bottomNetworkLink_->findTargetDestination(outgoingEvent->getBaseAddr()));
-            bottomNetworkLink_->send(outgoingEvent);
-        } else {
-            lowNetPort_->send(outgoingEvent);
+        
+        outgoingEvent->setDst(linkDown_->findTargetDestination(outgoingEvent->getRoutingAddress()));
+
+        if (is_debug_event(outgoingEvent)) {
+            debug->debug(_L4_,"SEND (%s). time: (%" PRIu64 ", %" PRIu64 ") event: (%s)\n",
+                    parent->getName().c_str(), timestamp_, curTime, outgoingEvent->getBriefString().c_str());
         }
+        
+        linkDown_->send(outgoingEvent);
         outgoingEventQueue_.pop_front();
 
-#ifdef __SST_DEBUG_OUTPUT__
-        if (DEBUG_ALL || outgoingEvent->getBaseAddr() == DEBUG_ADDR) {
-            debug->debug(_L4_,"SEND. Cmd: %s, BsAddr: %" PRIx64 ", Addr: %" PRIx64 ", Rqstr: %s, Src: %s, Dst: %s, PreF:%s, Rqst size = %u, Payload size = %u, time: (%" PRIu64 ", %" PRIu64 ")\n",
-                    CommandString[outgoingEvent->getCmd()], outgoingEvent->getBaseAddr(), outgoingEvent->getAddr(), outgoingEvent->getRqstr().c_str(), outgoingEvent->getSrc().c_str(), 
-                    outgoingEvent->getDst().c_str(), outgoingEvent->isPrefetch() ? "true" : "false", outgoingEvent->getSize(), outgoingEvent->getPayloadSize(), timestamp_, curTime);
-        }
-#endif
     }
 
     // Check for ready events in outgoing 'up' queue
     bytesLeft = maxBytesUp;
     while (!outgoingEventQueueUp_.empty() && outgoingEventQueueUp_.front().deliveryTime <= timestamp_) {
-        MemEvent * outgoingEvent = outgoingEventQueueUp_.front().event;
+        MemEventBase * outgoingEvent = outgoingEventQueueUp_.front().event;
         if (maxBytesUp != 0) {
             if (bytesLeft == 0) break;
             if (bytesLeft >= outgoingEventQueueUp_.front().size) {
@@ -236,20 +266,13 @@ bool CoherenceController::sendOutgoingCommands(SimTime_t curTime) {
             }
         }
 
-        if (topNetworkLink_) {
-            topNetworkLink_->send(outgoingEvent);
-        } else {
-            highNetPort_->send(outgoingEvent);
+        if (is_debug_event(outgoingEvent)) {
+            debug->debug(_L4_,"SEND (%s). time: (%" PRIu64 ", %" PRIu64 ") event: (%s)\n",
+                    parent->getName().c_str(), timestamp_, curTime, outgoingEvent->getBriefString().c_str());
         }
+        
+        linkUp_->send(outgoingEvent);
         outgoingEventQueueUp_.pop_front();
-
-#ifdef __SST_DEBUG_OUTPUT__
-        if (DEBUG_ALL || outgoingEvent->getBaseAddr() == DEBUG_ADDR) {
-            debug->debug(_L4_,"SEND. Cmd: %s, BsAddr: %" PRIx64 ", Addr: %" PRIx64 ", Rqstr: %s, Src: %s, Dst: %s, PreF:%s, Rqst size = %u, Payload size = %u, time: (%" PRIu64 ", %" PRIu64 ")\n",
-                    CommandString[outgoingEvent->getCmd()], outgoingEvent->getBaseAddr(), outgoingEvent->getAddr(), outgoingEvent->getRqstr().c_str(), outgoingEvent->getSrc().c_str(), 
-                    outgoingEvent->getDst().c_str(), outgoingEvent->isPrefetch() ? "true" : "false", outgoingEvent->getSize(), outgoingEvent->getPayloadSize(), timestamp_, curTime);
-        }
-#endif
     }
 
     // Return whether it's ok for the cache to turn off the clock - we need it on to be able to send waiting events
@@ -266,7 +289,7 @@ void CoherenceController::addToOutgoingQueue(Response& resp) {
     list<Response>::reverse_iterator rit;
     for (rit = outgoingEventQueue_.rbegin(); rit!= outgoingEventQueue_.rend(); rit++) {
         if (resp.deliveryTime >= (*rit).deliveryTime) break;
-        if (resp.event->getBaseAddr() == (*rit).event->getBaseAddr()) break;
+        if (resp.event->getRoutingAddress() == (*rit).event->getRoutingAddress()) break;
     }
     outgoingEventQueue_.insert(rit.base(), resp);
 }
@@ -278,7 +301,7 @@ void CoherenceController::addToOutgoingQueueUp(Response& resp) {
     list<Response>::reverse_iterator rit;
     for (rit = outgoingEventQueueUp_.rbegin(); rit != outgoingEventQueueUp_.rend(); rit++) {
         if (resp.deliveryTime >= (*rit).deliveryTime) break;
-        if (resp.event->getBaseAddr() == (*rit).event->getBaseAddr()) break;
+        if (resp.event->getRoutingAddress() == (*rit).event->getRoutingAddress()) break;
     }
     outgoingEventQueueUp_.insert(rit.base(), resp);
 }
@@ -298,21 +321,6 @@ void CoherenceController::notifyListenerOfAccess(MemEvent * event, NotifyAccessT
     }
 }
 
-/* For sliced/distributed caches, return the home cache for a given address */    
-std::string CoherenceController::getDestination(Addr baseAddr) {
-    if (lowerLevelCacheNames_.size() == 1) {
-        return lowerLevelCacheNames_.front();
-    } else if (lowerLevelCacheNames_.size() > 1) {
-        // round robin for now
-        int index = (baseAddr/lineSize_) % lowerLevelCacheNames_.size();
-        return lowerLevelCacheNames_[index];
-    } else {
-        return "";
-    }
-}
-
-    
-
 /**************************************/
 /******** Statistics handling *********/
 /**************************************/
@@ -324,17 +332,17 @@ void CoherenceController::recordLatency(Command cmd, State state, uint64_t laten
             stat_latency_GetS_IS->addData(latency);
             break;
         case IM:
-            if (cmd == GetX) stat_latency_GetX_IM->addData(latency);
-            else stat_latency_GetSEx_IM->addData(latency);
+            if (cmd == Command::GetX) stat_latency_GetX_IM->addData(latency);
+            else stat_latency_GetSX_IM->addData(latency);
             break;
         case SM:
-            if (cmd == GetX) stat_latency_GetX_SM->addData(latency);
-            else stat_latency_GetSEx_SM->addData(latency);
+            if (cmd == Command::GetX) stat_latency_GetX_SM->addData(latency);
+            else stat_latency_GetSX_SM->addData(latency);
             break;
         case M:
-            if (cmd == GetS) stat_latency_GetS_M->addData(latency);
-            if (cmd == GetX) stat_latency_GetX_M->addData(latency);
-            else stat_latency_GetSEx_M->addData(latency);
+            if (cmd == Command::GetS) stat_latency_GetS_M->addData(latency);
+            else if (cmd == Command::GetX) stat_latency_GetX_M->addData(latency);
+            else stat_latency_GetSX_M->addData(latency);
             break;
         default:
             break;
@@ -381,13 +389,16 @@ void CoherenceController::recordEvictionState(State state) {
 
 
 /* Setup variables controlling interactions with other memory levels */
-void CoherenceController::setupLowerStatus(bool isLastCoherenceLevel, bool lowerIsNoninclusive, bool lowerIsDirectory) {
-    silentEvictClean_       = isLastCoherenceLevel; // Silently evict clean blocks if there's just a memory below us
-    expectWritebackAck_     = !isLastCoherenceLevel && (lowerIsDirectory || lowerIsNoninclusive);  // Expect writeback ack if there's a dir below us or a non-inclusive cache
-    writebackCleanBlocks_   = lowerIsNoninclusive;  // Writeback clean data if lower is non-inclusive - otherwise control message only
+void CoherenceController::setupLowerStatus(bool isLastCoherenceLevel, bool expectWritebackAck, bool lowerIsNoninclusive) {
+    silentEvictClean_ = isLastCoherenceLevel; // Level below us doesn't do coherence so just drop clean blocks
+    lastLevel_ = isLastCoherenceLevel;
+    expectWritebackAck_ = expectWritebackAck; // Level below us will send writeback acks so wait for it
+    writebackCleanBlocks_ = lowerIsNoninclusive; // Attach a payload to clean writebacks if the lower level might not have data
+
+    //silentEvictClean_       = isLastCoherenceLevel; // Silently evict clean blocks if there's just a memory below us
+    //expectWritebackAck_     = !isLastCoherenceLevel && (lowerIsDirectory || lowerIsNoninclusive);  // Expect writeback ack if there's a dir below us or a non-inclusive cache
+    //writebackCleanBlocks_   = lowerIsNoninclusive;  // Writeback clean data if lower is non-inclusive - otherwise control message only
         
-    if (lowerLevelCacheNames_.empty()) lowerLevelCacheNames_.push_back(""); // Avoid segfault on access
-    if (upperLevelCacheNames_.empty()) upperLevelCacheNames_.push_back(""); // Avoid segfault on access
 }
 
 

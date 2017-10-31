@@ -30,11 +30,9 @@
 #ifndef C_CONTROLLER_HPP
 #define C_CONTROLLER_HPP
 
-//SST includes
-#include <sst/core/component.h>
-#include <sst/core/link.h>
 
 // SST includes
+#include <sst/core/link.h>
 #include <sst/core/component.h>
 #include "c_AddressHasher.hpp"
 #include "c_DeviceDriver.hpp"
@@ -67,29 +65,25 @@ namespace SST {
 
             void sendCommand(c_BankCommand* cmd);
 
+            SimTime_t getSimCycle(){return m_simCycle;}
+
         private:
             c_Controller(); // for serialization only
             c_Controller(SST::ComponentId_t id);
 
             virtual bool clockTic(SST::Cycle_t); // called every cycle
 
-            void setHashedAddress(c_Transaction* newTxn);
 
-            void sendTokenChg(); // should happen at the end of every cycle
             void sendResponse();
             void sendRequest();
             void configure_link();
             // Transaction Generator <-> Controller Handlers
             void handleIncomingTransaction(SST::Event *ev);
-            void handleOutTxnGenResPtrEvent(SST::Event *ev);
-            void handleInTxnGenResQTokenChgEvent(SST::Event *ev);
-            void handleOutTxnGenReqQTokenChgEvent(SST::Event *ev);
 
             // Controller <--> memory devices
-            void handleOutDeviceReqPtrEvent(SST::Event *ev);
             void handleInDeviceResPtrEvent(SST::Event *ev);
-            void handleInDeviceReqQTokenChgEvent(SST::Event *ev);
 
+            SimTime_t m_simCycle;
 
             SST::Output *output;
 
@@ -103,40 +97,16 @@ namespace SST {
             c_AddressHasher *m_addrHasher;
             c_DeviceDriver *m_deviceDriver;
 
-            //token changes from Txn gen
-            int m_ReqQTokens;
-            int m_txnGenResQTokens;
-            int m_deviceReqQTokens;
-            int m_thisCycleTxnQTknChg;
-
             // params for system configuration
-            int k_numChannelsPerDimm;
-            int k_numPseudoChannels;
-            int k_numRanksPerChannel;
-            int k_numBankGroupsPerRank;
-            int k_numBanksPerBankGroup;
-            int k_numColsPerBank;
-            int k_numRowsPerBank;
             int k_enableQuickResponse;
-
-            // params for internal architecture
-            int k_txnReqQEntries;
-            int k_txnResQEntries;
-            int k_txnGenResQEntries;
 
 		    // clock frequency
 			std::string k_controllerClockFreqStr;
 
-            // Transaction Generator <-> DeviceController Links
-
-            SST::Link *m_inTxnGenReqPtrLink;
-            SST::Link *m_outTxnGenResPtrLink;
-            SST::Link *m_outDeviceReqPtrLink;
-            SST::Link *m_inDeviceResPtrLink;
-
-            SST::Link *m_inDeviceReqQTokenChgLink;
-            SST::Link *m_inTxnGenResQTokenChgLink;
-            SST::Link *m_outTxnGenReqQTokenChgLink;
+            // Transaction Generator <-> Controller Links
+            SST::Link *m_txngenLink;
+            // Controller <-> Memory device Links
+            SST::Link *m_memLink;
         };
     }
 }

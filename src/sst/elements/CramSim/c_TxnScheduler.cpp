@@ -42,103 +42,81 @@ using namespace SST::n_Bank;
 using namespace std;
 
 c_TxnScheduler::c_TxnScheduler(SST::Component *owner, SST::Params& x_params) : SubComponent(owner) {
-	m_controller = dynamic_cast<c_Controller *>(owner);
-	m_txnConverter = m_controller->getTxnConverter();
-	m_cmdScheduler = m_controller->getCmdScheduler();
+    m_controller = dynamic_cast<c_Controller *>(owner);
+    m_txnConverter = m_controller->getTxnConverter();
+    m_cmdScheduler = m_controller->getCmdScheduler();
 
-	output = m_controller->getOutput();
+    output = m_controller->getOutput();
 
-	//initialize member variables
-	m_numChannels = m_controller->getDeviceDriver()->getNumChannel();
-	assert(m_numChannels>0);
+    //initialize member variables
+    m_numChannels = m_controller->getDeviceDriver()->getNumChannel();
+    assert(m_numChannels>0);
 
-	bool l_found=false;
+    bool l_found=false;
 
-	string l_txnSchedulingPolicy= (string) x_params.find<std::string>("txnSchedulingPolicy","FCFS", l_found);
-	if(!l_found) {
-		std::cout << "txnSchedulingPolicy value is missing... FCFS policy will be used" << std::endl;
-	}
+    string l_txnSchedulingPolicy= (string) x_params.find<std::string>("txnSchedulingPolicy","FCFS", l_found);
+    if(!l_found) {
+        std::cout << "txnSchedulingPolicy value is missing... FCFS policy will be used" << std::endl;
+    }
 
-	if(l_txnSchedulingPolicy=="FCFS")
-	{
-		k_txnSchedulingPolicy=e_txnSchedulingPolicy::FCFS;
-	}
-	else if(l_txnSchedulingPolicy=="FRFCFS")
-	{
-		k_txnSchedulingPolicy=e_txnSchedulingPolicy::FRFCFS;
-	} else
-	{
-		std::cout << "unsupported txnSchedulingPolicy ("<<l_txnSchedulingPolicy<<"),, exit"<< std::endl;
-		exit(1);
-	}
-
-	string l_queueSchedulingPolicy= (string) x_params.find<std::string>("queueSchedulingPolicy","DEFAULT", l_found);
-	if(!l_found) {
-		std::cout << "queueSchedulingPolicy value is missing... Default policy will be used" << std::endl;
-	}
-
-	if(l_queueSchedulingPolicy=="DEFAULT")
-	{
-		k_queueSchedulingPolicy=e_queueSchedulingPolicy::DEFAULT;
-		std::cout << "queueScheduling polic is set to DEFAULT" << std::endl;
-	}
-
-	else if(l_queueSchedulingPolicy=="ATOMIC")
-	{
-		k_queueSchedulingPolicy=e_queueSchedulingPolicy::ATOMIC;
-		std::cout << "queueScheduling polic is set to ATOMIC" << std::endl;
-	}
-
-	else
-	{
-		std::cout << "unsupported queueSchedulingPolicy ("<<l_queueSchedulingPolicy<<"),, exit"<< std::endl;
-		exit(1);
-	}
-
-	k_numTxnQEntries = (unsigned) x_params.find<unsigned>("numTxnQEntries", 32, l_found);
-	if (!l_found) {
-		std::cout << "numTxnQEntries value is missing... it will be 32 (default)" << std::endl;
-	}
-
-	k_isReadFirstScheduling = (unsigned) x_params.find<unsigned>("boolReadFirstTxnScheduling",0,l_found);
-	if (!l_found) {
-		std::cout << "boolReadFirstTxnScheduling value is missing... it will be 32 (default)" << std::endl;
-	}
+    if(l_txnSchedulingPolicy=="FCFS")
+    {
+        k_txnSchedulingPolicy=e_txnSchedulingPolicy::FCFS;
+    }
+    else if(l_txnSchedulingPolicy=="FRFCFS")
+    {
+        k_txnSchedulingPolicy=e_txnSchedulingPolicy::FRFCFS;
+    } else
+    {
+        std::cout << "unsupported txnSchedulingPolicy ("<<l_txnSchedulingPolicy<<"),, exit"<< std::endl;
+        exit(1);
+    }
 
 
-	//initialize per-channel transaction queues
-	if(!k_isReadFirstScheduling)
-		m_txnQ.resize(m_numChannels);
-	else {
-		m_txnReadQ.resize(m_numChannels);
-		m_txnWriteQ.resize(m_numChannels);
+    k_numTxnQEntries = (unsigned) x_params.find<unsigned>("numTxnQEntries", 32, l_found);
+    if (!l_found) {
+        std::cout << "numTxnQEntries value is missing... it will be 32 (default)" << std::endl;
+    }
 
-		k_maxPendingWriteThreshold = (float) x_params.find<float>("maxPendingWriteThreshold", 1, l_found);
-		if (!l_found) {
-			std::cout << "maxPendingWriteThreshold value is missing... it will be 1.0 (default)" << std::endl;
-		} else {
-			if (k_maxPendingWriteThreshold > 1) {
-				std::cout << "maxPendingWriteThreshold value should be greater than 0 and less than (or equal to) one"
-					<< std::endl;
-				exit(1);
-			}
-		}
+    k_isReadFirstScheduling = (unsigned) x_params.find<unsigned>("boolReadFirstTxnScheduling",0,l_found);
+    if (!l_found) {
+        std::cout << "boolReadFirstTxnScheduling value is missing... disabled" << std::endl;
+    }
 
-		k_minPendingWriteThreshold = (float) x_params.find<float>("minPendingWriteThreshold", 0.2, l_found);
-		if (!l_found) {
-			std::cout << "minPendingWriteThreshold value is missing... it will be 0.2 (default)" << std::endl;
-		} else {
-			if (k_minPendingWriteThreshold > k_maxPendingWriteThreshold) {
-				std::cout << "minPendingWriteThreshold value should be smaller than maxPendingWriteThreshold"
-					<< std::endl;
-				exit(1);
-			}
-		}
 
-		m_maxNumPendingWrite = (unsigned) ((float) k_numTxnQEntries * k_maxPendingWriteThreshold);
-		m_minNumPendingWrite = (unsigned) ((float) k_numTxnQEntries * k_minPendingWriteThreshold);
-		m_flushWriteQueue = false;
-	}
+    //initialize per-channel transaction queues
+    if(!k_isReadFirstScheduling)
+        m_txnQ.resize(m_numChannels);
+    else {
+        m_txnReadQ.resize(m_numChannels);
+        m_txnWriteQ.resize(m_numChannels);
+
+        k_maxPendingWriteThreshold = (float) x_params.find<float>("maxPendingWriteThreshold", 1, l_found);
+        if (!l_found) {
+            std::cout << "maxPendingWriteThreshold value is missing... it will be 1.0 (default)" << std::endl;
+        } else {
+            if (k_maxPendingWriteThreshold > 1) {
+                std::cout << "maxPendingWriteThreshold value should be greater than 0 and less than (or equal to) one"
+                          << std::endl;
+                exit(1);
+            }
+        }
+
+        k_minPendingWriteThreshold = (float) x_params.find<float>("minPendingWriteThreshold", 0.2, l_found);
+        if (!l_found) {
+            std::cout << "minPendingWriteThreshold value is missing... it will be 1.0 (default)" << std::endl;
+        } else {
+            if (k_minPendingWriteThreshold > k_maxPendingWriteThreshold) {
+                std::cout << "minPendingWriteThreshold value should be smaller than maxPendingWriteThreshold"
+                          << std::endl;
+                exit(1);
+            }
+        }
+
+        m_maxNumPendingWrite = (unsigned) ((float) k_numTxnQEntries * k_maxPendingWriteThreshold);
+        m_minNumPendingWrite = (unsigned) ((float) k_numTxnQEntries * k_minPendingWriteThreshold);
+        m_flushWriteQueue = false;
+    }
 }
 
 c_TxnScheduler::~c_TxnScheduler() {
@@ -149,101 +127,60 @@ c_TxnScheduler::~c_TxnScheduler() {
 void c_TxnScheduler::run(){
 
 
-	for(int l_channelID=0; l_channelID<m_numChannels; l_channelID++) {
+    for(int l_channelID=0; l_channelID<m_numChannels; l_channelID++) {
 
-		//0. select queue
-		TxnQueue* l_queue= nullptr;
-		if(!k_isReadFirstScheduling) {
-			l_queue = &(m_txnQ[l_channelID]);
-		} else {
-			if(k_queueSchedulingPolicy == e_queueSchedulingPolicy::DEFAULT) {
-				if (m_txnWriteQ[l_channelID].size() >= m_maxNumPendingWrite || m_txnReadQ[l_channelID].size()==0){
-					m_flushWriteQueue = true;
-				}
-				else if (m_txnWriteQ[l_channelID].size() < m_minNumPendingWrite && m_txnReadQ[l_channelID].size()!=0){
-					m_flushWriteQueue = false;
-				}
+        //0. select queue
+        TxnQueue* l_queue= nullptr;
+        if(!k_isReadFirstScheduling) {
+            l_queue = &(m_txnQ[l_channelID]);
+        } else {
+            if (m_txnWriteQ[l_channelID].size() >= m_maxNumPendingWrite || m_txnReadQ[l_channelID].size()==0)
+                m_flushWriteQueue = true;
+            else if (m_txnWriteQ[l_channelID].size() < m_minNumPendingWrite && m_txnReadQ[l_channelID].size()!=0)
+                m_flushWriteQueue = false;
 
-				if(m_flushWriteQueue) {
-					l_queue = &(m_txnWriteQ[l_channelID]);
-				}
-				else{
-					l_queue = &(m_txnReadQ[l_channelID]);
-				}
-			}
-			else if(k_queueSchedulingPolicy == e_queueSchedulingPolicy::ATOMIC) {
-				// 0.1 Writes are considered for scheduling after the min threshold has been reached and there are no reads
-				if (m_txnWriteQ[l_channelID].size() >= m_minNumPendingWrite && m_txnReadQ[l_channelID].size()==0){
-					m_flushWriteQueue = true;
-				}
-				// 0.2 Writes are considered for scheduling after the write threshold has been reached
-				else if (m_txnWriteQ[l_channelID].size() >= m_maxNumPendingWrite ){
-					m_flushWriteQueue = true;
-				}
-				else{
-					m_flushWriteQueue = false;
-				}
 
-				if(m_flushWriteQueue) {
-					//std::cout << "Write queue selected " << m_txnWriteQ[l_channelID].size() << std::endl;
-					l_queue = &(m_txnWriteQ[l_channelID]);
-				}
-				else{
-					l_queue = &(m_txnReadQ[l_channelID]);
-				}
-			}
-		}
+            if(m_flushWriteQueue) {
+                    l_queue = &(m_txnWriteQ[l_channelID]);
+            }
+            else
+                l_queue = &(m_txnReadQ[l_channelID]);
+        }
 
-		assert(l_queue!=nullptr);
+        assert(l_queue!=nullptr);
 
-		//1. select a transaction from the transaction queue
-		c_Transaction* l_nextTxn=nullptr;
-		if(l_queue->size()){
-			l_nextTxn=getNextTxn(*l_queue, l_channelID);
-		}
+        //1. select a transaction from the transaction queue
+        c_Transaction* l_nextTxn=nullptr;
+        if(l_queue->size())
+            l_nextTxn=getNextTxn(*l_queue, l_channelID);
+          //1.1. With read-first scheduling, we change the queue if there are no issuable transactions in the selected queue
+        if(k_isReadFirstScheduling && l_nextTxn== nullptr)
+        {
+            if(m_flushWriteQueue ==true)
+                l_queue = &m_txnReadQ[l_channelID];
+            else
+                l_queue = &m_txnWriteQ[l_channelID];
+            if(l_queue->size())
+                l_nextTxn=getNextTxn(*l_queue, l_channelID);
+        }
 
-		if(k_queueSchedulingPolicy == e_queueSchedulingPolicy::DEFAULT) {
+        //2. send the selected transaction to transaction converter
+        if(l_nextTxn!=nullptr) {
+            if(m_cmdScheduler->getToken(l_nextTxn->getHashedAddress())>=3) {
 
-			//1.1. With read-first scheduling, we change the queue if there are no issuable transactions in the selected queue
-			if(k_isReadFirstScheduling && l_nextTxn== nullptr)
-			{
-				if(m_flushWriteQueue ==true)
-					l_queue = &m_txnReadQ[l_channelID];
-				else
-					l_queue = &m_txnWriteQ[l_channelID];
-				if(l_queue->size())
-					l_nextTxn=getNextTxn(*l_queue, l_channelID);
-			}
-		}
-		else if(k_queueSchedulingPolicy == e_queueSchedulingPolicy::ATOMIC) {
+                // send the selected transaction
+                m_txnConverter->push(l_nextTxn);
 
-			//1.2. If we selected the write queue but a request is not ready check for a read instead 
-			if(k_isReadFirstScheduling && l_nextTxn== nullptr)
-			{
-				if(m_flushWriteQueue == true)
-					l_queue = &m_txnReadQ[l_channelID];
-				if(l_queue->size())
-					l_nextTxn=getNextTxn(*l_queue, l_channelID);
-			}
-		}
+                #ifdef __SST_DEBUG_OUTPUT__
+                l_nextTxn->print(output, "[c_TxnScheduler]",m_controller->getSimCycle());
+                #endif
 
-		//2. send the selected transaction to transaction converter
-		if(l_nextTxn!=nullptr) {
-			if(m_cmdScheduler->getToken(l_nextTxn->getHashedAddress())>=3) {
+                // pop it from inputQ
+                popTxn(*l_queue, l_nextTxn);
 
-				// send the selected transaction
-				m_txnConverter->push(l_nextTxn);
-
-#ifdef __SST_DEBUG_OUTPUT__
-				l_nextTxn->print(output, "[c_TxnScheduler]");
-#endif
-
-				// pop it from inputQ
-				popTxn(*l_queue, l_nextTxn);
-
-			}
-		}
-	}
+            }
+        }
+    }
 }
 
 

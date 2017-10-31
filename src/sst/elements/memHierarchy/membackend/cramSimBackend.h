@@ -25,7 +25,9 @@ namespace MemHierarchy {
 class CramSimMemory : public SimpleMemBackend {
 public:
     CramSimMemory(Component *comp, Params &params);
-	virtual bool issueRequest( ReqId, Addr, bool isWrite, unsigned numBytes );
+    virtual bool issueRequest( ReqId, Addr, bool isWrite, unsigned numBytes );
+    virtual bool isClocked() { return false; }
+
 private:
     void handleCramsimEvent(SST::Event *event);
 

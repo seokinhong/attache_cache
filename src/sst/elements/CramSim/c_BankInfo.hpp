@@ -36,7 +36,6 @@
 
 // CramSim includes
 #include "c_BankState.hpp"
-//#include "c_BankGroup.hpp"
 
 namespace SST {
 namespace n_Bank {
@@ -56,7 +55,7 @@ public:
 
 	void handleCommand(c_BankCommand* x_bankCommandPtr, SimTime_t x_simCycle);
 
-	void clockTic();
+	void clockTic(SimTime_t x_cycle);
 
 	std::list<e_BankCommandType> getAllowedCommands();
 
