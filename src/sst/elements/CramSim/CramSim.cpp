@@ -176,6 +176,18 @@ static const ElementInfoPort c_MemhBridgeContent_ports[] = {
 		{ "contentLink", "link from CPU for receiving memory contents", c_MemhBridgeContent_Content_events},
         { NULL, NULL, NULL } };
 
+static const ElementInfoStatistic c_MemhBridgeContent_stats[] = {
+  {"readTxnsSent", "Number of read transactions sent", "reads", 1}, // Name, Desc, Units, Enable Level
+  {"writeTxnsSent", "Number of write transactions sent", "writes", 1}, // Name, Desc, Units, Enable Level
+  {"readTxnsCompleted", "Number of read transactions completed", "reads", 1}, // Name, Desc, Units, Enable Level
+  {"writeTxnsCompleted", "Number of write transactions completed", "writes", 1},
+  {"txnsPerCycle", "Transactions Per Cycle", "Txns/Cycle", 1},
+  {"readTxnsLatency", "Average latency of read transactions", "cycles", 1},
+  {"writeTxnsLatency", "Average latency of write transactions", "cycles", 1},
+  {"txnsLatency", "Average latency of (read/write) transactions", "cycles", 1},
+  {NULL, NULL, NULL, 0}
+};
+
 
 /*----SETUP c_TxnGenSeq STRUCTURES----*/
 static const ElementInfoParam c_TxnGenSeq_params[] = {
@@ -1726,7 +1738,7 @@ static const ElementInfoComponent CramSimComponents[] = {
 		c_MemhBridge_params, 						// Parameters
 		c_MemhBridgeContent_ports, 						// Ports
 		COMPONENT_CATEGORY_UNCATEGORIZED, 			// Category
-		c_MemhBridge_stats 										// Statistics
+		c_MemhBridgeContent_stats 										// Statistics
 		},
 		{ "c_Controller",			 						// Name
 			"Memory Controller",				 				// Description

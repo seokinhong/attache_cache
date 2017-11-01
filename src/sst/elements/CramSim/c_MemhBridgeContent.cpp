@@ -56,6 +56,7 @@ c_MemhBridgeContent::c_MemhBridgeContent(ComponentId_t x_id, Params& x_params) :
     }
     backing_ = (uint8_t*)malloc(memsize);
     m_compEngine = new c_CompressEngine(verbosity,true);
+
 /*
     std::string memoryFile = x_params.find<std::string>("memory_file", "no_string_defined", l_found);
     if ( ! x_params.find<bool>("do_not_back",false)  ) {
@@ -77,8 +78,21 @@ c_MemhBridgeContent::c_MemhBridgeContent(ComponentId_t x_id, Params& x_params) :
 
 }
 
+
 c_MemhBridgeContent::~c_MemhBridgeContent() {
+    uint64_t cnt=0;
+    uint64_t normalized_size_sum=0;
+    for(int i=0;i<100;i++)
+    {
+        printf("compressed_size_count: %d/%lld\n",i,m_normalized_size[i]);
+        normalized_size_sum+=i*m_normalized_size[i];
+        cnt+=m_normalized_size[i];
+    }
+    double avg_normalized_size = (double)normalized_size_sum / (double)cnt;
+    printf("cacheline compression ratio: %lf\n",(double)1/(double)avg_normalized_size*100);
+
     free(backing_);
+
 }
 
 
@@ -102,6 +116,10 @@ void c_MemhBridgeContent::createTxn() {
         }
 
         int compressed_size = m_compEngine->getCompressedSize(cacheline,COMP_ALG::BDI);
+        int normalized_size = (int)((double)compressed_size/(double)512*100);
+        m_normalized_size[normalized_size]++;
+
+
         free(cacheline);
 
 
@@ -144,7 +162,6 @@ void c_MemhBridgeContent::handleContentEvent(SST::Event *ev)
         mem_ptr_64=(uint64_t*)mem_ptr_8;
         output->verbose(CALL_INFO, 1, 0, "paddr: %llx vaddr: %llx data: %llx \n",cacheline_addr+j*8, cacheline_vaddr+j*8,*mem_ptr_64);
     }
-    fprintf(stderr,"\n");
 }
 
 
