@@ -73,8 +73,10 @@ libCramSim_la_SOURCES = \
 	c_TxnGen.hpp \
 	c_TxnGen.cpp \
 	memReqEvent.hpp \
-    c_MemhBridgeContent.cpp \
-    c_MemhBridgeContent.hpp
+        c_MemhBridgeContent.cpp \
+        c_MemhBridgeContent.hpp \
+        c_CompressEngine.cpp \
+        c_CompressEngine.hpp 
 
 EXTRA_DIST = \
 	README \

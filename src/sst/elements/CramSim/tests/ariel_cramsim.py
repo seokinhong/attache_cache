@@ -69,8 +69,9 @@ sst.setProgramOption("timebase", "1ps")
 
 
 ## Flags
-memDebug = 1
-memDebugLevel = 1
+memDebug = 0
+memDebugLevel = 0
+verbose = 0
 coherenceProtocol = "MESI"
 rplPolicy = "lru"
 busLat = "50 ps"
@@ -108,7 +109,7 @@ ariel.addParams({
    "maxcorequeue"        : "256",
    "maxissuepercycle"    : "2",
    "pipetimeout"         : "0",
-   "executable"         : "./stream",
+   "executable"         : "./a.out",
    "memorylevels"        : "1",
    "arielinterceptcalls" : "1",
    "arielmode"           : "1",
@@ -128,6 +129,7 @@ def genMemHierarchy(cores):
 
    memory = sst.Component("memory", "memHierarchy.MemController")
    memory.addParams({
+       "do_not_back"           : "1",
        "range_start"           : "0",
        "coherence_protocol"    : coherenceProtocol,
        "debug"                 : memDebug,
@@ -136,7 +138,7 @@ def genMemHierarchy(cores):
       "backend.access_time" : "2 ns",   # Phy latency
       "backend.mem_size" : "512MiB",
       "backend.max_outstanding_requests" : 256,
-	"backend.verbose" : 1,
+	"backend.verbose" : 0,
        "request_width"         : cacheLineSize
    })
 
@@ -202,10 +204,12 @@ def genMemHierarchy(cores):
    L3MemCtrlLink.connect((l3, "low_network_0", busLat), (memory, "direct_link", busLat))
 
     # txn gen --> memHierarchy Bridge
-   comp_memhBridge = sst.Component("memh_bridge", "CramSim.c_MemhBridge")
+   comp_memhBridge = sst.Component("memh_bridge", "CramSim.c_MemhBridgeContent")
    comp_memhBridge.addParams(g_params);
    comp_memhBridge.addParams({
-                        "verbose" : "0",
+                        "verbose" : verbose,
+			"memsize" : 512*1024*1024,
+			"memory_file" : "memback",
                         "numTxnPerCycle" : g_params["numChannels"],
                         "strTxnTraceFile" : "arielTrace",
                         "boolPrintTxnTrace" : "1"
@@ -230,9 +234,12 @@ def genMemHierarchy(cores):
    link_dir_cramsim_link = sst.Link("link_dir_cramsim_link")
    link_dir_cramsim_link.connect( (memory, "cube_link", "2ns"), (comp_memhBridge, "cpuLink", "2ns") )
 
+   
    # memhBridge(=TxnGen) <-> Memory Controller 
    memHLink = sst.Link("memHLink_1")
    memHLink.connect( (comp_memhBridge, "memLink", g_params["clockCycle"]), (comp_controller0, "txngenLink", g_params["clockCycle"]) )
+   memHLink2 = sst.Link("memHLink_2")
+   memHLink2.connect((comp_memhBridge, "contentLink", g_params["clockCycle"]), (ariel, "linkMemContent",g_params["clockCycle"]));
 
    # Controller <-> Dimm
    cmdLink = sst.Link("cmdLink_1")

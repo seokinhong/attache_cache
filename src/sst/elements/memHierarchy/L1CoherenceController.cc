@@ -91,8 +91,6 @@ CacheAction L1CoherenceController::handleEviction(CacheLine* wbCacheLine, string
 CacheAction L1CoherenceController::handleRequest(MemEvent* event, CacheLine* cacheLine, bool replay){
     
     Command cmd = event->getCmd();
-    //comp_debug
-    fprintf(stderr,"[l1coherencecontroller handlerequest] vaddr:%llx size:%d\n", event->getVirtualAddress(), event->getSize());
     switch(cmd) {
         case Command::GetS:
             return handleGetSRequest(event, cacheLine, replay);

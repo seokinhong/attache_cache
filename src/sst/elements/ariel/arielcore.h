@@ -50,6 +50,7 @@
 
 #include "ariel_shmem.h"
 #include "arieltracegen.h"
+#include <sst/elements/memHierarchy/memEvent.h>
 
 using namespace SST;
 using namespace SST::Interfaces;
@@ -75,6 +76,7 @@ class ArielCore {
 		void createReadEvent(uint64_t addr, uint32_t size, uint64_t*);
 		void createWriteEvent(uint64_t addr, uint32_t size, uint64_t*);
     		void createAllocateEvent(uint64_t vAddr, uint64_t length, uint32_t level, uint64_t ip);
+		void sendMemContent(uint64_t addr, uint64_t vaddr, uint32_t size, std::vector<uint8_t> &data);
 		void createNoOpEvent();
 		void createFreeEvent(uint64_t vAddr);
 		void createExitEvent();
@@ -97,6 +99,9 @@ class ArielCore {
 		void printCoreStatistics();
 		void printTraceEntry(const bool isRead, const uint64_t address, const uint32_t length);
 
+		void setMemContentLink(Link* memContentLink){this->memContentLink=memContentLink;}
+
+
 	private:
 		bool processNextEvent();
 		bool refillQueue();
@@ -106,7 +111,7 @@ class ArielCore {
 		std::queue<ArielEvent*>* coreQ;
 		bool isHalted;
 		SimpleMem* cacheLink;
-                Link* allocLink;
+	    Link* allocLink;
 		ArielTunnel *tunnel;
 		std::unordered_map<SimpleMem::Request::id_t, SimpleMem::Request*>* pendingTransactions;
 		uint32_t maxIssuePerCycle;
@@ -118,6 +123,7 @@ class ArielCore {
 		const uint32_t perform_checks;
 		bool enableTracing;
 		uint64_t currentCycles;
+		Link* memContentLink;
 
 		// This indicates the current number of executed instructions by this core
 		long long int inst_count;

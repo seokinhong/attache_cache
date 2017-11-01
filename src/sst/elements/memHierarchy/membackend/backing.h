@@ -42,6 +42,24 @@ class Backing {
             throw 2;
         }
     }
+    Backing( const char* memoryFile, size_t size, size_t offset = 0 ) :m_fd(-1), m_size(size), m_offset(offset) {
+        int flags = MAP_PRIVATE;
+        if (memoryFile !=NULL){
+            m_fd = open(memoryFile, O_RDWR);
+            // if ( ! memoryFile.empty() ) {
+            //  m_fd = open(memoryFile, O_RDWR);
+            if ( m_fd < 0) {
+                throw 1;
+            }
+        } else {
+            flags  |= MAP_ANON;
+        }
+        m_buffer = (uint8_t*)mmap(NULL, size, PROT_READ|PROT_WRITE, flags, m_fd, 0);
+
+        if ( m_buffer == MAP_FAILED) {
+            throw 2;
+        }
+    }
     ~Backing() {
         munmap( m_buffer, m_size );
         if ( -1 != m_fd ) {

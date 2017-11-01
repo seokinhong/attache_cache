@@ -171,8 +171,8 @@ static const ElementInfoStatistic c_MemhBridge_stats[] = {
 static const char* c_MemhBridgeContent_Content_events[] = {"c_ContentEvent", NULL};
 
 static const ElementInfoPort c_MemhBridgeContent_ports[] = {
-        { "linkCPU", "link to/from CPU",c_MemhBridge_CPU_events},
-        { "lowLink", "link to memory-side components (txn dispatcher or controller)", c_MemhBridge_mem_port_events },
+        { "cpuLink", "link to/from CPU",c_MemhBridge_CPU_events},
+        { "memLink", "link to memory-side components (txn dispatcher or controller)", c_MemhBridge_mem_port_events },
 		{ "contentLink", "link from CPU for receiving memory contents", c_MemhBridgeContent_Content_events},
         { NULL, NULL, NULL } };
 

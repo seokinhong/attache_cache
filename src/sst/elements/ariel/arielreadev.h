@@ -27,19 +27,19 @@ namespace ArielComponent {
 class ArielReadEvent : public ArielEvent {
 
 	public:
-                ArielReadEvent(uint64_t rAddr, uint32_t length, uint64_t *data) :
+	    ArielReadEvent(uint64_t rAddr, uint32_t length, uint64_t *data) :
 			readAddress(rAddr), readLength(length) {
-                            uint8_t* ptr=(uint8_t*)data;
-							uint64_t* ptr_64 = data;
-                            for(int i=0;i<8;i++) {
-								//comp_debug
-								//	fprintf(stderr, "[arielreadevent] addr:%llx read data: %x\n",rAddr, *ptr_64);
-                                ptr_64++;
-								for (int j = 0; j < 8; j++) {
-									cacheLineData.push_back(*ptr);
-									ptr++;
-								}
-							}
+               uint8_t* ptr=(uint8_t*)data;
+			   uint64_t* ptr_64 = data;
+               for(int i=0;i<8;i++) {
+					//comp_debug
+					//	fprintf(stderr, "[arielreadevent] addr:%llx read data: %x\n",rAddr, *ptr_64);
+                   ptr_64++;
+					for (int j = 0; j < 8; j++) {
+						cacheLineData.push_back(*ptr);
+						ptr++;
+					}
+				}
 		}
 
 
@@ -66,7 +66,7 @@ class ArielReadEvent : public ArielEvent {
 	private:
 		const uint64_t readAddress;
 		const uint32_t readLength;
-                std::vector<uint8_t> cacheLineData;
+	    std::vector<uint8_t> cacheLineData;
 
 };
 

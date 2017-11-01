@@ -126,6 +126,7 @@ static const ElementInfoParam ariel_params[] = {
 static const ElementInfoPort ariel_ports[] = {
     {"cache_link_%(corecount)d", "Each core's link to its cache", NULL},
     {"alloc_link_%(corecount)d", "Each core's link to an allocation tracker (e.g. memSieve)", NULL},
+	{"linkMemContent", "cores' link to send memory content to a memory model", NULL},
     {NULL, NULL, NULL}
 };
 

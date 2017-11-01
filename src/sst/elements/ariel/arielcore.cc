@@ -16,6 +16,8 @@
 #include <sst_config.h>
 
 #include "arielcore.h"
+#include <sst/elements/memHierarchy/memEvent.h>
+
 
 #define ARIEL_CORE_VERBOSE(LEVEL, OUTPUT) if(verbosity >= (LEVEL)) OUTPUT
 
@@ -129,7 +131,7 @@ void ArielCore::commitReadEvent(const uint64_t address,
 		const uint64_t virtAddress, const uint32_t length, std::vector<uint8_t> data) {
 
 	if(length > 0) {
-		SimpleMem::Request *req = new SimpleMem::Request(SimpleMem::Request::Read, address, length, data);
+		SimpleMem::Request *req = new SimpleMem::Request(SimpleMem::Request::Read, address, length);
 		req->setVirtualAddress(virtAddress);
 
 		pending_transaction_count++;
@@ -140,12 +142,15 @@ void ArielCore::commitReadEvent(const uint64_t address,
 		}
 
 		//comp_debug
-
-        for(int i=0;i<length;i++)
-            fprintf(stderr,"[arielcore] commit read event addr: %llx vaddr: %llx length:%d data:%x\n",address+i, virtAddress+i, length, req->data[i]);
-
+		if(verbosity) {
+			for (int i = 0; i < length; i++) {
+				output->verbose(CALL_INFO, 0, 1, "addr: %llx vaddr: %llx length:%d data:%x\n", address + i, virtAddress + i, length, data[i]);
+			}
+		}
 		// Actually send the event to the cache
 		cacheLink->sendRequest(req);
+		// send memory contents to the memory model
+		sendMemContent(address,virtAddress,64, data);
 	}
 }
 
@@ -153,7 +158,7 @@ void ArielCore::commitWriteEvent(const uint64_t address,
 		const uint64_t virtAddress, const uint32_t length, std::vector<uint8_t> data) {
 
 	if(length > 0) {
-		SimpleMem::Request *req = new SimpleMem::Request(SimpleMem::Request::Write, address, length, data);
+		SimpleMem::Request *req = new SimpleMem::Request(SimpleMem::Request::Write, address, length);
 		req->setVirtualAddress(virtAddress);
 
 		// TODO BJM:  DO we need to fill in dummy data?
@@ -166,11 +171,15 @@ void ArielCore::commitWriteEvent(const uint64_t address,
 		}
 
 		//comp_debug
-		for(int i=0;i<length;i++)
-			fprintf(stderr,"[arielcore] commit write event addr: %llx vaddr: %llx length:%d data:%x data size:%d\n",address+i, virtAddress+i, length, req->data[i]);
-
+		if(verbosity) {
+			for (int i = 0; i < length; i++) {
+				output->verbose(CALL_INFO, 0, 1, "addr: %llx vaddr: %llx length:%d data:%x\n", address + i, virtAddress + i, length, data[i]);
+			}
+		}
 		// Actually send the event to the cache
 		cacheLink->sendRequest(req);
+		// Send memory contents to the memory model
+		sendMemContent(address,virtAddress,64, data);
 	}
 }
 
@@ -231,6 +240,14 @@ void ArielCore::createReadEvent(uint64_t address, uint32_t length, uint64_t* dat
 
 	ARIEL_CORE_VERBOSE(4, output->verbose(CALL_INFO, 4, 0, "Generated a READ event, addr=%" PRIu64 ", length=%" PRIu32 ", data=%" PRIu64"\n", address, length, data));
 }
+
+
+void ArielCore::sendMemContent(uint64_t addr, uint64_t vaddr, uint32_t size, std::vector<uint8_t> &data) {
+    SST::MemHierarchy::MemEvent *req = new SST::MemHierarchy::MemEvent(owner,addr,vaddr,SST::MemHierarchy::Command::NULLCMD,data);
+	req->setVirtualAddress(vaddr);
+	memContentLink->send(req);
+}
+
 
 void ArielCore::createAllocateEvent(uint64_t vAddr, uint64_t length, uint32_t level, uint64_t instPtr) {
 	ArielAllocateEvent* ev = new ArielAllocateEvent(vAddr, length, level, instPtr);
@@ -328,10 +345,12 @@ bool ArielCore::refillQueue() {
 					switch(ac.command) {
 						case ARIEL_PERFORM_READ:
 							createReadEvent(ac.inst.addr, ac.inst.size, ac.inst.data);
+							//sendMemContent(ac.inst.addr,64, ac.inst.data);
 							break;
 
 						case ARIEL_PERFORM_WRITE:
 							createWriteEvent(ac.inst.addr, ac.inst.size, ac.inst.data);
+							//sendMemContent(ac.inst.addr, 64, ac.inst.data);
 							break;
 
 						case ARIEL_END_INSTRUCTION:

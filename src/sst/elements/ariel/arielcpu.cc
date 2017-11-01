@@ -330,6 +330,11 @@ ArielCPU::ArielCPU(ComponentId_t id, Params& params) :
             cpu_to_alloc_tracker_links = 0;
         }
 
+    if (1){
+        cpu_to_mem_content_link = configureLink("linkMemContent");
+    } else
+        cpu_to_mem_content_link = 0;
+
 	output->verbose(CALL_INFO, 1, 0, "Creating processor cores and cache links...\n");
 	cpu_cores = (ArielCore**) malloc( sizeof(ArielCore*) * core_count );
 
@@ -355,6 +360,9 @@ ArielCPU::ArielCPU(ComponentId_t id, Params& params) :
                 } else {
                     cpu_cores[i]->setCacheLink(cpu_to_cache_links[i], 0);
                 }
+
+        //set link to send memory contents to a memory model
+        cpu_cores[i]->setMemContentLink(cpu_to_mem_content_link);
 	}
 	free(link_buffer);
 

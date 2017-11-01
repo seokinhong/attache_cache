@@ -34,6 +34,7 @@
 #include <sst_config.h>
 
 #ifdef HAVE_LIBZ
+//#define COMP_DEBUG
 
 #include "zlib.h"
 #define BT_PRINTF(fmt, args...) gzprintf(btfiles[thr], fmt, ##args);
@@ -391,12 +392,14 @@ VOID ReadCacheLine(uint64_t addr, uint64_t * data)
         if(copied_size !=64)
             fprintf(stderr, "ariel memory copy fail\n");
 
-        
+
+#ifdef COMP_DEBUG
         for(int i=0;i<8;i++)
         {
 
             fprintf(stderr,"[PINTOOL] cacheline read [%d] addr:%llx data:%llx \n", i, addr_new+i*8, *(data+i));
         }
+#endif
 
 
 #endif
@@ -427,7 +430,9 @@ VOID WriteInstructionRead(UINT64 addr, UINT32 size, THREADID thr, ADDRINT ip,
         for(int i=0;i<8;i++)
         {
             ac.inst.data[i]=*(data+i);
+#ifdef COMP_DEBUG
             fprintf(stderr,"[PINTOOL] [%d] read addr:%llx data:%llx ac.inst.data:%llx\n", i, addr, *(data+i), ac.inst.data[i]);
+#endif
         }
         
         
@@ -465,8 +470,10 @@ VOID WriteInstructionWrite(UINT64 addr, UINT32 size, THREADID thr, ADDRINT ip,
         for(int i=0;i<8;i++)
         {
             ac.inst.data[i]=*(data+i);
-
+#ifdef COMP_DEBUG
             fprintf(stderr,"[PINTOOL] [%d] write addr:%llx data:%llx ac.inst.data:%llx\n", i, addr, *(data+i), ac.inst.data[i]);
+#endif
+
         }
 
         tunnel->writeMessage(thr, ac);
