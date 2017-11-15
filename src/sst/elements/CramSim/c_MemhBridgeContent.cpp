@@ -48,13 +48,13 @@ c_MemhBridgeContent::c_MemhBridgeContent(ComponentId_t x_id, Params& x_params) :
                              verbosity, 0, SST::Output::STDOUT);
 
     // Set up backing store if needed
-    uint64_t memsize = x_params.find<uint64_t>("memsize",10000,l_found);
+    m_backing_size = x_params.find<uint64_t>("backing_size",10000,l_found);
     if(!l_found)
     {
-        fprintf(stderr,"[c_MemhBridgeContent] memsize value is missing!! exit\n");
+        fprintf(stderr,"[c_MemhBridgeContent] backing store size is missing!! exit\n");
         exit(1);
     }
-    backing_ = (uint8_t*)malloc(memsize);
+    backing_ = (uint8_t*)malloc(m_backing_size);
     m_compEngine = new c_CompressEngine(verbosity,true);
 
 /*
@@ -146,6 +146,8 @@ void c_MemhBridgeContent::handleContentEvent(SST::Event *ev)
     uint64_t cacheline_vaddr = (req->getVirtualAddress()>>6)<<6;
     uint8_t* mem_ptr_8 = (uint8_t*)malloc(8);
     uint64_t* mem_ptr_64;
+    
+    assert(cacheline_addr<m_backing_size);
 
     for(int i=0;i<req->getSize();i++)
     {
@@ -155,13 +157,15 @@ void c_MemhBridgeContent::handleContentEvent(SST::Event *ev)
     uint32_t offset=0;
     for(int j=0;j<8;j++) {
         for (int i = 0; i < 8; i++) {
-            //*(mem_ptr_8 + i) = backing_->get(cacheline_addr + offset);
             *(mem_ptr_8 + i) = backing_[cacheline_addr + offset];
             offset++;
         }
         mem_ptr_64=(uint64_t*)mem_ptr_8;
         output->verbose(CALL_INFO, 1, 0, "paddr: %llx vaddr: %llx data: %llx \n",cacheline_addr+j*8, cacheline_vaddr+j*8,*mem_ptr_64);
     }
+
+    free(mem_ptr_8);
+    delete ev;
 }
 
 

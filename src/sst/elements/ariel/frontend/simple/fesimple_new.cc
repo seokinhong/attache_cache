@@ -62,7 +62,10 @@ KNOB<UINT32> TrapFunctionProfile(KNOB_MODE_WRITEONCE, "pintool",
 KNOB<string> SSTNamedPipe(KNOB_MODE_WRITEONCE, "pintool",
     "p", "", "Named pipe to connect to SST simulator");
 KNOB<UINT64> MaxInstructions(KNOB_MODE_WRITEONCE, "pintool",
-    "i", "10000000000", "Maximum number of instructions to run");
+    "i", "1000", "Maximum number of instructions to run");
+KNOB<UINT64> WarmupInstructions(KNOB_MODE_WRITEONCE, "pintool",
+     "w","10000", "The number of instructions to warmup");
+//"w","10", "The number of instructions to warmup");
 KNOB<UINT32> SSTVerbosity(KNOB_MODE_WRITEONCE, "pintool",
     "v", "0", "SST verbosity level");
 KNOB<UINT32> MaxCoreCount(KNOB_MODE_WRITEONCE, "pintool",
@@ -70,9 +73,9 @@ KNOB<UINT32> MaxCoreCount(KNOB_MODE_WRITEONCE, "pintool",
 KNOB<UINT32> StartupMode(KNOB_MODE_WRITEONCE, "pintool",
     "s", "1", "Mode for configuring profile behavior, 1 = start enabled, 0 = start disabled, 2 = attempt auto detect");
 KNOB<UINT32> InterceptMultiLevelMemory(KNOB_MODE_WRITEONCE, "pintool",
-    "m", "1", "Should intercept multi-level memory allocations, copies and frees, 1 = start enabled, 0 = start disabled");
+    "m", "0", "Should intercept multi-level memory allocations, copies and frees, 1 = start enabled, 0 = start disabled");
 KNOB<UINT32> KeepMallocStackTrace(KNOB_MODE_WRITEONCE, "pintool",
-    "k", "1", "Should keep shadow stack and dump on malloc calls. 1 = enabled, 0 = disabled");
+    "k", "0", "Should keep shadow stack and dump on malloc calls. 1 = enabled, 0 = disabled");
 KNOB<UINT32> DefaultMemoryPool(KNOB_MODE_WRITEONCE, "pintool",
     "d", "0", "Default SST Memory Pool");
 KNOB<UINT32> MemCompProfile(KNOB_MODE_WRITEONCE, "pintool",
@@ -89,15 +92,21 @@ typedef struct {
 	int64_t insExecuted;
 } ArielFunctionRecord;
 
+UINT64 inst_cnt =0;
+
 UINT32 funcProfileLevel;
 UINT32 core_count;
 UINT32 default_pool;
+UINT64 warmup_insts=0;
+
 ArielTunnel *tunnel = NULL;
 bool enable_output;
+bool content_copy_en=true;
+
 std::vector<void*> allocated_list;
 PIN_LOCK mainLock;
 PIN_LOCK mallocIndexLock;
-UINT64* lastMallocSize;
+UINT64* lastMallocSize=NULL;
 std::map<std::string, ArielFunctionRecord*> funcProfile;
 UINT64* lastMallocLoc;
 std::vector< std::set<ADDRINT> > instPtrsList;
@@ -142,7 +151,7 @@ class RowCompInfo {
             row_size=_row_size;
             cacheline_size=_cacheline_size;
             num_cacheline=row_size/cacheline_size;  // cacheline is 64B
-            
+
             for(UINT32 i=0; i<num_cacheline;i++)
                 cacheline_size.push_back(0);
         }
@@ -163,21 +172,21 @@ class RowCompInfo {
             int comp_ratio=0;
             if(is_row)
             {
-                
+
                 comp_ratio = (int)((float)row_size/(float)comp_size*100);
-                fprintf(stderr,"row comp ratio: %d\n",comp_ratio); 
+                fprintf(stderr,"row comp ratio: %d\n",comp_ratio);
             }
             else
             {
                 comp_ratio = (int)((float)cacheline_size/(float)comp_size*100);
-                fprintf(stderr,"cacheline comp ratio: %d\n",comp_ratio); 
+                fprintf(stderr,"cacheline comp ratio: %d\n",comp_ratio);
             }
 
 
         }
 
 }
-        
+
 #endif
 
 /****************************************************************/
@@ -192,12 +201,12 @@ class RowCompInfo {
 #ifdef HAVE_LIBZ
 std::vector<gzFile> btfiles;
 #else
-std::vector<FILE*> btfiles; 
+std::vector<FILE*> btfiles;
 #endif
 
 UINT64 mallocIndex;
 FILE * rtnNameMap;
-/* This is a record for each function call */ 
+/* This is a record for each function call */
 class StackRecord {
     private:
         ADDRINT stackPtr;
@@ -239,13 +248,13 @@ VOID ariel_stack_return(THREADID thr, ADDRINT stackPtr) {
 
 /* Function to print stack, called by malloc instrumentation code */
 VOID ariel_print_stack(UINT32 thr, UINT64 allocSize, UINT64 allocAddr, UINT64 allocIndex) {
-    
+
     unsigned int depth = arielStack[thr].size() - 1;
     BT_PRINTF("Malloc,0x%" PRIx64 ",%lu,%" PRIu64 "\n", allocAddr, allocSize, allocIndex);
-    
+
     vector<ADDRINT> newMappings;
     for (vector<StackRecord>::reverse_iterator rit = arielStack[thr].rbegin(); rit != arielStack[thr].rend(); rit++) {
-        
+
         // Note this only works if app is compiled with debug on
         if (instPtrsList[thr].find(rit->getInstPtr()) == instPtrsList[thr].end()) {
             newMappings.push_back(rit->getInstPtr());
@@ -271,7 +280,7 @@ VOID ariel_print_stack(UINT32 thr, UINT64 allocSize, UINT64 allocAddr, UINT64 al
 VOID InstrumentTrace (TRACE trace, VOID* args) {
     // For checking for jumps into shared libraries
     RTN rtn = TRACE_Rtn(trace);
-    
+
     // Check each basic block tail
     for (BBL bbl = TRACE_BblHead(trace); BBL_Valid(bbl); bbl = BBL_Next(bbl)) {
         INS tail = BBL_InsTail(bbl);
@@ -295,7 +304,7 @@ VOID InstrumentTrace (TRACE trace, VOID* args) {
 		    IARG_INST_PTR,
                     IARG_END);
             }
-            
+
         }
         if (RTN_Valid(rtn) && ".plt" == SEC_Name(RTN_Sec(rtn))) {
             INS_InsertCall(tail, IPOINT_BEFORE, (AFUNPTR)
@@ -312,7 +321,7 @@ VOID InstrumentTrace (TRACE trace, VOID* args) {
                     IARG_THREAD_ID,
                     IARG_REG_VALUE, REG_STACK_PTR,
                     IARG_END);
-        }        
+        }
     }
 }
 
@@ -349,7 +358,7 @@ VOID Fini(INT32 code, VOID* v)
     if (KeepMallocStackTrace.Value() == 1) {
         fclose(rtnNameMap);
         for (int i = 0; i < core_count; i++) {
-            if (btfiles[i] != NULL) 
+            if (btfiles[i] != NULL)
 #ifdef HAVE_LIBZ
                 gzclose(btfiles[i]);
 #else
@@ -385,7 +394,7 @@ VOID ReadCacheLine(uint64_t addr, uint64_t * data)
         if(copied_size !=8)
             fprintf(stderr, "ariel memory copy fail\n");
         fprintf(stderr,"addr:%lld data:%lld\n", addr, *(uint64_t*)data);
-        
+
 #else
         uint64_t addr_new = (addr>>6)<<6;
         int copied_size= PIN_SafeCopy((uint8_t*)data, (VOID*) addr_new, 64);
@@ -393,13 +402,13 @@ VOID ReadCacheLine(uint64_t addr, uint64_t * data)
             fprintf(stderr, "ariel memory copy fail\n");
 
 
-#ifdef COMP_DEBUG
-        for(int i=0;i<8;i++)
-        {
-
-            fprintf(stderr,"[PINTOOL] cacheline read [%d] addr:%llx data:%llx \n", i, addr_new+i*8, *(data+i));
-        }
-#endif
+//#ifdef COMP_DEBUG
+//        for(int i=0;i<8;i++)
+//        {
+//
+//            fprintf(stderr,"[PINTOOL] cacheline read [%d] addr:%llx data:%llx \n", i, addr_new+i*8, *(data+i));
+//        }
+//#endif
 
 
 #endif
@@ -408,12 +417,27 @@ VOID ReadCacheLine(uint64_t addr, uint64_t * data)
 VOID WriteInstructionRead(UINT64 addr, UINT32 size, THREADID thr, ADDRINT ip,
 	UINT32 instClass, UINT32 simdOpWidth) {
 
+	inst_cnt++;
+
+	if(inst_cnt<warmup_insts) {
+		enable_output = false;
+	}
+	else if(inst_cnt==warmup_insts) {
+		fprintf(stderr,"warmup inst_cnt[%lld]\n", inst_cnt);
+		enable_output = true;
+	}else if(inst_cnt>warmup_insts)
+	{
+
+		enable_output = true;
+	}
+
+
         if(thread_instr_id[thr].ip!=ip)
         {
             fprintf(stderr,"ip is mismatch\n");
             exit(-1);
         }
-	
+
 
         ArielCommand ac;
 
@@ -423,38 +447,61 @@ VOID WriteInstructionRead(UINT64 addr, UINT32 size, THREADID thr, ADDRINT ip,
         ac.inst.size = size;
 	ac.inst.instClass = instClass;
 	ac.inst.simdElemCount = simdOpWidth;
- 
+
         //assume that cache line size is 64B
-        uint64_t* data=(uint64_t*)malloc(sizeof(uint64_t)*8);
-        ReadCacheLine(addr, data);
-        for(int i=0;i<8;i++)
-        {
-            ac.inst.data[i]=*(data+i);
+
+		if(content_copy_en) {
+			uint64_t *data = (uint64_t *) malloc(sizeof(uint64_t) * 8);
+			ReadCacheLine(addr, data);
+			for (int i = 0; i < 8; i++) {
+				ac.inst.data[i] = *(data + i);
 #ifdef COMP_DEBUG
-            fprintf(stderr,"[PINTOOL] [%d] read addr:%llx data:%llx ac.inst.data:%llx\n", i, addr, *(data+i), ac.inst.data[i]);
+				fprintf(stderr,"[PINTOOL] [%d] read addr:%llx data:%llx ac.inst.data:%llx\n", i, addr, *(data+i), ac.inst.data[i]);
 #endif
-        }
-        
-        
+			}
+			free(data);
+		}
+
 
         //std::cout<<"addr: 0x"<<std::hex<<addr64
         //    <<"data: 0x"<<data<<" "
         //    <<"copied size: "<<copied_size<<std::endl;
 
-        
-        
+
+
         tunnel->writeMessage(thr, ac);
 }
 
 VOID WriteInstructionWrite(UINT64 addr, UINT32 size, THREADID thr, ADDRINT ip,
 	UINT32 instClass, UINT32 simdOpWidth) {
-         
+
+	inst_cnt++;
+
+	if(inst_cnt<warmup_insts) {
+		enable_output = false;
+	}
+	else if(inst_cnt==warmup_insts) {
+		fprintf(stderr,"warmup inst_cnt[%lld]\n", inst_cnt);
+		enable_output = true;
+	}else if(inst_cnt>warmup_insts)
+	{
+		enable_output = true;
+	}
+
+
+        if(thread_instr_id[thr].ip!=ip)
+        {
+            fprintf(stderr,"ip is mismatch\n");
+            exit(-1);
+        }
+
+
         if(thread_instr_id[thr].ip!=ip){
             fprintf(stderr,"ip is mismatch\n");
             exit(-1);
         }
-	
-	
+
+
         ArielCommand ac;
 
         ac.command = ARIEL_PERFORM_WRITE;
@@ -464,17 +511,19 @@ VOID WriteInstructionWrite(UINT64 addr, UINT32 size, THREADID thr, ADDRINT ip,
 	    ac.inst.instClass = instClass;
         ac.inst.simdElemCount = simdOpWidth;
 
-        //assume that cache line size is 64B
-        uint64_t* data=(uint64_t*)malloc(sizeof(uint64_t)*8);
-        ReadCacheLine(addr, data);
-        for(int i=0;i<8;i++)
-        {
-            ac.inst.data[i]=*(data+i);
-#ifdef COMP_DEBUG
-            fprintf(stderr,"[PINTOOL] [%d] write addr:%llx data:%llx ac.inst.data:%llx\n", i, addr, *(data+i), ac.inst.data[i]);
-#endif
+		if(content_copy_en) {
+			//assume that cache line size is 64B
+			uint64_t *data = (uint64_t *) malloc(sizeof(uint64_t) * 8);
+			ReadCacheLine(addr, data);
+			for (int i = 0; i < 8; i++) {
+				ac.inst.data[i] = *(data + i);
+//#ifdef COMP_DEBUG
+//            fprintf(stderr,"[PINTOOL] [%d] write addr:%llx data:%llx ac.inst.data:%llx\n", i, addr, *(data+i), ac.inst.data[i]);
+//#endif
 
-        }
+			}
+			free(data);
+		}
 
         tunnel->writeMessage(thr, ac);
 }
@@ -495,7 +544,7 @@ VOID WriteEndInstructionMarker(UINT32 thr, ADDRINT ip) {
 
 VOID WriteInstructionReadWrite(THREADID thr, ADDRINT ip, UINT32 instClass,
 	UINT32 simdOpWidth ) {
-    
+
         const uint64_t readAddr=(uint64_t) thread_instr_id[thr].raddr;
         const uint32_t readSize=(uint32_t) thread_instr_id[thr].rsize;
         const uint64_t writeAddr=(uint64_t) thread_instr_id[thr].waddr;
@@ -526,6 +575,19 @@ VOID WriteInstructionReadOnly(THREADID thr, ADDRINT ip,
 }
 
 VOID WriteNoOp(THREADID thr, ADDRINT ip) {
+	inst_cnt++;
+
+	if(inst_cnt<warmup_insts) {
+		enable_output = false;
+	}
+	else if(inst_cnt==warmup_insts) {
+		fprintf(stderr,"warmup inst_cnt[%lld]\n", inst_cnt);
+		enable_output = true;
+	}else if(inst_cnt>warmup_insts)
+	{
+		enable_output = true;
+	}
+
 	if(enable_output) {
 		if(thr < core_count) {
             		ArielCommand ac;
@@ -569,172 +631,171 @@ VOID InstrumentInstruction(INS ins, VOID *v)
 	UINT32 instClass       = ARIEL_INST_UNKNOWN;
 	UINT32 maxSIMDRegWidth = 1;
 
-	std::string instCode = INS_Mnemonic(ins);
 
-	for(UINT32 i = 0; i < INS_MaxNumRRegs(ins); i++) {
-		if( REG_is_xmm(INS_RegR(ins, i)) ) {
-			maxSIMDRegWidth = ARIEL_MAX(maxSIMDRegWidth, 2);
-		} else if ( REG_is_ymm(INS_RegR(ins, i)) ) {
-			maxSIMDRegWidth = ARIEL_MAX(maxSIMDRegWidth, 4);
-		} else if ( REG_is_zmm(INS_RegR(ins, i)) ) {
-			maxSIMDRegWidth = ARIEL_MAX(maxSIMDRegWidth, 8);
-		}
-	}
+		std::string instCode = INS_Mnemonic(ins);
 
-	for(UINT32 i = 0; i < INS_MaxNumWRegs(ins); i++) {
-		if( REG_is_xmm(INS_RegW(ins, i)) ) {
-			maxSIMDRegWidth = ARIEL_MAX(maxSIMDRegWidth, 2);
-		} else if ( REG_is_ymm(INS_RegW(ins, i)) ) {
-			maxSIMDRegWidth = ARIEL_MAX(maxSIMDRegWidth, 4);
-		} else if ( REG_is_zmm(INS_RegW(ins, i)) ) {
-			maxSIMDRegWidth = ARIEL_MAX(maxSIMDRegWidth, 8);
-		}
-	}
-
-	if( instCode.size() > 1 ) {
-		std::string prefix = "";
-
-		if( instCode.size() > 2) {
-			prefix = instCode.substr(0, 3);
-		}
-
-		std::string suffix = instCode.substr(instCode.size() - 2);
-
-		if("MOV" == prefix || "mov" == prefix) {
-			// Do not found MOV as an FP instruction?
-			simdOpWidth = 1;
-		} else {
-			if( (suffix == "PD") || (suffix == "pd") ) {
-				simdOpWidth = maxSIMDRegWidth;
-				instClass = ARIEL_INST_DP_FP;
-			} else if( (suffix == "PS") || (suffix == "ps") ) {
-				simdOpWidth = maxSIMDRegWidth * 2;
-				instClass = ARIEL_INST_SP_FP;
-			} else if( (suffix == "SD") || (suffix == "sd") ) {
-				simdOpWidth = 1;
-				instClass = ARIEL_INST_DP_FP;
-			} else if ( (suffix == "SS") || (suffix == "ss") ) {
-				simdOpWidth = 1;
-				instClass = ARIEL_INST_SP_FP;
-			} else {
-				simdOpWidth = 1;
+		for (UINT32 i = 0; i < INS_MaxNumRRegs(ins); i++) {
+			if (REG_is_xmm(INS_RegR(ins, i))) {
+				maxSIMDRegWidth = ARIEL_MAX(maxSIMDRegWidth, 2);
+			} else if (REG_is_ymm(INS_RegR(ins, i))) {
+				maxSIMDRegWidth = ARIEL_MAX(maxSIMDRegWidth, 4);
+			} else if (REG_is_zmm(INS_RegR(ins, i))) {
+				maxSIMDRegWidth = ARIEL_MAX(maxSIMDRegWidth, 8);
 			}
 		}
-	}
 
-	if( INS_IsMemoryRead(ins) && INS_IsMemoryWrite(ins) ) {
-		INS_InsertPredicatedCall(ins, IPOINT_BEFORE, (AFUNPTR)
-			RecordAddrSize,
-			IARG_THREAD_ID,
-			IARG_MEMORYREAD_EA, IARG_UINT32, INS_MemoryReadSize(ins),
-			IARG_MEMORYWRITE_EA, IARG_UINT32, INS_MemoryWriteSize(ins),
-			IARG_INST_PTR,
-                        IARG_END);	
-
-                if(INS_HasFallThrough(ins))
-                {
-                     INS_InsertPredicatedCall(ins, IPOINT_AFTER, (AFUNPTR)
-			WriteInstructionReadWrite,
-			IARG_THREAD_ID,
-			IARG_INST_PTR,
-			IARG_UINT32, instClass,
-			IARG_UINT32, simdOpWidth,
-			IARG_END);
-                }
-                else if(INS_IsBranchOrCall(ins))
-                {
-                      INS_InsertPredicatedCall(ins, IPOINT_TAKEN_BRANCH, (AFUNPTR)
-			WriteInstructionReadWrite,
-			IARG_THREAD_ID,
-			IARG_INST_PTR,
-			IARG_UINT32, instClass,
-			IARG_UINT32, simdOpWidth,
-                        IARG_END);
-                }
-
-	} else if( INS_IsMemoryRead(ins) ) {
-		INS_InsertPredicatedCall(ins, IPOINT_BEFORE, (AFUNPTR)
-			RecordAddrSize,
-			IARG_THREAD_ID,
-			IARG_MEMORYREAD_EA, IARG_UINT32, INS_MemoryReadSize(ins),
-			IARG_MEMORYREAD_EA, IARG_UINT32, INS_MemoryReadSize(ins),
-                        IARG_INST_PTR,
-                        IARG_END);	
-	
-                if(INS_HasFallThrough(ins))
-                    INS_InsertPredicatedCall(ins, IPOINT_AFTER, (AFUNPTR)
-			WriteInstructionReadOnly,
-			IARG_THREAD_ID,
-			IARG_INST_PTR,
-			IARG_UINT32, instClass,
-			IARG_UINT32, simdOpWidth,
-			IARG_END);
-
-                else if(INS_IsBranchOrCall(ins))
-                    INS_InsertPredicatedCall(ins, IPOINT_TAKEN_BRANCH, (AFUNPTR)
-			WriteInstructionReadOnly,
-			IARG_THREAD_ID,
-			IARG_INST_PTR,
-			IARG_UINT32, instClass,
-			IARG_UINT32, simdOpWidth,
-			IARG_END);
-	} else if( INS_IsMemoryWrite(ins) ) {
-		INS_InsertPredicatedCall(ins, IPOINT_BEFORE, (AFUNPTR)
-			RecordAddrSize,
-			IARG_THREAD_ID,
-                        IARG_MEMORYWRITE_EA, IARG_UINT32, INS_MemoryWriteSize(ins),
-                        IARG_MEMORYWRITE_EA, IARG_UINT32, INS_MemoryWriteSize(ins),
-			IARG_INST_PTR,
-                        IARG_END);	
-	
-                if(INS_HasFallThrough(ins))
-                     INS_InsertPredicatedCall(ins, IPOINT_AFTER, (AFUNPTR)
-			WriteInstructionWriteOnly,
-			IARG_THREAD_ID,
-			IARG_INST_PTR,
-			IARG_UINT32, instClass,
-			IARG_UINT32, simdOpWidth,
-			IARG_END);
-                else if(INS_IsBranchOrCall(ins))
-                      INS_InsertPredicatedCall(ins, IPOINT_TAKEN_BRANCH, (AFUNPTR)
-			WriteInstructionWriteOnly,
-			IARG_THREAD_ID,
-			IARG_INST_PTR,
-			IARG_UINT32, instClass,
-			IARG_UINT32, simdOpWidth,
-			IARG_END);
-
-	} else {
-		INS_InsertPredicatedCall(ins, IPOINT_BEFORE, (AFUNPTR)
-			WriteNoOp,
-			IARG_THREAD_ID,
-			IARG_INST_PTR,
-			IARG_END);
-	}
-
-	if(funcProfileLevel > 0) {
-		RTN rtn = INS_Rtn(ins);
-		std::string rtn_name = "Unknown Function";
-
-		if(RTN_Valid(rtn)) {
-			rtn_name = RTN_Name(rtn);
+		for (UINT32 i = 0; i < INS_MaxNumWRegs(ins); i++) {
+			if (REG_is_xmm(INS_RegW(ins, i))) {
+				maxSIMDRegWidth = ARIEL_MAX(maxSIMDRegWidth, 2);
+			} else if (REG_is_ymm(INS_RegW(ins, i))) {
+				maxSIMDRegWidth = ARIEL_MAX(maxSIMDRegWidth, 4);
+			} else if (REG_is_zmm(INS_RegW(ins, i))) {
+				maxSIMDRegWidth = ARIEL_MAX(maxSIMDRegWidth, 8);
+			}
 		}
 
-    		std::map<std::string, ArielFunctionRecord*>::iterator checkExists =
-    			funcProfile.find(rtn_name);
-    		ArielFunctionRecord* funcRecord = NULL;
+		if (instCode.size() > 1) {
+			std::string prefix = "";
 
-    		if(checkExists == funcProfile.end()) {
-			funcRecord = new ArielFunctionRecord();
-    			funcProfile.insert( std::pair<std::string, ArielFunctionRecord*>(rtn_name,
-    				funcRecord) );
-    		} else {
-    			funcRecord = checkExists->second;
-    		}
+			if (instCode.size() > 2) {
+				prefix = instCode.substr(0, 3);
+			}
 
-    		INS_InsertPredicatedCall(ins, IPOINT_BEFORE, (AFUNPTR) IncrementFunctionRecord,
-	    		IARG_PTR, (void*) funcRecord, IARG_END);
-	}
+			std::string suffix = instCode.substr(instCode.size() - 2);
+
+			if ("MOV" == prefix || "mov" == prefix) {
+				// Do not found MOV as an FP instruction?
+				simdOpWidth = 1;
+			} else {
+				if ((suffix == "PD") || (suffix == "pd")) {
+					simdOpWidth = maxSIMDRegWidth;
+					instClass = ARIEL_INST_DP_FP;
+				} else if ((suffix == "PS") || (suffix == "ps")) {
+					simdOpWidth = maxSIMDRegWidth * 2;
+					instClass = ARIEL_INST_SP_FP;
+				} else if ((suffix == "SD") || (suffix == "sd")) {
+					simdOpWidth = 1;
+					instClass = ARIEL_INST_DP_FP;
+				} else if ((suffix == "SS") || (suffix == "ss")) {
+					simdOpWidth = 1;
+					instClass = ARIEL_INST_SP_FP;
+				} else {
+					simdOpWidth = 1;
+				}
+			}
+		}
+
+		if (INS_IsMemoryRead(ins) && INS_IsMemoryWrite(ins)) {
+			INS_InsertPredicatedCall(ins, IPOINT_BEFORE, (AFUNPTR)
+											 RecordAddrSize,
+									 IARG_THREAD_ID,
+									 IARG_MEMORYREAD_EA, IARG_UINT32, INS_MemoryReadSize(ins),
+									 IARG_MEMORYWRITE_EA, IARG_UINT32, INS_MemoryWriteSize(ins),
+									 IARG_INST_PTR,
+									 IARG_END);
+
+			if (INS_HasFallThrough(ins)) {
+				INS_InsertPredicatedCall(ins, IPOINT_AFTER, (AFUNPTR)
+												 WriteInstructionReadWrite,
+										 IARG_THREAD_ID,
+										 IARG_INST_PTR,
+										 IARG_UINT32, instClass,
+										 IARG_UINT32, simdOpWidth,
+										 IARG_END);
+			} else if (INS_IsBranchOrCall(ins)) {
+				INS_InsertPredicatedCall(ins, IPOINT_TAKEN_BRANCH, (AFUNPTR)
+												 WriteInstructionReadWrite,
+										 IARG_THREAD_ID,
+										 IARG_INST_PTR,
+										 IARG_UINT32, instClass,
+										 IARG_UINT32, simdOpWidth,
+										 IARG_END);
+			}
+
+		} else if (INS_IsMemoryRead(ins)) {
+			INS_InsertPredicatedCall(ins, IPOINT_BEFORE, (AFUNPTR)
+											 RecordAddrSize,
+									 IARG_THREAD_ID,
+									 IARG_MEMORYREAD_EA, IARG_UINT32, INS_MemoryReadSize(ins),
+									 IARG_MEMORYREAD_EA, IARG_UINT32, INS_MemoryReadSize(ins),
+									 IARG_INST_PTR,
+									 IARG_END);
+
+			if (INS_HasFallThrough(ins))
+				INS_InsertPredicatedCall(ins, IPOINT_AFTER, (AFUNPTR)
+												 WriteInstructionReadOnly,
+										 IARG_THREAD_ID,
+										 IARG_INST_PTR,
+										 IARG_UINT32, instClass,
+										 IARG_UINT32, simdOpWidth,
+										 IARG_END);
+
+			else if (INS_IsBranchOrCall(ins))
+				INS_InsertPredicatedCall(ins, IPOINT_TAKEN_BRANCH, (AFUNPTR)
+												 WriteInstructionReadOnly,
+										 IARG_THREAD_ID,
+										 IARG_INST_PTR,
+										 IARG_UINT32, instClass,
+										 IARG_UINT32, simdOpWidth,
+										 IARG_END);
+		} else if (INS_IsMemoryWrite(ins)) {
+			INS_InsertPredicatedCall(ins, IPOINT_BEFORE, (AFUNPTR)
+											 RecordAddrSize,
+									 IARG_THREAD_ID,
+									 IARG_MEMORYWRITE_EA, IARG_UINT32, INS_MemoryWriteSize(ins),
+									 IARG_MEMORYWRITE_EA, IARG_UINT32, INS_MemoryWriteSize(ins),
+									 IARG_INST_PTR,
+									 IARG_END);
+
+			if (INS_HasFallThrough(ins))
+				INS_InsertPredicatedCall(ins, IPOINT_AFTER, (AFUNPTR)
+												 WriteInstructionWriteOnly,
+										 IARG_THREAD_ID,
+										 IARG_INST_PTR,
+										 IARG_UINT32, instClass,
+										 IARG_UINT32, simdOpWidth,
+										 IARG_END);
+			else if (INS_IsBranchOrCall(ins))
+				INS_InsertPredicatedCall(ins, IPOINT_TAKEN_BRANCH, (AFUNPTR)
+												 WriteInstructionWriteOnly,
+										 IARG_THREAD_ID,
+										 IARG_INST_PTR,
+										 IARG_UINT32, instClass,
+										 IARG_UINT32, simdOpWidth,
+										 IARG_END);
+
+		} else {
+			INS_InsertPredicatedCall(ins, IPOINT_BEFORE, (AFUNPTR)
+											 WriteNoOp,
+									 IARG_THREAD_ID,
+									 IARG_INST_PTR,
+									 IARG_END);
+		}
+
+		if (funcProfileLevel > 0) {
+			RTN rtn = INS_Rtn(ins);
+			std::string rtn_name = "Unknown Function";
+
+			if (RTN_Valid(rtn)) {
+				rtn_name = RTN_Name(rtn);
+			}
+
+			std::map<std::string, ArielFunctionRecord *>::iterator checkExists =
+					funcProfile.find(rtn_name);
+			ArielFunctionRecord *funcRecord = NULL;
+
+			if (checkExists == funcProfile.end()) {
+				funcRecord = new ArielFunctionRecord();
+				funcProfile.insert(std::pair<std::string, ArielFunctionRecord *>(rtn_name,
+																				 funcRecord));
+			} else {
+				funcRecord = checkExists->second;
+			}
+
+			INS_InsertPredicatedCall(ins, IPOINT_BEFORE, (AFUNPTR) IncrementFunctionRecord,
+									 IARG_PTR, (void *) funcRecord, IARG_END);
+		}
+
 }
 
 void mapped_ariel_enable() {
@@ -948,7 +1009,7 @@ VOID ariel_premalloc_instrument(ADDRINT allocSize, ADDRINT ip) {
 }
 
 VOID ariel_postmalloc_instrument(ADDRINT allocLocation) {
-    if(lastMallocSize >= 0) {
+    if(lastMallocSize != NULL) {
         THREADID currentThread = PIN_ThreadId();
         UINT32 thr = (UINT32) currentThread;
 		
@@ -1120,7 +1181,8 @@ int main(int argc, char *argv[])
     if(SSTVerbosity.Value() > 0) {
         std::cout << "SSTARIEL: Loading Ariel Tool to connect to SST on pipe: " <<
             SSTNamedPipe.Value() << " max instruction count: " <<
-            MaxInstructions.Value() <<
+            MaxInstructions.Value() << " warmup instruction count: " <<
+            WarmupInstructions.Value() <<
             " max core count: " << MaxCoreCount.Value() << std::endl;
     }
 
@@ -1200,7 +1262,8 @@ int main(int argc, char *argv[])
 //    enable_memcomp = MemCompProfile.value();
  //   memcomp_tracefile = MemCompTraceName();
   //  memcomp_interval = MemCompTraceInterval();
-
+    warmup_insts = WarmupInstructions.Value();
+	std::cout<<"warmup_insts: "<<warmup_insts<<std::endl;
 
     INS_AddInstrumentFunction(InstrumentInstruction, 0);
     RTN_AddInstrumentFunction(InstrumentRoutine, 0);

@@ -204,20 +204,19 @@ def genMemHierarchy(cores):
    L3MemCtrlLink.connect((l3, "low_network_0", busLat), (memory, "direct_link", busLat))
 
     # txn gen --> memHierarchy Bridge
-   comp_memhBridge = sst.Component("memh_bridge", "CramSim.c_MemhBridgeContent")
+   comp_memhBridge = sst.Component("memh_bridge", "CramSim.c_MemhBridge")
    comp_memhBridge.addParams(g_params);
    comp_memhBridge.addParams({
                         "verbose" : verbose,
-			"memsize" : 512*1024*1024,
-			"memory_file" : "memback",
                         "numTxnPerCycle" : g_params["numChannels"],
                         "strTxnTraceFile" : "arielTrace",
                         "boolPrintTxnTrace" : "1"
                         })
    # controller
-   comp_controller0 = sst.Component("MemController0", "CramSim.c_Controller")
+   comp_controller0 = sst.Component("MemController0", "CramSim.c_ControllerPCA")
    comp_controller0.addParams(g_params)
    comp_controller0.addParams({
+			"backing_size" : 512*1024*1024,
                         "verbose" : "0",
 			"TxnConverter" : "CramSim.c_TxnConverter",
 			"AddrMapper" : "CramSim.c_AddressHasher",
@@ -239,7 +238,7 @@ def genMemHierarchy(cores):
    memHLink = sst.Link("memHLink_1")
    memHLink.connect( (comp_memhBridge, "memLink", g_params["clockCycle"]), (comp_controller0, "txngenLink", g_params["clockCycle"]) )
    memHLink2 = sst.Link("memHLink_2")
-   memHLink2.connect((comp_memhBridge, "contentLink", g_params["clockCycle"]), (ariel, "linkMemContent",g_params["clockCycle"]));
+   memHLink2.connect((comp_controller0, "contentLink", g_params["clockCycle"]), (ariel, "linkMemContent",g_params["clockCycle"]));
 
    # Controller <-> Dimm
    cmdLink = sst.Link("cmdLink_1")

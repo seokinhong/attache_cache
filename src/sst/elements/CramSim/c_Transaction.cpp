@@ -36,14 +36,19 @@
 using namespace SST;
 using namespace SST::n_Bank;
 
-c_Transaction::c_Transaction(ulong x_seqNum, e_TransactionType x_txnMnemonic,
+c_Transaction::c_Transaction(uint64_t x_seqNum, e_TransactionType x_txnMnemonic,
 			     ulong x_addr, unsigned x_dataWidth) :
 		m_seqNum(x_seqNum), m_txnMnemonic(x_txnMnemonic), m_addr(x_addr), m_isResponseReady(
 				false), m_numWaitingCommands(0), m_dataWidth(x_dataWidth), m_processed(
 				false) {
        
 	m_hasHashedAddr= false;
-
+	m_helper=NULL;
+	m_helper_flag=false;
+	m_skip_metadata_lookup=false;
+	m_isResponseRequired=true;
+	m_chipAccessRatio=1;
+	m_compressed_size=-1;
 }
 
 void c_Transaction::setWaitingCommands(const unsigned x_numWaitingCommands) {
@@ -87,7 +92,7 @@ ulong c_Transaction::getSeqNum() const {
 	return (m_seqNum);
 }
 
-bool c_Transaction::matchesCmdSeqNum(ulong x_seqNum) {
+bool c_Transaction::matchesCmdSeqNum(uint64_t x_seqNum) {
   return(std::find(m_cmdSeqNumList.begin(), m_cmdSeqNumList.end(), x_seqNum)
 	 != m_cmdSeqNumList.end());
 }
@@ -95,6 +100,7 @@ bool c_Transaction::matchesCmdSeqNum(ulong x_seqNum) {
 void c_Transaction::addCommandPtr(c_BankCommand* x_cmdPtr) {
   //m_cmdPtrList.push_back(x_cmdPtr);
   m_cmdSeqNumList.push_back(x_cmdPtr->getSeqNum());
+
 }
 
 unsigned c_Transaction::getDataWidth() const {
@@ -122,7 +128,7 @@ void c_Transaction::print() const {
 
 
 void c_Transaction::print(SST::Output *x_output, const std::string x_prefix, SimTime_t x_cycle) const {
-	x_output->verbosePrefix(x_prefix.c_str(),CALL_INFO,1,0,"Cycle:%lld Cmd:%s seqNum: %llu addr:0x%lx CH:%d PCH:%d Rank:%d BG:%d B:%d Row:%d Col:%d BankId:%d\n",
+	x_output->verbosePrefix(x_prefix.c_str(),CALL_INFO,1,0,"Cycle:%lld Cmd:%s seqNum: %llu addr:0x%lx CH:%d PCH:%d Rank:%d BG:%d B:%d Row:%d Col:%d BankId:%d isHelper?:%d\n",
 				  x_cycle,
 				  getTransactionString().c_str(),
 					m_seqNum,
@@ -134,8 +140,14 @@ void c_Transaction::print(SST::Output *x_output, const std::string x_prefix, Sim
 				  getHashedAddress().getBank(),
 				  getHashedAddress().getRow(),
 				  getHashedAddress().getCol(),
-				  getHashedAddress().getBankId()
+				  getHashedAddress().getBankId(),
+							m_helper_flag
 	);
+	/*if(m_cmdSeqNumList.size()>0) {
+		for (auto &seq : m_cmdSeqNumList) {
+			x_output->verbosePrefix(x_prefix.c_str(), CALL_INFO, 1, 0, "Cmd Seq:%lld\n", seq);
+		}
+	}*/
 }
 
 void c_Transaction::serialize_order(SST::Core::Serialization::serializer &ser)

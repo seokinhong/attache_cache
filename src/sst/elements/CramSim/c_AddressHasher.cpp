@@ -293,7 +293,7 @@ void c_AddressHasher::fillHashedAddress(c_HashedAddress *x_hashAddr, const ulong
   
   //channel
   auto l_bitPos = m_bitPositions.find("C");
-  if(l_bitPos == m_bitPositions.end()) { // not found
+  if(l_bitPos == m_bitPositions.end()|| k_pNumChannels==1) { // not found
     x_hashAddr->setChannel(0);
   } else {
     l_cur=0;
@@ -308,7 +308,7 @@ void c_AddressHasher::fillHashedAddress(c_HashedAddress *x_hashAddr, const ulong
 
   //pseudo channel
    l_bitPos = m_bitPositions.find("c");
-  if(l_bitPos == m_bitPositions.end()) { // not found
+  if(l_bitPos == m_bitPositions.end() || k_pNumPseudoChannels==1) { // not found
     x_hashAddr->setPChannel(0);
   } else {
     l_cur=0;
@@ -323,7 +323,7 @@ void c_AddressHasher::fillHashedAddress(c_HashedAddress *x_hashAddr, const ulong
 
   //rank
   l_bitPos = m_bitPositions.find("R");
-  if(l_bitPos == m_bitPositions.end()) { // not found
+  if(l_bitPos == m_bitPositions.end() || k_pNumRanks==1) { // not found
     x_hashAddr->setRank(0);
   } else {
     l_cur=0;

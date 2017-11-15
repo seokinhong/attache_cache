@@ -37,7 +37,7 @@ libariel_la_SOURCES = \
 	arielgzbintracegen.h
 
 EXTRA_DIST = \
-	frontend/simple/fesimple.cc \
+	frontend/simple/fesimple_new.cc \
 	frontend/simple/examples/multicore.py \
 	frontend/simple/examples/stream/Makefile \
 	frontend/simple/examples/stream/Makefile \
@@ -66,7 +66,7 @@ libexec_PROGRAMS =
 
 if SST_COMPILE_OSX
 
-all-local: frontend/simple/fesimple.cc
+all-local: frontend/simple/fesimple_new.cc
 	$(CXX) -O3 -shared \
 	$(CXXFLAGS) \
 	$(CPPFLAGS) \
@@ -87,7 +87,7 @@ all-local: frontend/simple/fesimple.cc
 	-L$(PINTOOL_DIR)/intel64/lib \
 	-L$(PINTOOL_DIR)/intel64/lib-ext \
 	-L$(PINTOOL_DIR)/extras/xed-intel64/lib \
-	-o fesimple.dylib $(top_srcdir)/src/sst/elements/ariel/frontend/simple/fesimple.cc \
+	-o fesimple.dylib $(top_srcdir)/src/sst/elements/ariel/frontend/simple/fesimple_new.cc \
 	-stdlib=libstdc++ \
 	-lpin -lxed -lpindwarf -lpthread $(LIBZ_LDFLAGS) $(LIBZ_LIB)
 
@@ -118,7 +118,7 @@ all-local:
 	-L$(PINTOOL_DIR)/intel64/lib-ext \
 	-L$(PINTOOL_DIR)/intel64/runtime/glibc \
 	-L$(PINTOOL_DIR)/extras/xed-intel64/lib \
-	-o fesimple.so $(top_srcdir)/src/sst/elements/ariel/frontend/simple/fesimple.cc \
+	-o fesimple.so $(top_srcdir)/src/sst/elements/ariel/frontend/simple/fesimple_new.cc \
 	-ldl -lpin -lxed -lpindwarf -ldl -lpthread -lrt $(LIBZ_LDFLAGS) $(LIBZ_LIB)
 
 

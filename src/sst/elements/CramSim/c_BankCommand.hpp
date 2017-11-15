@@ -62,15 +62,26 @@ private:
 	ulong    m_addr;
 	unsigned m_row;
 	unsigned m_bankId;
+	c_Transaction* m_txn;
+	uint64_t m_txnSeqNum;
+	bool m_helperFlag;
 	std::vector<unsigned> m_bankIdVec;
 	e_BankCommandType m_cmdMnemonic;
 	std::map<e_BankCommandType, std::string> m_cmdToString;
 	bool m_isResponseReady;
         bool m_isRefreshType; // REF and PRE commands treated specially for printing cmd trace
 	c_HashedAddress m_hashedAddr;
+	double m_chipAccessRatio;
 
 public:
-
+//	bool setTxn(c_Transaction* txn){m_txn=txn;}
+	bool setTxnSeqNum(uint64_t num){m_txnSeqNum=num;}
+	void setHelper(){m_helperFlag=true;}
+	bool isHelper(){return m_helperFlag;}
+	        void setChipAccessRatio(double chipAccessRatio){m_chipAccessRatio=chipAccessRatio;}
+        double getChipAccessRatio(){return m_chipAccessRatio;}
+	//c_Transaction* getTransaction(){return m_txn;}
+		uint64_t getTxnSeqNum(){return m_txnSeqNum;}
 	//    friend std::ostream& operator<< (std::ostream& x_stream, const c_BankCommand& x_bankCommand);
 
 	explicit c_BankCommand(unsigned x_seqNum, e_BankCommandType x_cmdType,
@@ -118,7 +129,7 @@ public:
 		m_isResponseReady = true;
 	}
 
-	inline unsigned getSeqNum() const
+	inline uint64_t getSeqNum() const
 	{
 		return (m_seqNum);
 	}

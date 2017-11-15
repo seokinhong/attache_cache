@@ -39,6 +39,7 @@ enum ArielPageMappingPolicy {
 	RANDOMIZED
 };
 
+
 class ArielMemoryManager : public SubComponent {
 
 	public:
@@ -122,6 +123,8 @@ class ArielMemoryManager : public SubComponent {
 		std::unordered_map<uint64_t, uint64_t>* translationCache;
 		uint32_t translationCacheEntries;
 		bool translationEnabled;
+        int ownerid;
+
 	        ArielPageMappingPolicy mapPolicy;
 
                 void mapPagesLinear(uint64_t pageCount, uint64_t pageSize, uint64_t startAddr, std::deque<uint64_t>* freePagePool) {
@@ -142,7 +145,7 @@ class ArielMemoryManager : public SubComponent {
                     /* Randomize page ordering */
                     std::vector<uint64_t> preRandomizedPages;
                     preRandomizedPages.resize(pageCount);
-                    MarsagliaRNG pageRandomizer(11, 201010101);
+                    MarsagliaRNG pageRandomizer(11+ownerid, 201010101);
                                     
                     for(uint64_t j = 0; j < pageCount; ++j) {
                         preRandomizedPages[j] = nextMemoryAddress;

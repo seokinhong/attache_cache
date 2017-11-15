@@ -27,7 +27,8 @@ namespace SST {
         ~c_CompressEngine();
 
         uint32_t getCompressedSize(uint8_t *cacheline, COMP_ALG comp_alg);
-        uint32_t getDataSize(uint64_t data);
+        uint32_t getDataSize(int64_t data);
+        int64_t getSignedExtension(int64_t data, uint32_t size);
 
 
         private:

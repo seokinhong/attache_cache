@@ -76,7 +76,9 @@ libCramSim_la_SOURCES = \
         c_MemhBridgeContent.cpp \
         c_MemhBridgeContent.hpp \
         c_CompressEngine.cpp \
-        c_CompressEngine.hpp 
+        c_CompressEngine.hpp \
+        c_ControllerPCA.cpp \
+        c_ControllerPCA.hpp
 
 EXTRA_DIST = \
 	README \

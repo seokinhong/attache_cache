@@ -112,6 +112,8 @@ private:
 	int m_numBanks;
 	int m_numRanks;
 
+	bool pca_mode;
+
     SimTime_t m_simCycle;
 	std::vector<c_Bank*> m_banks;
 
@@ -125,6 +127,7 @@ private:
 	Statistic<uint64_t>* s_writeACmdsRecvd;
 	Statistic<uint64_t>* s_preCmdsRecvd;
 	Statistic<uint64_t>* s_refCmdsRecvd;
+
 
 	std::vector<uint64_t> m_actCmdsRecvd;
 	std::vector<uint64_t> m_readCmdsRecvd;

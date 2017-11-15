@@ -46,6 +46,7 @@
 #include "c_Dimm.hpp"
 #include "c_CmdReqEvent.hpp"
 #include "c_CmdResEvent.hpp"
+#include "c_Transaction.hpp"
 
 using namespace SST;
 using namespace SST::n_Bank;
@@ -112,6 +113,13 @@ c_Dimm::c_Dimm(SST::ComponentId_t x_id, SST::Params& x_params) :
 				  << std::endl;
 	}
 
+
+	pca_mode=x_params.find<bool>("pca_enable",false);
+	if(pca_mode)
+	{
+		assert(k_numRanksPerChannel==1);
+		k_numRanksPerChannel=2;
+	}
 
 	m_numRanks = k_numChannels * k_numPChannelsPerChannel * k_numRanksPerChannel;
 	m_numBanks = m_numRanks* k_numBankGroupsPerRank * k_numBanksPerBankGroup;
@@ -310,6 +318,8 @@ bool c_Dimm::clockTic(SST::Cycle_t) {
 	return false;
 }
 
+uint64_t skip_pre=0;
+uint64_t skip_act=0;
 void c_Dimm::handleInCmdUnitReqPtrEvent(SST::Event *ev) {
 
 	c_CmdReqEvent* l_cmdReqEventPtr = dynamic_cast<c_CmdReqEvent*>(ev);
@@ -317,39 +327,60 @@ void c_Dimm::handleInCmdUnitReqPtrEvent(SST::Event *ev) {
 
 		c_BankCommand* l_cmdReq = l_cmdReqEventPtr->m_payload;
 		unsigned l_rank=l_cmdReq->getHashedAddress()->getRankId();
-		assert(l_rank<m_numRanks);
+		//assert(l_rank<m_numRanks);
+	//	std::cerr<<"l_rank: "<<l_rank<<" m_numrank: "<<m_numRanks<<std::endl;
+		bool event_cnt=true;
 
-		switch(l_cmdReq->getCommandMnemonic()) {
-		case e_BankCommandType::ACT:
-		  s_actCmdsRecvd->addData(1);
-				m_actCmdsRecvd[l_rank]+=1;
-		  break;
-		case e_BankCommandType::READ:
-		  s_readCmdsRecvd->addData(1);
-				m_readCmdsRecvd[l_rank]+=1;
-		  break;
-		case e_BankCommandType::READA:
-		  s_readACmdsRecvd->addData(1);
-				m_readACmdsRecvd[l_rank]+=1;
-				break;
-		case e_BankCommandType::WRITE:
-		  s_writeCmdsRecvd->addData(1);
-				m_writeCmdsRecvd[l_rank]+=1;
-		  break;
-		case e_BankCommandType::WRITEA:
-		  s_writeACmdsRecvd->addData(1);
-				m_writeACmdsRecvd[l_rank]+=1;
-		  break;
-		case e_BankCommandType::PRE:
-		  s_preCmdsRecvd->addData(1);
-				m_preCmdsRecvd[l_rank]+=1;
-		  break;
-		case e_BankCommandType::REF:
-		  s_refCmdsRecvd->addData(1);
-				m_refCmdsRecvd[l_rank]+=1;
-		  break;
+		//c_Transaction* txn=l_cmdReq->getTransaction();
+		if(pca_mode) {
+		//	printf("txnseq:%lld cmdseq:%lld\n", l_cmdReq->getTxnSeqNum(), l_cmdReq->getSeqNum());
+
+			if (l_cmdReq->isHelper()) {
+				event_cnt = false;
+				if (l_cmdReq->getCommandMnemonic() == e_BankCommandType::PRE) {
+					skip_pre++;
+			//		printf("skip pre cnt:%lld txnseq:%lld cmdseq:%lld\n", skip_pre, l_cmdReq->getTxnSeqNum(),
+			//			   l_cmdReq->getSeqNum());
+				} else if (l_cmdReq->getCommandMnemonic() == e_BankCommandType::ACT) {
+					skip_act++;
+			//		printf("skip act cnt:%lld txnseq:%lld cmdseq:%lld\n", skip_act, l_cmdReq->getTxnSeqNum(),
+			//			   l_cmdReq->getSeqNum());
+				}
+			}
 		}
 
+		if(event_cnt==true) {
+			switch (l_cmdReq->getCommandMnemonic()) {
+				case e_BankCommandType::ACT:
+					s_actCmdsRecvd->addData(1);
+					m_actCmdsRecvd[l_rank] += 1;
+					break;
+				case e_BankCommandType::READ:
+					s_readCmdsRecvd->addData(1);
+					m_readCmdsRecvd[l_rank] += 1;
+					break;
+				case e_BankCommandType::READA:
+					s_readACmdsRecvd->addData(1);
+					m_readACmdsRecvd[l_rank] += 1;
+					break;
+				case e_BankCommandType::WRITE:
+					s_writeCmdsRecvd->addData(1);
+					m_writeCmdsRecvd[l_rank] += 1;
+					break;
+				case e_BankCommandType::WRITEA:
+					s_writeACmdsRecvd->addData(1);
+					m_writeACmdsRecvd[l_rank] += 1;
+					break;
+				case e_BankCommandType::PRE:
+					s_preCmdsRecvd->addData(1);
+					m_preCmdsRecvd[l_rank] += 1;
+					break;
+				case e_BankCommandType::REF:
+					s_refCmdsRecvd->addData(1);
+					m_refCmdsRecvd[l_rank] += 1;
+					break;
+			}
+		}
 		sendToBank(l_cmdReq);
 
 		if(k_boolPowerCalc)
@@ -366,29 +397,60 @@ void c_Dimm::updateDynamicEnergy(c_BankCommand* x_bankCommandPtr)
 {
 	double_t l_energy=0;
 	int l_rank = x_bankCommandPtr->getHashedAddress()->getRankId();
-	assert(l_rank<m_numRanks);
+
+	double_t energy_scale =1;
+	//c_Transaction* txn=x_bankCommandPtr->getTransaction();
+
+	if(pca_mode)
+	{
+		if(!x_bankCommandPtr->isHelper()) {
+
+			if(x_bankCommandPtr->getCommandMnemonic()==e_BankCommandType::REF)
+			{
+				energy_scale=0.5;
+			}
+			else
+			{
+				int chipAccessRatio = x_bankCommandPtr->getChipAccessRatio();
+				if (chipAccessRatio <= 25)
+					energy_scale = 0.25;
+				else if (chipAccessRatio <= 50)
+					energy_scale = 0.5;
+				else if (chipAccessRatio <= 75)
+					energy_scale = 0.75;
+				else
+					energy_scale = 1;
+			}
+		}
+		else
+			energy_scale=0;
+	}
+
+   // std::cout<<"l_rank: "<<l_rank<<" m_numrank: "<<m_numRanks<<std::endl;
+	if(!pca_mode)
+		assert(l_rank<m_numRanks);
 
 	switch(x_bankCommandPtr->getCommandMnemonic()) {
 		case e_BankCommandType::ACT:
 			l_energy = ((k_IDD0 * (k_nRAS+k_nRP))-((k_IDD3N * k_nRAS) + (k_IDD2N * (k_nRP)))) * k_VDD * k_numDevices; //active and precharge
-			m_actpreEnergy[l_rank]+=l_energy;
+			m_actpreEnergy[l_rank]+=(l_energy*energy_scale);
 			break;
 		case e_BankCommandType::READ:
 		case e_BankCommandType::READA:
 			l_energy = ((k_IDD4R-k_IDD3N) * k_nBL) * k_VDD * k_numDevices;
-			m_readEnergy[l_rank]+=l_energy;
+			m_readEnergy[l_rank]+=(l_energy*energy_scale);
 			break;
 		case e_BankCommandType::WRITE:
 		case e_BankCommandType::WRITEA:
 			l_energy = ((k_IDD4W-k_IDD3N) * k_nBL) * k_VDD * k_numDevices;
-			m_writeEnergy[l_rank]+=l_energy;
+			m_writeEnergy[l_rank]+=(l_energy*energy_scale);
 			break;
 		case e_BankCommandType::PRE:
 			break;
 		case e_BankCommandType::REF:
 			//Todo: per-bank refresh
 			l_energy = ((k_IDD5-k_IDD3N) * k_nRFC) * k_VDD * k_numDevices;
-			m_refreshEnergy[l_rank]+=l_energy;
+			m_refreshEnergy[l_rank]+=l_energy*energy_scale;
 			break;
 	}
 }
@@ -396,10 +458,13 @@ void c_Dimm::updateDynamicEnergy(c_BankCommand* x_bankCommandPtr)
 void c_Dimm::updateBackgroundEnergy()
 {
 	//Todo: update background energy depeding on bank status
+	double energy_scale=1;
+	if(pca_mode)
+		energy_scale=0.5;
 
 	for(unsigned i=0;i<m_numRanks;i++)
 	{
-		m_backgroundEnergy[i]+= k_IDD3N * k_VDD * k_numDevices;
+		m_backgroundEnergy[i]+= k_IDD3N * k_VDD * k_numDevices*energy_scale;
 	}
 }
 void c_Dimm::sendToBank(c_BankCommand* x_bankCommandPtr) {
@@ -453,6 +518,8 @@ void c_Dimm::finish(){
 	std::cout << "Deleting DIMM" << std::endl;
 	std::cout << "======= CramSim Simulation Report [Memory Device] ===================================\n";
 
+	printf("skip act:%lld\n", skip_act);
+	printf("skip pre:%lld\n", skip_pre);
 	for(unsigned i=0; i<m_numRanks;i++)
 	{
 		l_actRecvd+=m_actCmdsRecvd[i];
@@ -496,8 +563,10 @@ void c_Dimm::finish(){
             l_backgroundPower+=m_backgroundEnergy[i]/m_simCycle;
         }
         double l_totalPower=l_actprePower+l_readPower+l_writePower+l_refreshPower+l_backgroundPower;
+		double l_totalEnergy=l_totalPower*m_simCycle;
 		std::cout <<std::endl;
         std::cout << " 2. Power Consumption"	<<	std::endl;
+		std::cout << "  - Total Energy : " << l_totalEnergy <<std::endl;
         std::cout << "  - Total Power (mW) : " << l_totalPower << std::endl;
         std::cout << "  - Active/Precharge Power (mW) : "
                   << l_actprePower

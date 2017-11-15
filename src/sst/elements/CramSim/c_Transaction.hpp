@@ -63,17 +63,25 @@ private:
   uint64_t m_seqNum;
   e_TransactionType m_txnMnemonic;
   ulong m_addr;
+    uint32_t m_compressedSize;
   //std::map<e_TransactionType,std::string> m_txnToString;
   
   bool m_isResponseReady;
   unsigned m_numWaitingCommands;
   unsigned m_dataWidth;
   bool m_processed; //<! flag that is set when this transaction is split into commands
+  bool m_skip_metadata_lookup;
 
   //std::list<c_BankCommand*> m_cmdPtrList; //<! list of c_BankCommand shared_ptrs that compose this c_Transaction
-  std::list<ulong> m_cmdSeqNumList; //<! list of c_BankCommand Sequence numbers that compose this c_Transaction
+  std::list<uint64_t> m_cmdSeqNumList; //<! list of c_BankCommand Sequence numbers that compose this c_Transaction
     c_HashedAddress m_hashedAddr;
     bool m_hasHashedAddr;
+
+    int8_t m_compressed_size; //0,25,50,75,100
+    c_Transaction* m_helper;
+    bool m_helper_flag;
+    bool m_isResponseRequired;
+    double m_chipAccessRatio;
 
 public:
 
@@ -87,18 +95,57 @@ public:
 
   ulong getAddress() const;         //<! returns the address accessed by this command
   std::string getTransactionString() const; //<! returns the mnemonic of command
-
+  void setMetaDataSkip(){
+      m_skip_metadata_lookup=true;
+  }
+        bool isMetaDataSkip(){
+            return m_skip_metadata_lookup;
+        }
   void setResponseReady(); //<! sets the flag that this transaction has received its response.
   bool isResponseReady();  //<! returns the flag that this transaction has received its response.
+        void donotRespond(){m_isResponseRequired=false;}
+        bool isResponseRequired(){return m_isResponseRequired;}
+        void setChipAccessRatio(double chipAccessRatio){m_chipAccessRatio=chipAccessRatio;}
+        double getChipAccessRatio(){return m_chipAccessRatio;}
+bool needHelper()
+{
+    if(m_compressed_size>50)
+        return true;
+    else
+        return false;
+}
+        void setHelper(c_Transaction* helper){
+            m_helper=helper;
+        }
+
+        void setHelperFlag(bool flag) {
+            m_helper_flag = flag;
+        }
+
+        bool isHelper() {
+            return m_helper_flag;
+        }
+
+        c_Transaction* getHelper(){
+            return m_helper;
+        }
 
   void setWaitingCommands(const unsigned x_numWaitingCommands);
   unsigned getWaitingCommands() const;
 
   bool matchesCmdSeqNum(ulong x_seqNum); //<! returns true if this transaction matches a command with x_seqNum
-
   void addCommandPtr(c_BankCommand* x_cmdPtr);
 
   ulong getSeqNum() const;
+
+        void setCompressedSize(int8_t size){
+            m_compressed_size=size;
+        }
+
+        int8_t getCompressedSize(){
+            return m_compressed_size;
+        }
+
 
   unsigned getDataWidth() const;
   unsigned getThreadId() const; // FIXME
@@ -107,10 +154,11 @@ public:
   void print() const;
   void print(SST::Output *x_output, std::string x_prefix, SimTime_t x_cycle) const;
 
-  const c_HashedAddress& getHashedAddress() const {
+
+const c_HashedAddress& getHashedAddress() const{
          return (m_hashedAddr);
   }
-  void setHashedAddress(c_HashedAddress &x_hashedAddr) {
+  void setHashedAddress(const c_HashedAddress &x_hashedAddr) {
       m_hashedAddr = x_hashedAddr;
       m_hasHashedAddr=true;
   }

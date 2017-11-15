@@ -17,6 +17,8 @@
 #include <sst_config.h>
 #include <sst/core/simulation.h>
 #include "arielcpu.h"
+#include <tgmath.h>
+#include <sst/elements/memHierarchy/memEventBase.h>
 
 #include <signal.h>
 #if !defined(SST_COMPILE_MACOSX)
@@ -54,6 +56,7 @@ ArielCPU::ArielCPU(ComponentId_t id, Params& params) :
 	core_count = (uint32_t) params.find<uint32_t>("corecount", 1);
 
 	long long int max_insts = (uint64_t) params.find<uint64_t>("max_insts", 0);
+	long long int warmup_insts = (uint64_t) params.find<uint64_t>("warmup_insts", 0);
 
 	output->verbose(CALL_INFO, 1, 0, "Configuring for %" PRIu32 " cores...\n", core_count);
 
@@ -155,6 +158,7 @@ ArielCPU::ArielCPU(ComponentId_t id, Params& params) :
 	uint32_t maxPendingTransCore = (uint32_t) params.find<uint32_t>("maxtranscore", 16);
 	uint64_t cacheLineSize       = (uint64_t) params.find<uint32_t>("cachelinesize", 64);
 
+
 	/////////////////////////////////////////////////////////////////////////////////////
 
 
@@ -204,7 +208,7 @@ ArielCPU::ArielCPU(ComponentId_t id, Params& params) :
     appLauncher = params.find<std::string>("launcher", PINTOOL_EXECUTABLE);
 
     const uint32_t launch_param_count = (uint32_t) params.find<uint32_t>("launchparamcount", 0);
-    const uint32_t pin_arg_count = 25 + launch_param_count;
+    const uint32_t pin_arg_count = 27+ launch_param_count;
 
     execute_args = (char**) malloc(sizeof(char*) * (pin_arg_count + app_argc));
 
@@ -252,9 +256,15 @@ ArielCPU::ArielCPU(ComponentId_t id, Params& params) :
     execute_args[arg++] = const_cast<char*>("-t");
     execute_args[arg++] = (char*) malloc(sizeof(char) * 8);
     sprintf(execute_args[arg-1], "%" PRIu32, profileFunctions);
+
     execute_args[arg++] = const_cast<char*>("-i");
     execute_args[arg++] = (char*) malloc(sizeof(char) * 30);
-    sprintf(execute_args[arg-1], "%" PRIu64, (uint64_t) 1000000000);
+    sprintf(execute_args[arg-1], "%" PRIu64, (uint64_t) max_insts);
+
+    execute_args[arg++] = const_cast<char*>("-w");
+    execute_args[arg++] = (char*) malloc(sizeof(char) * 30);
+    sprintf(execute_args[arg-1], "%" PRIu64, (uint64_t) warmup_insts);
+
     execute_args[arg++] = const_cast<char*>("-c");
     execute_args[arg++] = (char*) malloc(sizeof(char) * 8);
     sprintf(execute_args[arg-1], "%" PRIu32, core_count);
@@ -274,7 +284,13 @@ ArielCPU::ArielCPU(ComponentId_t id, Params& params) :
     execute_args[arg++] = (char*) malloc(sizeof(char) * (executable.size() + 1));
     strcpy(execute_args[arg-1], executable.c_str());
 
-	char* argv_buffer = (char*) malloc(sizeof(char) * 256);
+   /* std::string argv_i = params.find<std::string>("apparg", "");
+    std::cout<<"arg: "<<argv_i<<std::endl;
+    execute_args[arg] = (char*) malloc(sizeof(char) * (argv_i.size() + 1));
+    strcpy(execute_args[arg], argv_i.c_str());
+    arg++;
+*/
+	char* argv_buffer = (char*) malloc(sizeof(char) * 1024);
 	for(uint32_t aa = 0; aa < app_argc ; ++aa) {
 		sprintf(argv_buffer, "apparg%" PRIu32, aa);
 		std::string argv_i = params.find<std::string>(argv_buffer, "");
@@ -285,8 +301,9 @@ ArielCPU::ArielCPU(ComponentId_t id, Params& params) :
 		strcpy(execute_args[arg], argv_i.c_str());
         arg++;
 	}
+    free(argv_buffer);
+
     execute_args[arg] = NULL;
-	free(argv_buffer);
 
 	const int32_t pin_env_count = params.find<int32_t>("envparamcount", -1);
 	if(pin_env_count > -1) {
@@ -317,8 +334,20 @@ ArielCPU::ArielCPU(ComponentId_t id, Params& params) :
 
 	// Remember that the list of arguments must be NULL terminated for execution
 	execute_args[(pin_arg_count - 1) + app_argc] = NULL;
+    ///////////// for multiprogrammed simulation ////
+    cpuid   = (uint32_t) params.find<uint32_t>("cpuid", 0);
+    multiprogsim_en   = (bool) params.find<bool>("multiprogsim_en", false);
+    uint64_t pagesize=(uint64_t)params.find<uint64_t>("memmgr.pagesize0",4*1024);
+    uint64_t pagecount=(uint64_t)params.find<uint64_t>("memmgr.pagecount0",16*1024);
+    phyaddr_width   = log2(pagesize*pagecount);
 
-	/////////////////////////////////////////////////////////////////////////////////////
+    std::cout<<"pagesize: "<<pagesize<<" pagecount: "<<pagecount<<" phyaddr_width: "<<phyaddr_width<<std::endl;
+    std::cout<<"cpuid: "<<cpuid<<" multiprogsim_en: "<<multiprogsim_en<<std::endl;
+
+
+
+    /////////////////////////////////////////////////////////////////////////////////////
+
 
 	output->verbose(CALL_INFO, 1, 0, "Creating core to cache links...\n");
 	cpu_to_cache_links = (SimpleMem**) malloc( sizeof(SimpleMem*) * core_count );
@@ -330,7 +359,8 @@ ArielCPU::ArielCPU(ComponentId_t id, Params& params) :
             cpu_to_alloc_tracker_links = 0;
         }
 
-    if (1){
+    bool content_link_en = (bool)params.find<bool>("memcontent_link_en",false);
+    if (content_link_en){
         cpu_to_mem_content_link = configureLink("linkMemContent");
     } else
         cpu_to_mem_content_link = 0;
@@ -340,6 +370,7 @@ ArielCPU::ArielCPU(ComponentId_t id, Params& params) :
 
 	output->verbose(CALL_INFO, 1, 0, "Configuring cores and cache links...\n");
 	char* link_buffer = (char*) malloc(sizeof(char) * 256);
+
 	for(uint32_t i = 0; i < core_count; ++i) {
 		sprintf(link_buffer, "cache_link_%" PRIu32, i);
 
@@ -352,14 +383,14 @@ ArielCPU::ArielCPU(ComponentId_t id, Params& params) :
 		// Set max number of instructions
 		cpu_cores[i]->setMaxInsts(max_insts);
 
-                // optionally wire up links to allocate trackers (e.g. memSieve)
-                if (useAllocTracker) {
-                    sprintf(link_buffer, "alloc_link_%" PRIu32, i);
-                    cpu_to_alloc_tracker_links[i] = configureLink(link_buffer);
-                    cpu_cores[i]->setCacheLink(cpu_to_cache_links[i], cpu_to_alloc_tracker_links[i]);
-                } else {
-                    cpu_cores[i]->setCacheLink(cpu_to_cache_links[i], 0);
-                }
+        // optionally wire up links to allocate trackers (e.g. memSieve)
+        if (useAllocTracker) {
+            sprintf(link_buffer, "alloc_link_%" PRIu32, i);
+            cpu_to_alloc_tracker_links[i] = configureLink(link_buffer);
+            cpu_cores[i]->setCacheLink(cpu_to_cache_links[i], cpu_to_alloc_tracker_links[i]);
+        } else {
+            cpu_cores[i]->setCacheLink(cpu_to_cache_links[i], 0);
+        }
 
         //set link to send memory contents to a memory model
         cpu_cores[i]->setMemContentLink(cpu_to_mem_content_link);
@@ -373,14 +404,25 @@ ArielCPU::ArielCPU(ComponentId_t id, Params& params) :
 
 	output->verbose(CALL_INFO, 1, 0, "Clocks registered.\n");
 
-	// Register us as an important component
-	registerAsPrimaryComponent();
-    primaryComponentDoNotEndSim();
+    if(multiprogsim_en) {
+        if (cpuid == 0){
+            registerAsPrimaryComponent();
+            primaryComponentDoNotEndSim();
+        }
+    }
+    else {
+            registerAsPrimaryComponent();
+            primaryComponentDoNotEndSim();
+        }
+
 
 	stopTicking = true;
 
 	output->verbose(CALL_INFO, 1, 0, "Completed initialization of the Ariel CPU.\n");
 	fflush(stdout);
+
+    noevent_cnt=0;
+
 }
 
 
@@ -396,14 +438,19 @@ void ArielCPU::init(unsigned int phase)
 
         tunnel->waitForChild();
         output->verbose(CALL_INFO, 1, 0, "Child has attached!\n");
+
+         if(cpu_to_mem_content_link)
+            cpu_to_mem_content_link->sendInitData(new MemHierarchy::MemEventInit(this->getName(),MemHierarchy::MemEventInit::InitCommand::Region));
     }
 
     for (uint32_t i = 0; i < core_count; i++) { 
         cpu_to_cache_links[i]->init(phase);
     }
+
 }
 
 void ArielCPU::finish() {
+
 	for(uint32_t i = 0; i < core_count; ++i) {
 		cpu_cores[i]->finishCore();
 	}
@@ -415,7 +462,11 @@ void ArielCPU::finish() {
 		cpu_cores[i]->printCoreStatistics();
 	}
 
+    printf("cpuid: %d no event cnt: %lld\n", cpuid,noevent_cnt);
 	memmgr->printStats();
+
+    if (child_pid != 0)
+        kill(child_pid, SIGKILL);
 }
 
 int ArielCPU::forkPINChild(const char* app, char** args, std::map<std::string, std::string>& app_env) {
@@ -519,6 +570,19 @@ int ArielCPU::forkPINChild(const char* app, char** args, std::map<std::string, s
                         prctl(PR_SET_PTRACER, getppid(), 0, 0 ,0);
 #endif // End of HAVE_SET_PTRACER
 #endif // End SST_COMPILE_MACOSX (else branch)
+
+            int i=0;
+            while(args[i]!=NULL)
+            {
+                if(strcmp(args[i],"<")==0) {
+                    std::cout << "input file is redirected :" <<args[i+1]<< std::endl;
+                    int in = open(args[i+1], O_RDONLY);
+                    dup2(in, 0);
+                    break;
+                }
+                i++;
+            }
+
 			int ret_code = execvp(app, args);
 			perror("execve");
 
@@ -563,14 +627,25 @@ bool ArielCPU::tick( SST::Cycle_t cycle) {
 	stopTicking = false;
 	output->verbose(CALL_INFO, 16, 0, "Main processor tick, will issue to individual cores...\n");
 
-        tunnel->updateTime(getCurrentSimTimeNano());
+    tunnel->updateTime(getCurrentSimTimeNano());
 	tunnel->incrementCycles();
 
 	// Keep ticking unless one of the cores says it is time to stop.
 	for(uint32_t i = 0; i < core_count; ++i) {
+        //wait until cores get the request
+        while(!cpu_cores[i]->hasNextEvent())
+        {
+            cpu_cores[i]->refillQueue();
+            //Simulation::getSimulation()->set_lock();
+            noevent_cnt++;
+            usleep(1000);
+        }
+        Simulation::getSimulation()->release_lock();
+        //std::cout<<"here\n";
 		cpu_cores[i]->tick();
-		
+
 		if(cpu_cores[i]->isCoreHalted()) {
+            std::cout<<"iscorehalted\n";
 			stopTicking = true;
 			break;
 		}
@@ -578,7 +653,15 @@ bool ArielCPU::tick( SST::Cycle_t cycle) {
 	
 	// Its time to end, that's all folks
 	if(stopTicking) {
-		primaryComponentOKToEndSim();
+        if (multiprogsim_en){
+            if (cpuid == 0) {
+                primaryComponentOKToEndSim();
+            }
+        }
+        else
+            primaryComponentOKToEndSim();
+        std::cout<<"stopticking\n";
+           
 	}
 	
 	return stopTicking;
@@ -592,6 +675,7 @@ ArielCPU::~ArielCPU() {
 
 	delete tunnel;
 }
+
 
 void ArielCPU::emergencyShutdown() {
     tunnel->shutdown(true);

@@ -67,7 +67,7 @@ namespace SST {
 
             SimTime_t getSimCycle(){return m_simCycle;}
 
-        private:
+        protected:
             c_Controller(); // for serialization only
             c_Controller(SST::ComponentId_t id);
 
@@ -88,7 +88,9 @@ namespace SST {
             SST::Output *output;
 
             std::deque<c_Transaction*> m_ReqQ;
+            std::deque<c_Transaction*> m_MReqQ; //request Queue for meta data
             std::deque<c_Transaction*> m_ResQ;
+            std::map<uint64_t,c_Transaction*> m_helperTxnQ;
 
             // Subcomponents
             c_TxnScheduler *m_txnScheduler;

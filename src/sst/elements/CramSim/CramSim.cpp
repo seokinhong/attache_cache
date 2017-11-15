@@ -34,6 +34,7 @@
 #include "c_TxnGen.hpp"
 #include "c_MemhBridgeContent.hpp"
 #include "c_TraceFileReader.hpp"
+#include "c_ControllerPCA.hpp"
 
 
 // namespaces
@@ -66,12 +67,12 @@ create_c_TraceFileReader(SST::ComponentId_t id, SST::Params& params){
 	return new c_TraceFileReader(id, params);
 }
 
-
 // c_TxnDispatcher
 static Component*
 create_c_TxnDispatcher(SST::ComponentId_t id, SST::Params& params) {
 	return new c_TxnDispatcher(id, params);
 }
+
 // c_Dimm
 static Component*
 create_c_Dimm(SST::ComponentId_t id, SST::Params& params) {
@@ -82,6 +83,12 @@ create_c_Dimm(SST::ComponentId_t id, SST::Params& params) {
 static Component*
 create_c_Controller(SST::ComponentId_t id, SST::Params& params) {
 	return new c_Controller(id, params);
+}
+
+// c_ControllerPCA
+static Component*
+create_c_ControllerPCA(SST::ComponentId_t id, SST::Params& params) {
+	return new c_ControllerPCA(id, params);
 }
 // Address Mapper
 static SubComponent*
@@ -365,12 +372,7 @@ static const ElementInfoParam c_Controller_params[] = {
 		{NULL, NULL, NULL } };
 
 static const char* c_Controller_TxnGenReq_port_events[] = { "c_txnGenReqEvent", NULL };
-static const char* c_Controller_TxnGenRes_port_events[] = { "c_txnGenResEvent", NULL };
-static const char* c_Controller_DeviceReq_port_events[] = { "c_DeviceReqEvent", NULL };
 static const char* c_Controller_DeviceRes_port_events[] = { "c_DeviceResEvent", NULL };
-static const char* c_Controller_TxnGenResToken_port_events[] = { "c_txnGenResTokenEvent", NULL };
-static const char* c_Controller_TxnGenReqToken_port_events[] = { "c_txnGenReqTokenEvent", NULL };
-static const char* c_Controller_DeviceReqToken_port_events[] = { "c_DeviceReqTokenEvent", NULL };
 
 static const ElementInfoPort c_Controller_ports[] = {
 		{"txngenLink", "link to txn generator / txn dispatcher", c_Controller_TxnGenReq_port_events},
@@ -378,6 +380,32 @@ static const ElementInfoPort c_Controller_ports[] = {
 		{NULL, NULL, NULL}
 };
 
+
+
+/*----SETUP ControllerPCA Component STRUCTURES----*/
+static const ElementInfoPort c_ControllerPCA_ports[] = {
+		{"txngenLink", "link to txn generator / txn dispatcher", c_Controller_TxnGenReq_port_events},
+		{"memLink", "link to memory", c_Controller_DeviceRes_port_events},
+		{ "contentLink", "link from CPU for receiving memory contents", c_MemhBridgeContent_Content_events},
+		{NULL, NULL, NULL}
+};
+
+static const ElementInfoStatistic c_ControllerPCA_stats[] = {
+       {"compRatio","","",1}, // Name, Desc, Units, Enable Level
+      {"rowsize0_cnt","","",1}, // Name, Desc, Units, Enable Level
+     {"rowsize25_cnt","","",1}, // Name, Desc, Units, Enable Level
+     {"rowsize50_cnt","","",1},
+    {"rowsize75_cnt","","",1},
+     {"rowsize100_cnt","","",1},
+	   {"backing_store_miss","","",1},
+	   {"double_rank_access","","",1},
+	   {"single_rank_access","","",1},
+	   {"memzip_metacache_hit","","",1},
+	   {"memzip_metacache_miss","","",1},
+	   {"cacheline_size_50","","",1},
+	   {"cacheline_size_100","","",1},
+    {NULL,NULL,NULL,1}
+};
 
 /*----SETUP Memory Component STRUCTURES----*/
 static const ElementInfoParam c_Dimm_params[] = {
@@ -1739,6 +1767,15 @@ static const ElementInfoComponent CramSimComponents[] = {
 		c_MemhBridgeContent_ports, 						// Ports
 		COMPONENT_CATEGORY_UNCATEGORIZED, 			// Category
 		c_MemhBridgeContent_stats 										// Statistics
+		},
+		{ "c_ControllerPCA",			 						// Name
+			"Memory Controller with backing store",				 				// Description
+			NULL, 										// PrintHelp
+					create_c_ControllerPCA, 						// Allocator
+					c_Controller_params, 						// Parameters
+					c_ControllerPCA_ports, 						// Ports
+					COMPONENT_CATEGORY_UNCATEGORIZED, 			// Category
+					c_ControllerPCA_stats 										// Statistics
 		},
 		{ "c_Controller",			 						// Name
 			"Memory Controller",				 				// Description

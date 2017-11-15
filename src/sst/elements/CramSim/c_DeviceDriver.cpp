@@ -305,13 +305,24 @@ c_DeviceDriver::c_DeviceDriver(Component *owner, Params& params) : SubComponent(
         std::cout << "nBL value is missing ... exiting" << std::endl;
         exit(-1);
     }
+	bool pca_mode = (bool)params.find<bool>("pca_enable",false);
+
+	int l_numRanks=0;
 
 
+	//for Partial-chip Access
+	int l_numRanksPerChannel=1;
+	if(pca_mode)
+	{
+		assert(k_numRanksPerChannel ==1);
+		l_numRanksPerChannel=2;
+	} else
+		l_numRanksPerChannel=k_numRanksPerChannel;
 
 	// configure the memory hierarchy
 	m_numChannels =  k_numChannels;
 	m_numPseudoChannels = m_numChannels * k_numPChannelsPerChannel;
-	m_numRanks = m_numPseudoChannels * k_numRanksPerChannel;
+	m_numRanks = m_numPseudoChannels * l_numRanksPerChannel;
 	m_numBankGroups = m_numRanks * k_numBankGroupsPerRank;
 	m_numBanks = m_numBankGroups * k_numBanksPerBankGroup;
 
@@ -337,7 +348,7 @@ c_DeviceDriver::c_DeviceDriver(Component *owner, Params& params) : SubComponent(
 		c_Channel *l_channel = new c_Channel(&m_bankParams, l_i);
 		m_channel.push_back(l_channel);
 		//   int l_i = 0;
-		for (unsigned l_j = 0; l_j != k_numRanksPerChannel; ++l_j) {
+		for (unsigned l_j = 0; l_j != l_numRanksPerChannel; ++l_j) {
 			//std::cout << "Attaching Channel" << l_i << " to Rank" << l_rankNum << std::endl;
 			m_channel.at(l_i)->acceptRank(m_ranks.at(l_rankNum));
 			m_ranks.at(l_rankNum)->acceptChannel(m_channel.at(l_i));
@@ -503,11 +514,15 @@ void c_DeviceDriver::update() {
 	if (m_inflightWrites.size() > 0)
 		m_inflightWrites.clear();
 
-	m_blockBank.clear();
-	m_blockBank.resize(m_numBanks, false);
+    for(int i=0;i<m_blockBank.size();i++)
+        m_blockBank[i]=false;
+	//m_blockBank.clear();
+	//m_blockBank.resize(m_numBanks, false);
 	releaseCommandBus();  //update the command bus status
-	m_isACTIssued.clear();
-	m_isACTIssued.resize(m_numRanks, false);
+	for(int i=0;i<m_isACTIssued.size();i++)
+		m_isACTIssued[i]=false;
+	//m_isACTIssued.clear();
+	//m_isACTIssued.resize(m_numRanks, false);
 }
 
 
@@ -645,7 +660,6 @@ void c_DeviceDriver::sendRequest() {
 		}
 
 
-
 		if (l_proceed) {
 			c_BankInfo *l_bank = m_banks.at(l_bankNum);
 
@@ -685,6 +699,10 @@ void c_DeviceDriver::sendRequest() {
 						assert(m_isACTIssued[l_rankNum]==false);
 						m_isACTIssued[l_rankNum] = true;
 					}
+
+					//commands for helper transaction do not occupy bus
+					if(l_cmdPtr->isHelper())
+							continue;
 
 					if (occupyCommandBus(l_cmdPtr))
 						break;// all command buses are occupied, so stop

@@ -17,6 +17,7 @@
 #include <stdio.h>
 
 #include "arielmemmgr_simple.h"
+#include "arielcpu.h"
 
 using namespace SST::ArielComponent;
 
@@ -42,6 +43,8 @@ ArielMemoryManagerSimple::ArielMemoryManagerSimple(SST::Component* owner, Params
             output->verbose(CALL_INFO, 1, 0, "Populating page table from %s...\n", popFilePath.c_str());
             populatePageTable(popFilePath, &pageTable, &freePages, pageSize);
         }
+
+		ownerid=dynamic_cast<ArielCPU*>(owner)->getCpuID();
     
     }
 

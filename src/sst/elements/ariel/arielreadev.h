@@ -42,7 +42,6 @@ class ArielReadEvent : public ArielEvent {
 				}
 		}
 
-
 		~ArielReadEvent() {
 
 		}
@@ -59,9 +58,9 @@ class ArielReadEvent : public ArielEvent {
 			return readLength;
 		}
 
-                std::vector<uint8_t> getData() const{
+		std::vector<uint8_t> getData() const{
                         return cacheLineData;
-                }
+		}
 
 	private:
 		const uint64_t readAddress;

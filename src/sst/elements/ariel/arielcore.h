@@ -75,14 +75,14 @@ class ArielCore {
 		void finishCore();
 		void createReadEvent(uint64_t addr, uint32_t size, uint64_t*);
 		void createWriteEvent(uint64_t addr, uint32_t size, uint64_t*);
-    		void createAllocateEvent(uint64_t vAddr, uint64_t length, uint32_t level, uint64_t ip);
+	    void createAllocateEvent(uint64_t vAddr, uint64_t length, uint32_t level, uint64_t ip);
 		void sendMemContent(uint64_t addr, uint64_t vaddr, uint32_t size, std::vector<uint8_t> &data);
 		void createNoOpEvent();
 		void createFreeEvent(uint64_t vAddr);
 		void createExitEvent();
 		void createSwitchPoolEvent(uint32_t pool);
 
-                void setCacheLink(SimpleMem* newCacheLink, Link* allocLink);
+		void setCacheLink(SimpleMem* newCacheLink, Link* allocLink);
 		void handleEvent(SimpleMem::Request* event);
 		void handleReadRequest(ArielReadEvent* wEv);
 		void handleWriteRequest(ArielWriteEvent* wEv);
@@ -101,10 +101,14 @@ class ArielCore {
 
 		void setMemContentLink(Link* memContentLink){this->memContentLink=memContentLink;}
 
+		bool hasNextEvent();
+		bool refillQueue();
+		Link* getMemContentLink(){return memContentLink;}
 
 	private:
+		uint64_t break_cnt=0;
 		bool processNextEvent();
-		bool refillQueue();
+		//bool refillQueue();
 		uint32_t coreID;
 		uint32_t maxPendingTransactions;
 		Output* output;
@@ -125,11 +129,20 @@ class ArielCore {
 		uint64_t currentCycles;
 		Link* memContentLink;
 
+
+		uint32_t phyaddr_width;
+		bool multiprogsim_en;
+		uint64_t cpuid;
+
+
+
 		// This indicates the current number of executed instructions by this core
 		long long int inst_count;
 
 		// This indicates the max number of instructions before halting the simulation
 		long long int max_insts;
+
+		bool core_started=false;
 
 		ArielTraceGenerator* traceGen;
 
@@ -141,6 +154,7 @@ class ArielCore {
 		Statistic<uint64_t>* statSplitWriteRequests;
 		Statistic<uint64_t>* statNoopCount;
 		Statistic<uint64_t>* statInstructionCount;
+		Statistic<uint64_t>* statLsqFullCount;
 		Statistic<uint64_t>* statCycles;
 
 		Statistic<uint64_t>* statFPDPIns;

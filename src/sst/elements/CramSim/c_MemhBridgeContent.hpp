@@ -49,7 +49,11 @@ namespace SST {
 
         private:
             uint8_t*       backing_;
+            uint64_t m_backing_size;
+            bool loopback_en;
+ 
             c_CompressEngine* m_compEngine;
+
 
             void createTxn();
             void handleContentEvent(SST::Event *ev);

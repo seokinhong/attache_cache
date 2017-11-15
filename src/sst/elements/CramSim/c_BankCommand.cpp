@@ -38,7 +38,7 @@ c_BankCommand::c_BankCommand(unsigned x_cmdSeqNum,
 			     e_BankCommandType x_cmdMnemonic, ulong x_addr,
 			     const c_HashedAddress &x_hashedAddr) :
 		m_seqNum(x_cmdSeqNum), m_addr(x_addr), m_cmdMnemonic(x_cmdMnemonic),
-		m_isResponseReady(false), m_hashedAddr(x_hashedAddr), m_bankId(x_hashedAddr.getBankId()), m_isRefreshType(false) {
+		m_isResponseReady(false), m_hashedAddr(x_hashedAddr), m_bankId(x_hashedAddr.getBankId()), m_isRefreshType(false),m_txn(NULL),m_helperFlag(false){
 
 	m_cmdToString[e_BankCommandType::ERR] = "ERR";
 	m_cmdToString[e_BankCommandType::ACT] = "ACT";
@@ -55,7 +55,7 @@ c_BankCommand::c_BankCommand(unsigned x_cmdSeqNum,
 			     e_BankCommandType x_cmdMnemonic, ulong x_addr,
 			     unsigned x_bankId) :
 		m_seqNum(x_cmdSeqNum), m_addr(x_addr), m_cmdMnemonic(x_cmdMnemonic),
-		m_isResponseReady(false), m_bankId(x_bankId), m_isRefreshType(true) {
+		m_isResponseReady(false), m_bankId(x_bankId), m_isRefreshType(true),m_txn(NULL),m_helperFlag(false) {
 
 	assert(x_cmdMnemonic == e_BankCommandType::REF ||x_cmdMnemonic == e_BankCommandType::PRE); // This constructor only for REF cmds!
 
@@ -74,7 +74,7 @@ c_BankCommand::c_BankCommand(unsigned x_cmdSeqNum,
 			     e_BankCommandType x_cmdMnemonic, ulong x_addr, const c_HashedAddress &x_hashedAddr,
 			     std::vector<unsigned> &x_bankIdVec) :
 		m_seqNum(x_cmdSeqNum), m_addr(x_addr), m_cmdMnemonic(x_cmdMnemonic),
-		m_isResponseReady(false), m_bankIdVec(x_bankIdVec), m_isRefreshType(true) {
+		m_isResponseReady(false), m_bankIdVec(x_bankIdVec), m_isRefreshType(true),m_txn(NULL),m_helperFlag(false){
 
         assert((x_cmdMnemonic == e_BankCommandType::REF||x_cmdMnemonic == e_BankCommandType::PRE)); // This constructor only for REF cmds!
 
@@ -143,7 +143,7 @@ void c_BankCommand::print(SST::Output *x_debugOutput, SimTime_t x_cycle) const {
 }
 
 void c_BankCommand::print(SST::Output *x_debugOutput,const std::string x_prefix, SimTime_t x_cycle) const {
-	x_debugOutput->verbosePrefix(x_prefix.c_str(),CALL_INFO,1,0,"Cycle:%lld Cmd:%s seqNum: %llu CH:%d PCH:%d Rank:%d BG:%d B:%d Row:%d Col:%d BankId:%d\n",
+	x_debugOutput->verbosePrefix(x_prefix.c_str(),CALL_INFO,1,0,"Cycle:%lld Cmd:%s seqNum: %llu CH:%d PCH:%d Rank:%d BG:%d B:%d Row:%d Col:%d RankId:%d BankId:%d isHeler?:%d\n",
 							x_cycle,
 							getCommandString().c_str(),
 							m_seqNum,
@@ -154,7 +154,9 @@ void c_BankCommand::print(SST::Output *x_debugOutput,const std::string x_prefix,
 							getHashedAddress()->getBank(),
 							getHashedAddress()->getRow(),
 							getHashedAddress()->getCol(),
-							getHashedAddress()->getBankId());
+								 getHashedAddress()->getRankId(),
+							getHashedAddress()->getBankId(),
+							m_helperFlag);
 
 }
 

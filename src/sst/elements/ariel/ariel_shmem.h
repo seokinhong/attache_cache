@@ -41,15 +41,15 @@ enum ArielShmemCmd_t {
 };
 
 struct ArielCommand {
-    ArielShmemCmd_t command;
-    uint64_t instPtr;
-    union {
-        struct {
-            uint32_t size;
-            uint64_t addr;
-            uint32_t instClass;
-	    uint32_t simdElemCount;
-            uint64_t data[8]; //cacheline data, assume size is 64B
+ArielShmemCmd_t command;
+uint64_t instPtr;
+union {
+    struct {
+        uint32_t size;
+        uint64_t addr;
+        uint32_t instClass;
+    uint32_t simdElemCount;
+        uint64_t data[8]; //cacheline data, assume size is 64B
         } inst;
         struct {
             uint64_t vaddr;

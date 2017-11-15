@@ -170,6 +170,7 @@ void c_TxnConverter::run(){
 
 void c_TxnConverter::push(c_Transaction* newTxn) {
 
+
 	// make sure the internal req q has at least one empty entry
 	// to accept a new txn ptr
 		if(newTxn->getTransactionMnemonic() == e_TransactionType::READ) {
@@ -202,6 +203,10 @@ std::vector<c_BankCommand*> c_TxnConverter::getCommands(c_Transaction* x_txn) {
 	x_txn->setWaitingCommands(1);
 	x_txn->isProcessed(true);
 	for (auto& l_cmd : l_commandVec) {
+        l_cmd->setTxnSeqNum(x_txn->getSeqNum());
+		l_cmd->setChipAccessRatio(x_txn->getChipAccessRatio());
+		if(x_txn->isHelper())
+			l_cmd->setHelper();
 		x_txn->addCommandPtr(l_cmd); // only copies seq num
 	}
 

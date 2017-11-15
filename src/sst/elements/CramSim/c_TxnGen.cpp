@@ -129,6 +129,7 @@ void c_TxnGenBase::finish()
     printf("Total Read-Txns Responses received: %llu\n", m_resReadCount);
     printf("Total Write-Txns Responses received: %llu\n", m_resWriteCount);
     printf("Total Txns Received: %llu\n", m_resReadCount + m_resWriteCount);
+    printf("Total Cycles : %llu\n", m_simCycle);
     std::cout << "Cycles Per Transaction (CPT) = "
                 << std::dec << static_cast<double>(m_simCycle)
                                / static_cast<double>(m_resReadCount + m_resWriteCount) << std::endl;
@@ -143,7 +144,6 @@ void c_TxnGenBase::finish()
 bool c_TxnGenBase::clockTic(Cycle_t) {
     
     m_simCycle++;
-
     createTxn();
 
     for(int i=0;i<k_numTxnPerCycle;i++) {

@@ -167,7 +167,15 @@ void c_TxnScheduler::run(){
         //2. send the selected transaction to transaction converter
         if(l_nextTxn!=nullptr) {
             if(m_cmdScheduler->getToken(l_nextTxn->getHashedAddress())>=3) {
-
+				if(l_nextTxn->getHelper())
+				{
+					c_Transaction* helperTxn=l_nextTxn->getHelper();
+					if(m_cmdScheduler->getToken(helperTxn->getHashedAddress())>=3){
+						output->verbose(CALL_INFO,1,0,"Add helper transaction, compressed size:%d\n", l_nextTxn->getCompressedSize());
+						m_txnConverter->push(helperTxn);
+					} else
+						continue;
+				}
                 // send the selected transaction
                 m_txnConverter->push(l_nextTxn);
 
@@ -231,23 +239,23 @@ void c_TxnScheduler::popTxn(TxnQueue &x_txnQ, c_Transaction* x_Txn)
 	x_txnQ.remove(x_Txn);
 }
 
-bool c_TxnScheduler::push(c_Transaction* newTxn)
+bool c_TxnScheduler::push(c_Transaction* l_nextTxn)
 {
-	int l_channelId=newTxn->getHashedAddress().getChannel();
+	int l_channelId=l_nextTxn->getHashedAddress().getChannel();
 	bool l_success=false;
 	if(!k_isReadFirstScheduling)
 	{
 		if (m_txnQ.at(l_channelId).size() < k_numTxnQEntries) {
-			m_txnQ.at(l_channelId).push_back(newTxn);
+			m_txnQ.at(l_channelId).push_back(l_nextTxn);
 			l_success=true;
 		} else
 			l_success=false;
 	}else
 	{
-		if(newTxn->isRead())
+		if(l_nextTxn->isRead())
 		{
 			if(m_txnReadQ[l_channelId].size()< k_numTxnQEntries) {
-				m_txnReadQ[l_channelId].push_back(newTxn);
+				m_txnReadQ[l_channelId].push_back(l_nextTxn);
 				l_success = true;
 			}
 			else
@@ -256,7 +264,7 @@ bool c_TxnScheduler::push(c_Transaction* newTxn)
 		{
 			if(m_txnWriteQ[l_channelId].size()< k_numTxnQEntries) {
 				l_success=true;
-				m_txnWriteQ[l_channelId].push_back(newTxn);
+				m_txnWriteQ[l_channelId].push_back(l_nextTxn);
 			}else
 				l_success=false;
 		}

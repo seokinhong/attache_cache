@@ -63,7 +63,7 @@ class ArielWriteEvent : public ArielEvent {
 	private:
 		const uint64_t writeAddress;
 		const uint32_t writeLength;
-                std::vector<uint8_t> cacheLineData;
+		std::vector<uint8_t> cacheLineData;
 
 };
 

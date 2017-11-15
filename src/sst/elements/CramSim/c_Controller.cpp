@@ -227,6 +227,7 @@ void c_Controller::sendResponse() {
             if ((*l_it)->isResponseReady()) {
                 l_txnRes = *l_it;
                 l_it=m_ResQ.erase(l_it);
+                l_txnRes->print(output,"delete txn",m_simCycle);
 
                 c_TxnResEvent* l_txnResEvPtr = new c_TxnResEvent();
                 l_txnResEvPtr->m_payload = l_txnRes;
@@ -251,9 +252,7 @@ void c_Controller::handleIncomingTransaction(SST::Event *ev){
     if (l_txnReqEventPtr) {
         c_Transaction* newTxn=l_txnReqEventPtr->m_payload;
 
-        #ifdef __SST_DEBUG_OUTPUT__
         newTxn->print(output,"[c_Controller.handleIncommingTransaction]",m_simCycle);
-        #endif
 
         m_ReqQ.push_back(newTxn);
         m_ResQ.push_back(newTxn);
@@ -270,7 +269,7 @@ void c_Controller::handleIncomingTransaction(SST::Event *ev){
 void c_Controller::handleInDeviceResPtrEvent(SST::Event *ev){
     c_CmdResEvent* l_cmdResEventPtr = dynamic_cast<c_CmdResEvent*>(ev);
     if (l_cmdResEventPtr) {
-        ulong l_resSeqNum = l_cmdResEventPtr->m_payload->getSeqNum();
+        uint64_t l_resSeqNum = l_cmdResEventPtr->m_payload->getSeqNum();
         // need to find which txn matches the command seq number in the txnResQ
         c_Transaction* l_txnRes = nullptr;
         std::deque<c_Transaction*>::iterator l_txIter;
@@ -286,17 +285,28 @@ void c_Controller::handleInDeviceResPtrEvent(SST::Event *ev){
             std::cout << "Error! Couldn't find transaction to match cmdSeqnum " << l_resSeqNum << std::endl;
             exit(-1);
         }
+        else
+        {
+            output->verbose(CALL_INFO,1,0, "txn is found, txnNum:%lld cmdSeq:%lld, helper:%d\n",l_resSeqNum,l_txnRes->getSeqNum(),l_txnRes->isHelper());
+        }
 
         const unsigned l_cmdsLeft = l_txnRes->getWaitingCommands() - 1;
         l_txnRes->setWaitingCommands(l_cmdsLeft);
         if (l_cmdsLeft == 0) {
             l_txnRes->setResponseReady();
+
             // With quick response mode, controller sends a response to a requester for a write request as soon as the request is pushed to a transaction queue
             // So, we don't need to send another response at this time. Just erase the request in the response queue.
             if ( k_enableQuickResponse && !l_txnRes->isRead()) {
                 delete l_txnRes;
                 m_ResQ.erase(l_txIter);
             }
+
+            if(!l_txnRes->isResponseRequired()) {
+                delete l_txnRes;
+                m_ResQ.erase(l_txIter);
+            }
+
         }
 
         delete l_cmdResEventPtr->m_payload;         //now, free the memory space allocated to the commands for a transaction

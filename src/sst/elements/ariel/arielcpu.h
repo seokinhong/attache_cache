@@ -46,13 +46,20 @@ class ArielCPU : public SST::Component {
         virtual bool tick( SST::Cycle_t );
         int forkPINChild(const char* app, char** args, std::map<std::string, std::string>& app_env);
 
+		uint32_t noevent_cnt;
+
+		uint32_t getCpuID(){return cpuid;}
+		bool isMultiProg(){return multiprogsim_en;}
+		uint32_t getPhyAddrWidth(){return phyaddr_width;}
+
+
     private:
         SST::Output* output;
         ArielMemoryManager* memmgr;
         ArielCore** cpu_cores;
         Interfaces::SimpleMem** cpu_to_cache_links;
         SST::Link **cpu_to_alloc_tracker_links;
-		SST::Link *cpu_to_mem_content_link;
+        SST::Link *cpu_to_mem_content_link;
         pid_t child_pid;
 
         uint32_t core_count;
@@ -63,6 +70,10 @@ class ArielCPU : public SST::Component {
 
         char **execute_args;
 	std::map<std::string, std::string> execute_env;
+
+		uint32_t cpuid;
+		bool multiprogsim_en;
+		uint32_t phyaddr_width;
 
 };
 
