@@ -302,6 +302,7 @@ void c_AddressHasher::fillHashedAddress(c_HashedAddress *x_hashAddr, const ulong
       ulong l_tmp = (((ulong)1 << l_val) & x_address) >> (l_val - l_cnt);
 
       l_cur |= l_tmp;
+
     }
     x_hashAddr->setChannel(l_cur);
   }
@@ -426,6 +427,7 @@ void c_AddressHasher::fillHashedAddress(c_HashedAddress *x_hashAddr, const ulong
 
   x_hashAddr->setBankId(l_bankId);
   x_hashAddr->setRankId(l_rankId);
+
    // cout << "0x" << std::hex << x_address << std::dec << "\t";  x_hashAddr->print();
   
 } // fillHashedAddress(c_HashedAddress, x_address)

@@ -2,6 +2,7 @@
 
 PINDIR=${INTEL_PIN_DIRECTORY}
 CXX=g++
+CXXFLAGS = -O3 -std=c++11  -std=c++1y -D__STDC_FORMAT_MACROS 
 PREPROC=-DBIGARRAY_MULTIPLIER=1 -DUSING_XED -DTARGET_IA32E -DHOST_IA32E -fPIC -DTARGET_LINUX -DPROSPERO_LIBZ
 LD=g++
 CC=gcc
@@ -21,7 +22,7 @@ sstmemtrace.so: sstmemtrace.o
 		 -ldl -lz -lpindwarf \
 
 sstmemtrace.o: sstmemtrace.cc
-	$(CXX) -g -c -O3 -fomit-frame-pointer \
+	$(CXX) -g -c -O3 -std=c++11 -fomit-frame-pointer \
         -Wl,-Bsymbolic \
         -Wl,--version-script=$(PINDIR)/source/include/pintool.ver \
 	-I $(PINDIR)/source/include/pin \
@@ -45,7 +46,7 @@ indigo.so: indigo.o
 		 -ldl -lz -lpindwarf \
 
 indigo.o: indigo.cc
-	$(CXX) -g -c -O3 -fomit-frame-pointer \
+	$(CXX) -g -c -O3 -std=c++11 -fomit-frame-pointer \
         -Wl,-Bsymbolic \
         -Wl,--version-script=$(PINDIR)/source/include/pintool.ver \
 	-I $(PINDIR)/source/include/pin \

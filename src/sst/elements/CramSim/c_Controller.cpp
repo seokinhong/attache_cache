@@ -106,7 +106,9 @@ c_Controller::c_Controller(ComponentId_t id, Params &params) :
     registerClock(k_controllerClockFreqStr,
                   new Clock::Handler<c_Controller>(this, &c_Controller::clockTic));
 
-
+    s_totalQueueing_delay=registerStatistic<uint64_t>("totalQueueingDelay");
+    s_cmdQueueing_delay=registerStatistic<uint64_t>("cmdQueueingDelay");
+    s_txnQueueing_delay=registerStatistic<uint64_t>("txnQueueingDelay");
 
 }
 
@@ -135,7 +137,7 @@ bool c_Controller::clockTic(SST::Cycle_t clock) {
     
     m_simCycle++;
 
-    sendResponse();
+   // sendResponse();
 
     // 0. update device driver
     m_deviceDriver->update();
@@ -241,7 +243,18 @@ void c_Controller::sendResponse() {
         }
     }
 } // sendResponse
+void c_Controller::sendResponse(c_Transaction* x_txnRes) {
 
+    // sendResponse conditions:
+    // - m_txnGenResQTokens > 0
+    // - m_ResQ.size() > 0
+    // - m_ResQ has an element which is response-ready
+
+    c_TxnResEvent* l_txnResEvPtr = new c_TxnResEvent();
+    l_txnResEvPtr->m_payload = x_txnRes;
+
+    m_txngenLink->send(l_txnResEvPtr);
+} //
 
 
 ///** Link Event handlers **///
@@ -253,10 +266,10 @@ void c_Controller::handleIncomingTransaction(SST::Event *ev){
         c_Transaction* newTxn=l_txnReqEventPtr->m_payload;
 
         newTxn->print(output,"[c_Controller.handleIncommingTransaction]",m_simCycle);
-
         m_ReqQ.push_back(newTxn);
         m_ResQ.push_back(newTxn);
 
+        newTxn->m_time_arrived_Controller=m_simCycle;
 
         delete l_txnReqEventPtr;
     } else {
@@ -283,6 +296,12 @@ void c_Controller::handleInDeviceResPtrEvent(SST::Event *ev){
 
         if(l_txnRes == nullptr) {
             std::cout << "Error! Couldn't find transaction to match cmdSeqnum " << l_resSeqNum << std::endl;
+            std::cout << "meta data txn?" << l_cmdResEventPtr->m_payload->isMetadataCmd() << std::endl;
+            std::cout << " helper?" << l_cmdResEventPtr->m_payload->isHelper() << std::endl;
+            l_cmdResEventPtr->m_payload->print(m_simCycle);
+            l_cmdResEventPtr->m_payload->getTransaction()->print();
+
+
             exit(-1);
         }
         else
@@ -305,8 +324,10 @@ void c_Controller::handleInDeviceResPtrEvent(SST::Event *ev){
             if(!l_txnRes->isResponseRequired()) {
                 delete l_txnRes;
                 m_ResQ.erase(l_txIter);
+            } else {
+                sendResponse(l_txnRes);
+                m_ResQ.erase(l_txIter);
             }
-
         }
 
         delete l_cmdResEventPtr->m_payload;         //now, free the memory space allocated to the commands for a transaction

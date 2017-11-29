@@ -37,6 +37,7 @@
 #include "c_BankCommand.hpp"
 #include "c_Rank.hpp"
 
+#include "c_Transaction.hpp"
 using namespace SST;
 using namespace SST::n_Bank;
 
@@ -92,6 +93,17 @@ void c_Channel::updateOtherBanksNextCommandCycles(c_Rank* x_initRankPtr,
 		c_BankCommand* x_cmdPtr, SimTime_t x_cycle) {
 
 	SimTime_t l_time = x_cycle;
+
+	int l_bl = m_bankParams->at("nBL");
+
+	if(x_cmdPtr->m_memzip_mode)
+		if(x_cmdPtr->getCommandMnemonic()==e_BankCommandType::READ || x_cmdPtr->getCommandMnemonic()==e_BankCommandType::WRITE)
+		{
+			if (x_cmdPtr->getTransaction()->getCompressedSize() > 50)
+				m_bankParams->at("nBL") *= 2;
+		}
+
+
 
 	for (auto& l_rankPtr : m_rankPtrs) {
 
@@ -195,5 +207,7 @@ void c_Channel::updateOtherBanksNextCommandCycles(c_Rank* x_initRankPtr,
 
 
 		}
+
+		m_bankParams->at("nBL")=l_bl;
 	}
 }

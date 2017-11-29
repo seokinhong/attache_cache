@@ -70,6 +70,7 @@ class ArielCore {
 			ArielMemoryManager* memMgr, const uint32_t perform_address_checks, Params& params);
 		~ArielCore();
 		bool isCoreHalted() const;
+	    bool isDoneMaxInsts() const;
 		void tick();
 		void halt();
 		void finishCore();
@@ -114,6 +115,7 @@ class ArielCore {
 		Output* output;
 		std::queue<ArielEvent*>* coreQ;
 		bool isHalted;
+		bool doneMaxInst;
 		SimpleMem* cacheLink;
 	    Link* allocLink;
 		ArielTunnel *tunnel;

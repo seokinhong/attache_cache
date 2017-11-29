@@ -1,0 +1,34 @@
+diff --git a/src/sst/elements/prospero/proscpu.h b/src/sst/elements/prospero/proscpu.h
+index 2667967..ad97163 100644
+--- a/src/sst/elements/prospero/proscpu.h
++++ b/src/sst/elements/prospero/proscpu.h
+@@ -47,9 +47,9 @@ namespace SST {
+ 				ProsperoComponent(ComponentId_t id, Params& params);
+ 				~ProsperoComponent();
+ 
+-  void setup() { }
+-  void init(unsigned int phase);
+-  void finish();
++				void init(unsigned int phase);
++				void setup() { }
++				void finish();
+ 
+ 			private:
+ 				ProsperoComponent();                         // Serialization only
+@@ -60,7 +60,7 @@ namespace SST {
+ 				bool tick( Cycle_t );
+ 				void issueRequest(const ProsperoTraceEntry* entry);
+ 				void countAtomicInstr(uint32_t opcode);
+-
++				void sendMemContent(uint64_t addr, uint64_t vaddr, uint32_t size, uint64_t data) ;
+ 
+ 				Output* output;
+ 				ProsperoTraceReader* reader;
+@@ -70,6 +70,7 @@ namespace SST {
+ 				char* subID;
+ 				FILE* traceFile;
+ 				bool traceEnded;
++				SST::Link *cpu_to_mem_content_link;
+ #ifdef HAVE_LIBZ
+ 				gzFile traceFileZ;
+ #endif

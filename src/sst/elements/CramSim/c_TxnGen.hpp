@@ -72,6 +72,7 @@ namespace SST {
             uint64_t m_resWriteCount;
             uint64_t m_reqReadCount;
             uint64_t m_reqWriteCount;
+            uint64_t m_resTotalCount;
 
 
             // Statistics
@@ -84,6 +85,7 @@ namespace SST {
             Statistic<uint64_t>* s_readTxnsLatency;
             Statistic<uint64_t>* s_writeTxnsLatency;
             Statistic<uint64_t>* s_txnsLatency;
+            Statistic<uint64_t>* s_cycles;
 
             // Debug Output
             Output* output;

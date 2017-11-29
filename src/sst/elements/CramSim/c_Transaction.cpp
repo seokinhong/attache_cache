@@ -49,6 +49,7 @@ c_Transaction::c_Transaction(uint64_t x_seqNum, e_TransactionType x_txnMnemonic,
 	m_isResponseRequired=true;
 	m_chipAccessRatio=1;
 	m_compressed_size=-1;
+	m_metadataFlag=false;
 }
 
 void c_Transaction::setWaitingCommands(const unsigned x_numWaitingCommands) {

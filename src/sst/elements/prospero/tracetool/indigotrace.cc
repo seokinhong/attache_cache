@@ -27,6 +27,7 @@
 
 /**
   * updates
+  * [11/28/17] add the data compression
   * [08/15/17] add the periodic recording feature, seokin
   * [08/20/17] fixed the LIBZ issue, seokin
   */
@@ -34,12 +35,15 @@
 #include <sst_config.h>
 #include "pin.H"
 
+#include <assert.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <cstring>
 #include <iostream>
 #include <inttypes.h>
 #include "atomichandler.h"
+#include <map>
+#include <vector>
 
 //#define HAVE_LIBZ 1
 #ifdef HAVE_LIBZ
@@ -48,6 +52,7 @@
 //#include "/home/mbhealy/Workspace/Tools/zlib-1.2.11/install/include/zlib.h"
 //#include <zlib.h>
 
+//#define COMP_DEBUG 1
 using namespace std;
 
 uint32_t max_thread_count;
@@ -64,7 +69,12 @@ uint32_t pimSupportLevel;
 uint64_t simpointInterval=0;		//the number of instructions between simulation points
 uint64_t numSimInst=0;		//the number of instructions executed in the simulation points
 uint64_t numSimpoint=0;		//the number of simulation points
-
+uint32_t compressionRecordEnabled=0;
+uint64_t numcopyfail=0;
+uint32_t similarity_distance=0;
+uint64_t g_similarity_incomp_cnt=0;
+uint32_t g_similarity_comp_cnt=0;
+uint64_t g_accessed_cacheline_num=0;
 
 const char READ_OPERATION_CHAR = 'R';
 const char WRITE_OPERATION_CHAR = 'W';
@@ -92,7 +102,9 @@ typedef struct {
 	UINT64 padF;
 	UINT64 tmpInstCnt;
 	UINT64 simpointCnt;
-	bool flagRecord;
+	UINT64 maddr;
+        UINT32 msize;
+        bool flagRecord;
 	bool done;
 } threadRecord;
 
@@ -123,6 +135,9 @@ KNOB<UINT64> KnobNumSimInst(KNOB_MODE_WRITEONCE, "pintool",
     "s", "1125899906842624", "The number of instructions executed in the simulation points, default=1125899906842624");
 KNOB<UINT64> KnobNumSimpoint(KNOB_MODE_WRITEONCE, "pintool",
     "n", "1125899906842624", "The number of the simulation points, default=1125899906842624");
+KNOB<UINT32> KnobContentRecord(KNOB_MODE_WRITEONCE, "pintool",
+    "c", "0", "Record the compression ratio of memory contents (0 = disabled, 1 = enabled), default=0");
+
 
 
 
@@ -277,6 +292,261 @@ VOID PerformInstrumentCountCheck(THREADID id) {
 	}
 }
 
+
+/**
+ * Data compression
+ */
+uint32_t getDataSize(int64_t data_)
+{
+	int size=65; //bit
+
+	if(data_==0)
+		return 0;
+
+	uint64_t data=llabs(data_);
+
+	for(int i=1; i<64; i++)
+	{
+		if(data==(data & ~(0xffffffffffffffff<<i)))
+		{
+			size = i+1; //1 bit is used for sign bit.
+			break;
+		}
+	}
+
+	return size;
+}
+
+int64_t getSignedExtension(int64_t data, uint32_t size) {
+	         assert(size<=65);
+	         int64_t new_data;
+	         new_data=(data<<(64-size))>>(64-size);
+	         return new_data;
+}
+
+uint32_t getCompressedSize(uint8_t *cacheline) {
+
+
+	int min_compressed_size = 512;
+
+
+	std::vector<uint64_t> data_vec;
+
+	std::vector<uint32_t> base_size(3);
+	std::map<uint32_t, uint32_t> min_delta_size_map;
+	std::map<uint32_t, uint64_t> min_base_map;
+	std::map<uint32_t, uint32_t> min_compressed_size_map;
+	base_size = {2, 4, 8}; //
+
+	std::vector<int64_t> delta_base_vector;
+	std::vector<int64_t> delta_immd_vector;
+	std::vector<uint32_t> delta_flag;
+	uint32_t base_id;
+
+	uint64_t min_base = 0;
+	int min_k = 0;
+
+
+	for (auto &k: base_size) {
+		uint8_t *ptr;
+		data_vec.clear();
+		for (int i = 0; i < 64 / k; i++) {
+			ptr = (cacheline + i * k);
+			if (k == 2)
+				data_vec.push_back((uint64_t) (*(uint16_t *) ptr));
+			else if (k == 4)
+				data_vec.push_back((uint64_t) (*(uint32_t *) ptr));
+			else if (k == 8)
+				data_vec.push_back((uint64_t) (*(uint64_t *) ptr));
+		}
+
+		int64_t delta_base = 0;
+		int64_t delta_immd = 0;
+		int64_t immd = 0;
+
+		//calculate the delta
+		int compressed_size = 0;
+
+		for (auto &base:data_vec) {
+			delta_immd_vector.clear();
+			delta_base_vector.clear();
+			delta_flag.clear();
+			base_id = 0;
+
+			int max_delta_size_immd = 0;
+			int max_delta_size_base = 0;
+
+			//calculate delta
+			for (auto &data:data_vec) {
+
+				delta_base = data - base;
+				delta_immd = data - immd;
+
+				if (llabs(delta_base) >= llabs(delta_immd)) {
+					int size = getDataSize(delta_immd);
+					if (size > 64)
+						break;
+
+					if (max_delta_size_immd < size)
+						max_delta_size_immd = size;
+
+					delta_immd_vector.push_back(delta_immd);
+					delta_flag.push_back(0);
+
+				} else {
+					int size = getDataSize(delta_base);
+					if (size > 64)
+						break;
+
+					if (max_delta_size_base < size)
+						max_delta_size_base = size;
+
+					delta_base_vector.push_back(delta_base);
+					delta_flag.push_back(1);
+				}
+			}
+
+			//calculate compressed size
+			compressed_size =
+					k * 8 + delta_base_vector.size() * max_delta_size_base +
+					delta_immd_vector.size() * max_delta_size_immd +
+					(64 / k) + 6 * 2 + 2; //bits
+#ifdef COMP_DEBUG
+					printf("k:%d base: %llx max_delta_size_base: %d max_delta_size_immd     : %d num_delta_base:%d num_delta_immd:%d compressed_size:%d compression ratio:%lf\n",
+			                                k, base, max_delta_size_base, max_delta_size_immd, delta_base_vector.size(),
+			                                                               delta_immd_vector.size(), compressed_size, (double) 512 / (double) compressed_size);
+#endif
+
+			//get min compressed size
+			if (compressed_size < min_compressed_size) {
+				min_k = k;
+				min_base = base;
+				min_compressed_size = compressed_size;
+
+                            //validate compression algorithm
+                            if (1) {
+                                int base_idx = 0;
+                                int immd_idx = 0;
+                                int data_idx = 0;
+                                uint64_t delta = 0;
+
+                                std::vector<uint64_t> decompressed_data;
+
+                                for (auto &flag:delta_flag) {
+                                    uint64_t data;
+                                    if (flag == 0) {
+                                        delta = delta_immd_vector[immd_idx++];
+                                        data = delta;
+                                    } else {
+                                        delta = delta_base_vector[base_idx++];
+
+                                        data = base + getSignedExtension(delta, getDataSize(delta));
+                                    }
+                                    decompressed_data.push_back(data);
+                                    //output->verbose(CALL_INFO, 5, 0, "data: %llx decompressed data: %llx\n",
+ //                                                   data_vec[data_idx], data);
+                                    if (data != data_vec[data_idx++]) {
+                                        printf("decompression error\n");
+                                        exit(1);
+                                    }
+                                }
+                            }
+			}
+		}
+	}
+	return min_compressed_size;
+}
+
+VOID checkSimilarity(uint64_t* data, uint64_t addr)
+{
+	int cacheline_addr=(addr>>6)<<6;
+	int compressed_size=getCompressedSize((uint8_t*)data);
+	bool compressible=false;
+
+	if(compressed_size<=256)
+		compressible = true;
+
+	bool neighbor_compressible=false;
+
+	char* tmp = (char*) malloc(sizeof(char)*64);
+	int cnt=0;
+	int l_similarity_comp_cnt=0;
+	int l_similarity_incomp_cnt=0;
+
+	g_accessed_cacheline_num++;
+
+	//fprintf(stderr,"[PINTOOL] compressed size: %d\n",compressed_size);
+
+	uint64_t neighbor_addr=addr+9;
+	uint64_t page_num=(addr>>12);
+
+	for(int i=0;i<similarity_distance;i++)
+	{
+
+		uint64_t neighbor_page=(neighbor_addr>>12);
+
+		//fprintf(stderr,"[PINTOOL] page_num: %lld neigh pae_nu:%lld\n", page_num, neighbor_page);
+		if(page_num!=neighbor_page)
+			break;
+
+		//ReadCacheLine(neighbor_addr,(uint64_t*)tmp);
+		int neighbor_compressed_size=getCompressedSize((uint8_t*) tmp);
+		if(compressible) {
+			if (neighbor_compressed_size <= 256)
+				l_similarity_comp_cnt++;
+		}
+		else {
+			if (neighbor_compressed_size > 256)
+				l_similarity_incomp_cnt++;
+		}
+
+		if(g_accessed_cacheline_num%1000000==0)
+			fprintf(stderr,"[PINTOOL]distance: %d addr: %llx neighbor address:%llx neighbor compressed size: %d l_similarity_comp_cnt:%lld l_similarity_incomp_cnt:%lld accessed_cnt:%lld\n",
+				similarity_distance, addr, neighbor_addr, neighbor_compressed_size, l_similarity_comp_cnt,l_similarity_incomp_cnt,g_accessed_cacheline_num);
+
+		neighbor_addr+=8;
+	}
+
+	if(l_similarity_comp_cnt==similarity_distance)
+		g_similarity_comp_cnt++;
+
+	if(l_similarity_incomp_cnt==similarity_distance)
+		g_similarity_incomp_cnt++;
+
+	if(g_accessed_cacheline_num%1000000==0)
+		fprintf(stderr,"[PINTOOL] g_similarity_cmp_cnt:%lld g_similarity_incomp_cnt:%lld accessed_cnt:%lld\n", g_similarity_comp_cnt,g_similarity_incomp_cnt,g_accessed_cacheline_num);
+
+	free(tmp);
+}
+
+
+
+
+/** 
+ * Read the content of a cacheline
+ */
+
+VOID ReadCacheLine(uint64_t addr, uint64_t * data)
+{
+	//assume that cache line size is 64B
+	uint64_t addr_new = (addr>>6)<<6;
+	int copied_size= PIN_SafeCopy((uint8_t*)data, (VOID*) addr_new, 64);
+	if(copied_size !=64)
+		fprintf(stderr, "indigo memory copy fail\n");
+
+
+	//checkSimilarity(data,addr);
+#ifdef COMP_DEBUG
+        for(int i=0;i<8;i++)
+        {
+
+            fprintf(stderr,"[PINTOOL] cacheline read [%d] addr:%llx data:%llx \n", i, addr_new+i*8, *(data+i));
+        }
+#endif
+
+}
+
+
 /** 
  * Print a memory read record
  */
@@ -293,41 +563,65 @@ VOID RecordMemRead(VOID * addr, UINT32 size, THREADID thr, UINT32 atomicClass)
 	printf("Indigo: Calling into RecordMemRead...\n");
 #endif
 	
-	UINT64 ma_addr = (UINT64) addr;
+		UINT64 ma_addr = (UINT64) addr;
+        
+        UINT64 data=0;
+       
+        PerformInstrumentCountCheck(thr);
 
-	PerformInstrumentCountCheck(thr);
+        if(atomifyEnabled && atomicProfileLevel > 1){
+            // all non-atomics are "atomified"
+            if (atomicClass == NON_ATOMIC){
+                atomicClass = ATOMIC_ATOMIFY;
+            }
+        }
 
-	if(atomifyEnabled && atomicProfileLevel > 1){
-		// all non-atomics are "atomified"
-		if (atomicClass == NON_ATOMIC){
-			atomicClass = ATOMIC_ATOMIFY;
+		if(compressionRecordEnabled) {
+            uint64_t *cl_data = (uint64_t *) malloc(sizeof(uint64_t) * 8);
+            ReadCacheLine(ma_addr, cl_data);
+            data=getCompressedSize((uint8_t*)cl_data);
+
+
+    #ifdef COMP_DEBUG
+            for (int i = 0; i < 8; i++) {
+                fprintf(stderr,"[PINTOOL] [%d] read addr:%llx data:%llx\n", i, ma_addr, *(cl_data+i));
+            }
+            fprintf(stderr,"[PINTOOL] compressed size:%d\n",data);
+    #endif
+
+        //	if(similarity_distance>0)
+        //		checkSimilarity((uint64_t*)ac.inst.data,ac.inst.addr);
+            free(cl_data);
 		}
-	}
+
+
 
 	if(0 == trace_format) {
 		if(atomicProfileLevel > 0) {
-			fprintf(trace[thr], "%llu R %llu %u %u\n",
+			fprintf(trace[thr], "%llu R %llu %u %llu %u\n",
 					(unsigned long long int) thread_instr_id[thr].insCount,
 					(unsigned long long int) ma_addr,
 					(unsigned int) size,
+                                        (unsigned long long) data,
 					(unsigned int) atomicClass);
 			is_atomic(atomicClass) ? thread_instr_id[thr].atomicCount++ : 0;
 		}
 		else{
-			fprintf(trace[thr], "%llu R %llu %u %u\n",
+			fprintf(trace[thr], "%llu R %llu %u %llu %u\n",
 					(unsigned long long int) thread_instr_id[thr].insCount,
 					(unsigned long long int) ma_addr,
 					(unsigned int) size,
+                                        (unsigned long long) data,
 					(unsigned int) NON_ATOMIC);
 		}
 		thread_instr_id[thr].readCount++;
 	} 
-	
 	else if (1 == trace_format || 2 == trace_format) {
 		copy(RECORD_BUFFER, &(thread_instr_id[thr].insCount), 0, sizeof(UINT64) );
 		copy(RECORD_BUFFER, &READ_OPERATION_CHAR, sizeof(UINT64), sizeof(char) );
 		copy(RECORD_BUFFER, &ma_addr, sizeof(UINT64) + sizeof(char), sizeof(UINT64) );
 		copy(RECORD_BUFFER, &size, sizeof(UINT64) + sizeof(char) + sizeof(UINT64), sizeof(UINT32) );
+		copy(RECORD_BUFFER, &data, sizeof(UINT64) + sizeof(char)+sizeof(UINT64)+sizeof(UINT32), sizeof(UINT64) );
 
 #ifdef Indigo_DEBUG_IC
 		printf("Indigo: Writing R Instruction Count Core[%d] : %lu \n", thr, thread_instr_id[thr].insCount);
@@ -339,14 +633,14 @@ VOID RecordMemRead(VOID * addr, UINT32 size, THREADID thr, UINT32 atomicClass)
 			atomicClass=NON_ATOMIC;
 		}
 		
-		copy(RECORD_BUFFER, &atomicClass, sizeof(UINT64) + sizeof(char) + sizeof(UINT64) + sizeof(UINT32), sizeof(UINT32));
+		copy(RECORD_BUFFER, &atomicClass, sizeof(UINT64) + sizeof(char) + sizeof(UINT64) + sizeof(UINT32)+sizeof(UINT64), sizeof(UINT32));
 
 		if(1 == trace_format) {
-			fwrite(RECORD_BUFFER, sizeof(UINT64) + sizeof(char) + sizeof(UINT64) + sizeof(UINT32) + sizeof(UINT32), 1, trace[thr]);
+			fwrite(RECORD_BUFFER, sizeof(UINT64) + sizeof(char) + sizeof(UINT64) + sizeof(UINT32)+ sizeof(UINT64) + sizeof(UINT32), 1, trace[thr]);
 		} 
 		else {
 #ifdef HAVE_LIBZ
-			gzwrite(traceZ[thr], RECORD_BUFFER, sizeof(UINT64) + sizeof(char) + sizeof(UINT64) + sizeof(UINT32) + sizeof(UINT32));
+			gzwrite(traceZ[thr], RECORD_BUFFER, sizeof(UINT64) + sizeof(char) + sizeof(UINT64) + sizeof(UINT32)+sizeof(UINT64) + sizeof(UINT32));
 #endif
 		}
 		thread_instr_id[thr].readCount++;
@@ -363,43 +657,77 @@ VOID RecordMemRead(VOID * addr, UINT32 size, THREADID thr, UINT32 atomicClass)
  * Print a memory write record
  */
 
-VOID RecordMemWrite(VOID * addr, UINT32 size, THREADID thr, UINT32 atomicClass)
+
+
+VOID RecordMemAddrSize(VOID* addr, UINT32 size, THREADID thr)
 {
-	if( traceEnabled == 0 || thr >= max_thread_count){
+    thread_instr_id[thr].maddr=(UINT64) addr;
+    thread_instr_id[thr].msize=size;
+ //   printf("addrsize: addr:%lld size:%ld\n",addr,size);
+}
+
+VOID RecordMemWrite(THREADID thr,  UINT32 atomicClass)
+{
+        if( traceEnabled == 0 || thr >= max_thread_count){
 		return;
 	}
 
 	if(thread_instr_id[thr].flagRecord==true)
 	{
 #ifdef Indigo_DEBUG
-	printf("Indigo: Calling into RecordMemRead...\n");
+	printf("Indigo: Calling into RecordMemWrite...\n");
 #endif
 
-	UINT64 ma_addr = (UINT64) addr;
+		UINT64 ma_addr = thread_instr_id[thr].maddr;
+        UINT32 size = thread_instr_id[thr].msize;
+		UINT64 data = 0;
 
-	PerformInstrumentCountCheck(thr);
 
-	if(atomifyEnabled && atomicProfileLevel > 1){
-		// all non-atomics are "atomified"
-		if (atomicClass == NON_ATOMIC){
-			atomicClass = ATOMIC_ATOMIFY;
+		PerformInstrumentCountCheck(thr);
+
+		if(atomifyEnabled && atomicProfileLevel > 1){
+			// all non-atomics are "atomified"
+			if (atomicClass == NON_ATOMIC){
+				atomicClass = ATOMIC_ATOMIFY;
+			}
 		}
-	}
+
+		if(compressionRecordEnabled) {
+            uint64_t *cl_data = (uint64_t *) malloc(sizeof(uint64_t) * 8);
+            ReadCacheLine(ma_addr, cl_data);
+            data=getCompressedSize((uint8_t*)cl_data);
+
+
+    #ifdef COMP_DEBUG
+            for (int i = 0; i < 8; i++) {
+                fprintf(stderr,"[PINTOOL] [%d] read addr:%llx data:%llx\n", i, ma_addr, *(cl_data+i));
+            }
+            fprintf(stderr,"[PINTOOL] compressed size:%d\n",data);
+    #endif
+
+        //	if(similarity_distance>0)
+        //		checkSimilarity((uint64_t*)ac.inst.data,ac.inst.addr);
+            free(cl_data);
+		}
+
+
 
 	if(0 == trace_format) {
 		if(atomicProfileLevel > 0) {
-			fprintf(trace[thr], "%llu W %llu %u %u\n",
+			fprintf(trace[thr], "%llu W %llu %u %llu %u\n",
 					(unsigned long long int) thread_instr_id[thr].insCount,
 					(unsigned long long int) ma_addr,
 					(unsigned int) size,
+                                        (unsigned long long int) data,
 					(unsigned int) atomicClass);
 			is_atomic(atomicClass) ? thread_instr_id[thr].atomicCount++ : 0;
 		}
 		else{
-			fprintf(trace[thr], "%llu W %llu %u %u\n",
+			fprintf(trace[thr], "%llu W %llu %u %llu %u\n",
 					(unsigned long long int) thread_instr_id[thr].insCount,
 					(unsigned long long int) ma_addr,
 					(unsigned int) size,
+                                        (unsigned long long int) data,
 					(unsigned int) NON_ATOMIC);
 		}
 		thread_instr_id[thr].writeCount++;
@@ -410,6 +738,7 @@ VOID RecordMemWrite(VOID * addr, UINT32 size, THREADID thr, UINT32 atomicClass)
 		copy(RECORD_BUFFER, &WRITE_OPERATION_CHAR, sizeof(UINT64), sizeof(char) );
 		copy(RECORD_BUFFER, &ma_addr, sizeof(UINT64) + sizeof(char), sizeof(UINT64) );
 		copy(RECORD_BUFFER, &size, sizeof(UINT64) + sizeof(char) + sizeof(UINT64), sizeof(UINT32) );
+		copy(RECORD_BUFFER, &data, sizeof(UINT64) + sizeof(char) + sizeof(UINT64)+sizeof(UINT32), sizeof(UINT64) );
 
 #ifdef Indigo_DEBUG_IC
 		printf("Indigo: Writing R Instruction Count Core[%d] : %lu \n", thr, thread_instr_id[thr].insCount);
@@ -421,11 +750,11 @@ VOID RecordMemWrite(VOID * addr, UINT32 size, THREADID thr, UINT32 atomicClass)
 			atomicClass=NON_ATOMIC;
 		}
 	
-		copy(RECORD_BUFFER, &atomicClass, sizeof(UINT64) + sizeof(char) + sizeof(UINT64) + sizeof(UINT32), sizeof(UINT32));
+		copy(RECORD_BUFFER, &atomicClass, sizeof(UINT64) + sizeof(char) + sizeof(UINT64) + sizeof(UINT32)+sizeof(UINT64), sizeof(UINT32));
 
 		if(1 == trace_format) {
                     if(thr < max_thread_count && (traceEnabled >0)){
-			    fwrite(RECORD_BUFFER, sizeof(UINT64) + sizeof(char) + sizeof(UINT64) + sizeof(UINT32) + sizeof(UINT32), 1, trace[thr]);
+			    fwrite(RECORD_BUFFER, sizeof(UINT64) + sizeof(char) + sizeof(UINT64) + sizeof(UINT32) + sizeof(UINT64)+sizeof(UINT32), 1, trace[thr]);
                             thread_instr_id[thr].writeCount++;
                         }
 		}
@@ -433,7 +762,7 @@ VOID RecordMemWrite(VOID * addr, UINT32 size, THREADID thr, UINT32 atomicClass)
 #ifdef HAVE_LIBZ
 
                     if(thr < max_thread_count && (traceEnabled >0)){
-			gzwrite(traceZ[thr], RECORD_BUFFER, sizeof(UINT64) + sizeof(char) + sizeof(UINT64) + sizeof(UINT32) + sizeof(UINT32));
+			gzwrite(traceZ[thr], RECORD_BUFFER, sizeof(UINT64) + sizeof(char) + sizeof(UINT64) + sizeof(UINT32) + sizeof(UINT64)+sizeof(UINT32));
                         thread_instr_id[thr].writeCount++;
                         }
 #endif
@@ -455,11 +784,11 @@ VOID IncrementInstructionCount(THREADID id) {
 	printf("Indigo: Increment Instruction Count Core[%d] : %lu \n", id, thread_instr_id[id].insCount);
 #endif
 		thread_instr_id[id].insCount++;
-                if(simpointInterval ==0)
-                {
-                    thread_instr_id[id].flagRecord=true;
-                }
-                else if(thread_instr_id[id].flagRecord==false)
+        if(simpointInterval ==0)
+        {
+			thread_instr_id[id].flagRecord=true;
+		}
+		else if(thread_instr_id[id].flagRecord==false)
 		{
 			if(thread_instr_id[id].tmpInstCnt< simpointInterval)
 			{
@@ -575,6 +904,9 @@ VOID Instruction(INS ins, VOID *v)
 			}
 		}
 
+                if(mem_size>8)
+                        numcopyfail++;
+
 		if (INS_MemoryOperandIsRead(ins, memOp))
 		{
 			INS_InsertPredicatedCall(
@@ -585,18 +917,42 @@ VOID Instruction(INS ins, VOID *v)
 					IARG_UINT32, atomicClass,
 					IARG_END);
 		}
+
 		// Note that in some architectures a single memory operand can be
 		// both read and written (for instance incl (%eax) on IA-32)
 		// In that case we instrument it once for read and once for write.
-		if (INS_MemoryOperandIsWritten(ins, memOp))
+//	if (INS_MemoryOperandIsWritten(ins, memOp))
+		if (INS_IsMemoryWrite(ins))
 		{
-			INS_InsertPredicatedCall(
-					ins, IPOINT_BEFORE, (AFUNPTR)RecordMemWrite,
-					IARG_MEMORYOP_EA, memOp,
-					IARG_UINT32, (UINT32) mem_size,
-					IARG_THREAD_ID,
-					IARG_UINT32, atomicClass,
-					IARG_END);
+
+                        INS_InsertPredicatedCall(
+                                            ins, IPOINT_BEFORE, (AFUNPTR)RecordMemAddrSize,
+                                            IARG_MEMORYWRITE_EA,
+                                            IARG_MEMORYWRITE_SIZE,
+                                            IARG_THREAD_ID,
+                                            IARG_END);
+
+
+
+                        if(INS_HasFallThrough(ins))
+                        {
+
+                      //      std::cout<<"hasfallthrohg\n";
+                            INS_InsertPredicatedCall(
+                                            ins, IPOINT_AFTER, (AFUNPTR)RecordMemWrite,
+                                            IARG_THREAD_ID,
+                                            IARG_UINT32, atomicClass,
+                                            IARG_END);
+                        }
+                        if(INS_IsBranchOrCall(ins))
+                        {
+                            INS_InsertPredicatedCall(
+                                            ins, IPOINT_TAKEN_BRANCH, (AFUNPTR)RecordMemWrite,
+                                            IARG_THREAD_ID,
+                                            IARG_UINT32, atomicClass,
+                                            IARG_END);
+                        }
+
 		}
 	}
 
@@ -673,6 +1029,8 @@ VOID Fini(INT32 code, VOID *v)
 		printf("Indigo: Thread the number of blocks recorded: %lu\n", thread_instr_id[i].simpointCnt);
 	}
 
+        printf("Indigo: total number of data copy fail:%llu\n",numcopyfail);
+
 	printf("Indigo: Done.\n");
 }
 
@@ -709,9 +1067,8 @@ int main(int argc, char *argv[])
 	char nameBuffer[256];
 
 	if(KnobTraceFormat.Value() == "text") {
-		printf("Indigo: Tracing will be recorded in text format.\n");
+		printf("Indigo: Tracing will be recorded in text format.ddd\n");
 		trace_format = 0;
-
 		for(UINT32 i = 0; i < max_thread_count; ++i) {
 			sprintf(nameBuffer, "%s-%lu-0.trace", KnobTraceFile.Value().c_str(), (unsigned long) i);
 			trace[i] = fopen(nameBuffer, "wt");
@@ -721,6 +1078,7 @@ int main(int argc, char *argv[])
 			fileBuffers[i] = (char*) malloc(sizeof(char) * KnobFileBufferSize.Value());
 			setvbuf(trace[i], fileBuffers[i], _IOFBF, (size_t) KnobFileBufferSize.Value());
 		}
+
 	} else if(KnobTraceFormat.Value() == "binary") {
 		printf("Indigo: Tracing will be recorded in uncompressed binary format.\n");
 		trace_format = 1;
@@ -786,15 +1144,18 @@ int main(int argc, char *argv[])
 	printf("Indigo: Next file trip count set to %lu instructions.\n", nextFileTrip);
 	
 	simpointInterval = KnobSimpointInterval.Value();
-    printf("Indigo: The number of instructions between simulation points: %llu\n", simpointInterval);
+        printf("Indigo: The number of instructions between simulation points: %llu\n", simpointInterval);
 
-    numSimInst = KnobNumSimInst.Value();
-    printf("Indigo: The number of simulated instructions : %llu\n", numSimInst);
+        numSimInst = KnobNumSimInst.Value();
+        printf("Indigo: The number of simulated instructions : %llu\n", numSimInst);
 	
 	numSimpoint = KnobNumSimpoint.Value();
-    printf("Indigo: The number of simulation point: %llu\n", numSimpoint);
+        printf("Indigo: The number of simulation point: %llu\n", numSimpoint);
 
 
+        compressionRecordEnabled = KnobContentRecord.Value();
+        if(compressionRecordEnabled == 1)
+            printf("Indigo: compression ratio of memory content will be recored\n");
 
 	// Thread zero is always started
 	thread_instr_id[0].threadInit = 1;

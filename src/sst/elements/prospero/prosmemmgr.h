@@ -19,6 +19,7 @@
 
 #include <sst/core/output.h>
 #include <map>
+#include <queue>
 
 namespace SST {
 namespace Prospero {
@@ -26,12 +27,17 @@ namespace Prospero {
 class ProsperoMemoryManager {
 public:
 	ProsperoMemoryManager(const uint64_t pageSize, Output* output);
+
 	~ProsperoMemoryManager();
 	uint64_t translate(const uint64_t virtAddr);
+	void pushNextPageNum(uint64_t nextPageNum);
+	uint64_t getNumAllocatedPage();
 
 private:
+
 	std::map<uint64_t, uint64_t> pageTable;
-	uint64_t nextPageStart;
+	std::queue<uint64_t>nextPageList;
+//	uint64_t nextPageStart;
 	uint64_t pageSize;
 	Output* output;
 };

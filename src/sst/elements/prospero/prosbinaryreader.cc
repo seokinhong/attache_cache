@@ -35,7 +35,7 @@ ProsperoBinaryTraceReader::ProsperoBinaryTraceReader( Component* owner, Params& 
 		pimSupport = (uint32_t) params.find<uint32_t>("pimsupport", 0);
 		atomifyDrift = 0;
 
-		recordLength = sizeof(uint64_t) + sizeof(char) + sizeof(uint64_t) + sizeof(uint32_t) + + sizeof(uint32_t);
+		recordLength = sizeof(uint64_t) + sizeof(char) + sizeof(uint64_t) + sizeof(uint32_t) + sizeof(uint64_t)+ sizeof(uint32_t);
 		buffer = (char*) malloc(sizeof(char) * recordLength);
 };
 
@@ -62,7 +62,8 @@ ProsperoTraceEntry* ProsperoBinaryTraceReader::readNextEntry() {
 	uint64_t reqCycles  = 0;
 	char reqType = 'R';
 	uint32_t reqLength  = 0;
-	uint32_t reqAtomic  = NON_ATOMIC;
+	uint64_t reqData = 0;
+        uint32_t reqAtomic  = NON_ATOMIC;
 	uint64_t atomifyStart = 0;
 	uint64_t atomifyBefore = 0;
 	int64_t atomifyRange = 0;
@@ -78,7 +79,8 @@ ProsperoTraceEntry* ProsperoBinaryTraceReader::readNextEntry() {
 		copy((char*) &reqType,    buffer, sizeof(uint64_t), sizeof(char));
 		copy((char*) &reqAddress, buffer, sizeof(uint64_t) + sizeof(char), sizeof(uint64_t));
 		copy((char*) &reqLength,  buffer, sizeof(uint64_t) + sizeof(char) + sizeof(uint64_t), sizeof(uint32_t));
-		copy((char*) &reqAtomic,  buffer, sizeof(uint64_t) + sizeof(char) + sizeof(uint64_t) + sizeof(uint32_t), sizeof(uint32_t));
+		copy((char*) &reqData,  buffer, sizeof(uint64_t) + sizeof(char) + sizeof(uint64_t)+sizeof(uint32_t), sizeof(uint64_t));
+		copy((char*) &reqAtomic,  buffer, sizeof(uint64_t) + sizeof(char) + sizeof(uint64_t) + sizeof(uint32_t)+sizeof(uint64_t), sizeof(uint32_t));
 	
 		fgetpos (traceInput,&pos);
 		output->verbose(CALL_INFO, 2, 0, "%s: Request cycle trace %lu, pos : %lu\n", traceName.c_str(), reqCycles, pos);
@@ -101,7 +103,8 @@ ProsperoTraceEntry* ProsperoBinaryTraceReader::readNextEntry() {
 					copy((char*) &reqType,    buffer, sizeof(uint64_t), sizeof(char));
 					copy((char*) &reqAddress, buffer, sizeof(uint64_t) + sizeof(char), sizeof(uint64_t));
 					copy((char*) &reqLength,  buffer, sizeof(uint64_t) + sizeof(char) + sizeof(uint64_t), sizeof(uint32_t));
-					copy((char*) &reqAtomic,  buffer, sizeof(uint64_t) + sizeof(char) + sizeof(uint64_t) + sizeof(uint32_t), sizeof(uint32_t));
+					copy((char*) &reqData,  buffer, sizeof(uint64_t) + sizeof(char) + sizeof(uint64_t)+sizeof(uint32_t), sizeof(uint64_t));
+					copy((char*) &reqAtomic,  buffer, sizeof(uint64_t) + sizeof(char) + sizeof(uint64_t) + sizeof(uint32_t)+sizeof(uint64_t), sizeof(uint32_t));
 					atomifyBefore = reqCycles;
 					output->verbose(CALL_INFO, 2, 0, "%s Atomify before cycle %lu, pos: %lu \n", traceName.c_str(), atomifyBefore, pos);
 				}
@@ -135,7 +138,7 @@ ProsperoTraceEntry* ProsperoBinaryTraceReader::readNextEntry() {
 		}
 
 		return new ProsperoTraceEntry(reqCycles, reqAddress,
-				reqLength,
+				reqLength, reqData,
 				(reqType == 'R' || reqType == 'r') ? READ : WRITE, reqAtomic);
 	} else {
 		// Did not get a full read?

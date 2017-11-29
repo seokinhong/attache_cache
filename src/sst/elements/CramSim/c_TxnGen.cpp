@@ -52,7 +52,7 @@ c_TxnGenBase::c_TxnGenBase(ComponentId_t x_id, Params& x_params) :
     m_resWriteCount = 0;
     m_numOutstandingReqs = 0;
     m_numTxns = 0;
-
+    m_resTotalCount=0;
 
     k_numTxnPerCycle =  x_params.find<std::uint32_t>("numTxnPerCycle", 1, l_found);
     if (!l_found) {
@@ -108,7 +108,7 @@ c_TxnGenBase::c_TxnGenBase(ComponentId_t x_id, Params& x_params) :
     s_readTxnsLatency= registerStatistic<uint64_t>("readTxnsLatency");
     s_writeTxnsLatency= registerStatistic<uint64_t>("writeTxnsLatency");
     s_txnsLatency= registerStatistic<uint64_t>("txnsLatency");
-
+    s_cycles= registerStatistic<uint64_t>("cycles");
 }
 
 c_TxnGenBase::~c_TxnGenBase() {
@@ -139,6 +139,7 @@ void c_TxnGenBase::finish()
     double l_txnsPerCycle=  static_cast<double>(m_resReadCount + m_resWriteCount) /static_cast<double>(m_simCycle);
 
     s_txnsPerCycle->addData(l_txnsPerCycle);
+    s_cycles->addData(m_simCycle);
 }
 
 bool c_TxnGenBase::clockTic(Cycle_t) {
@@ -159,10 +160,17 @@ bool c_TxnGenBase::clockTic(Cycle_t) {
         } else
             break;
 
-        if(k_maxTxns>0 && m_numTxns>=k_maxTxns) {
+       /* if(k_maxTxns>0 && m_numTxns>=k_maxTxns) {
+            primaryComponentOKToEndSim();
+            return true;
+        }*/
+        if(k_maxTxns>0 && m_resTotalCount>=k_maxTxns)
+        {
             primaryComponentOKToEndSim();
             return true;
         }
+
+
     }
     return false;
 }
@@ -180,9 +188,11 @@ void c_TxnGenBase::handleResEvent(SST::Event* ev) {
             == e_TransactionType::READ) {
             s_readTxnsCompleted->addData(1);
             m_resReadCount++;
+            m_resTotalCount++;
         } else {
             s_writeTxnsCompleted->addData(1);
             m_resWriteCount++;
+            m_resTotalCount++;
         }
 
         m_numOutstandingReqs--;
@@ -195,7 +205,8 @@ void c_TxnGenBase::handleResEvent(SST::Event* ev) {
         uint64_t l_currentCycle = m_simCycle;
         uint64_t l_seqnum=l_txn->getSeqNum();
         
-        
+
+
         assert(m_outstandingReqs.find(l_seqnum)!=m_outstandingReqs.end());
         SimTime_t l_latency=l_currentCycle-m_outstandingReqs[l_seqnum];
         

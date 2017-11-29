@@ -37,7 +37,7 @@
 
 // SST includes
 #include <sst/core/subcomponent.h>
-#include <sst/core/link.h>
+     #include <sst/core/link.h>
 
 // local includes
 #include "c_BankCommand.hpp"
@@ -64,6 +64,7 @@ public:
     void run();
     void push(c_Transaction* newTxn); // receive txns from txnGen into req q
 	c_BankInfo* getBankInfo(unsigned x_bankId);
+	int getBankPolicy(){return k_bankPolicy;}
 
 private:
 
@@ -76,6 +77,7 @@ private:
 	void printQueues();
 
 	c_CmdScheduler *m_cmdScheduler;
+
 	c_Controller *m_owner;
 
 	std::vector<c_BankInfo*> m_bankInfo;

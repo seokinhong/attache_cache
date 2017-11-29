@@ -72,15 +72,21 @@ private:
         bool m_isRefreshType; // REF and PRE commands treated specially for printing cmd trace
 	c_HashedAddress m_hashedAddr;
 	double m_chipAccessRatio;
+	bool m_metadataFlag;
 
 public:
-//	bool setTxn(c_Transaction* txn){m_txn=txn;}
+
+	bool m_memzip_mode;
+	bool setTxn(c_Transaction* txn){m_txn=txn;}
 	bool setTxnSeqNum(uint64_t num){m_txnSeqNum=num;}
 	void setHelper(){m_helperFlag=true;}
+		void setMetadataCmd(){m_metadataFlag=true;}
+		bool isMetadataCmd(){return m_metadataFlag;}
+
 	bool isHelper(){return m_helperFlag;}
 	        void setChipAccessRatio(double chipAccessRatio){m_chipAccessRatio=chipAccessRatio;}
         double getChipAccessRatio(){return m_chipAccessRatio;}
-	//c_Transaction* getTransaction(){return m_txn;}
+	c_Transaction* getTransaction(){return m_txn;}
 		uint64_t getTxnSeqNum(){return m_txnSeqNum;}
 	//    friend std::ostream& operator<< (std::ostream& x_stream, const c_BankCommand& x_bankCommand);
 

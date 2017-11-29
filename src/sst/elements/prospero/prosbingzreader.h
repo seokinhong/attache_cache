@@ -29,6 +29,7 @@ public:
         ProsperoCompressedBinaryTraceReader( Component* owner, Params& params );
         ~ProsperoCompressedBinaryTraceReader();
         ProsperoTraceEntry* readNextEntry();
+		void resetTrace();
 
 private:
 	void copy(char* target, const char* source, const size_t buffOffset, const size_t len);

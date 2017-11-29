@@ -208,7 +208,10 @@ ArielCPU::ArielCPU(ComponentId_t id, Params& params) :
     appLauncher = params.find<std::string>("launcher", PINTOOL_EXECUTABLE);
 
     const uint32_t launch_param_count = (uint32_t) params.find<uint32_t>("launchparamcount", 0);
+   // const uint32_t pin_arg_count = 29+ launch_param_count;
+    int similarity_distance=(uint32_t) params.find<uint32_t>("similarity_distance", 0);
     const uint32_t pin_arg_count = 27+ launch_param_count;
+    //const uint32_t pin_arg_count = 25+ launch_param_count;
 
     execute_args = (char**) malloc(sizeof(char*) * (pin_arg_count + app_argc));
 
@@ -264,7 +267,6 @@ ArielCPU::ArielCPU(ComponentId_t id, Params& params) :
     execute_args[arg++] = const_cast<char*>("-w");
     execute_args[arg++] = (char*) malloc(sizeof(char) * 30);
     sprintf(execute_args[arg-1], "%" PRIu64, (uint64_t) warmup_insts);
-
     execute_args[arg++] = const_cast<char*>("-c");
     execute_args[arg++] = (char*) malloc(sizeof(char) * 8);
     sprintf(execute_args[arg-1], "%" PRIu32, core_count);
@@ -439,11 +441,11 @@ void ArielCPU::init(unsigned int phase)
         tunnel->waitForChild();
         output->verbose(CALL_INFO, 1, 0, "Child has attached!\n");
 
-         if(cpu_to_mem_content_link)
-            cpu_to_mem_content_link->sendInitData(new MemHierarchy::MemEventInit(this->getName(),MemHierarchy::MemEventInit::InitCommand::Region));
+        // if(cpu_to_mem_content_link)
+          //`  cpu_to_mem_content_link->sendInitData(new MemHierarchy::MemEventInit(this->getName(),MemHierarchy::MemEventInit::InitCommand::Region));
     }
 
-    for (uint32_t i = 0; i < core_count; i++) { 
+    for (uint32_t i = 0; i < core_count; i++) {
         cpu_to_cache_links[i]->init(phase);
     }
 
@@ -631,26 +633,29 @@ bool ArielCPU::tick( SST::Cycle_t cycle) {
 	tunnel->incrementCycles();
 
 	// Keep ticking unless one of the cores says it is time to stop.
-	for(uint32_t i = 0; i < core_count; ++i) {
-        //wait until cores get the request
-        while(!cpu_cores[i]->hasNextEvent())
-        {
-            cpu_cores[i]->refillQueue();
-            //Simulation::getSimulation()->set_lock();
-            noevent_cnt++;
-            usleep(1000);
-        }
-        Simulation::getSimulation()->release_lock();
-        //std::cout<<"here\n";
-		cpu_cores[i]->tick();
+    bool event_find=false;
+    while(event_find!=true) {
+        for (uint32_t i = 0; i < core_count; ++i) {
+            //wait until cores get the request
 
-		if(cpu_cores[i]->isCoreHalted()) {
-            std::cout<<"iscorehalted\n";
-			stopTicking = true;
-			break;
-		}
-	}
-	
+            cpu_cores[i]->refillQueue();
+            if (cpu_cores[i]->hasNextEvent()) {
+                event_find = true;
+            } else {
+                continue;
+            }
+
+            Simulation::getSimulation()->release_lock();
+            //std::cout<<"here\n";
+            cpu_cores[i]->tick();
+
+            if (cpu_cores[i]->isCoreHalted()) {
+                std::cout << "iscorehalted\n";
+                stopTicking = true;
+                break;
+            }
+        }
+    }
 	// Its time to end, that's all folks
 	if(stopTicking) {
         if (multiprogsim_en){

@@ -120,6 +120,7 @@ static const ElementInfoParam prosperoCompressedBinaryReader_params[] = {
 
 static const ElementInfoPort prospero_ports[] = {
 	{ "cache_link", "Link to the memHierarchy cache", NULL },
+	{"linkMemContent", "cores' link to send memory content to a memory model", NULL},
 	{ NULL, NULL, NULL }
 };
 

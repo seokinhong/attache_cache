@@ -66,6 +66,9 @@ namespace SST {
             void sendCommand(c_BankCommand* cmd);
 
             SimTime_t getSimCycle(){return m_simCycle;}
+            Statistic<uint64_t>* s_totalQueueing_delay;
+            Statistic<uint64_t>* s_cmdQueueing_delay;
+            Statistic<uint64_t>* s_txnQueueing_delay;
 
         protected:
             c_Controller(); // for serialization only
@@ -75,6 +78,7 @@ namespace SST {
 
 
             void sendResponse();
+            void sendResponse(c_Transaction*);
             void sendRequest();
             void configure_link();
             // Transaction Generator <-> Controller Handlers

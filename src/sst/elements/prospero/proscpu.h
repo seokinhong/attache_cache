@@ -47,9 +47,9 @@ namespace SST {
 				ProsperoComponent(ComponentId_t id, Params& params);
 				~ProsperoComponent();
 
-  void setup() { }
-  void init(unsigned int phase);
-  void finish();
+				void init(unsigned int phase);
+				void setup() { }
+				void finish();
 
 			private:
 				ProsperoComponent();                         // Serialization only
@@ -60,16 +60,24 @@ namespace SST {
 				bool tick( Cycle_t );
 				void issueRequest(const ProsperoTraceEntry* entry);
 				void countAtomicInstr(uint32_t opcode);
-
+				void sendMemContent(uint64_t addr, uint64_t vaddr, uint32_t size, uint64_t data);
+				void sendPageAllocRequest(uint64_t addr);
+				void handlePageAllocResponse(Event* ev);
 
 				Output* output;
 				ProsperoTraceReader* reader;
 				ProsperoTraceEntry* currentEntry;
 				ProsperoMemoryManager* memMgr;
 				SimpleMem* cache_link;
+				bool isPageRequestSent;
+
 				char* subID;
 				FILE* traceFile;
 				bool traceEnded;
+				bool wait;
+                uint64_t baseCycle;
+				SST::Link *cpu_to_mem_link;
+                uint32_t cpuid;
 #ifdef HAVE_LIBZ
 				gzFile traceFileZ;
 #endif

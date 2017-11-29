@@ -31,7 +31,7 @@ ProsperoCompressedBinaryTraceReader::ProsperoCompressedBinaryTraceReader( Compon
 		exit(-1);
 	}
 
-	recordLength = sizeof(uint64_t) + sizeof(char) + sizeof(uint64_t) + sizeof(uint32_t) + sizeof(uint32_t);
+	recordLength = sizeof(uint64_t) + sizeof(char) + sizeof(uint64_t) + sizeof(uint32_t) + sizeof(uint64_t) + sizeof(uint32_t);
 	buffer = (char*) malloc(sizeof(char) * recordLength);
 };
 
@@ -53,6 +53,12 @@ void ProsperoCompressedBinaryTraceReader::copy(char* target, const char* source,
 	}
 }
 
+void ProsperoCompressedBinaryTraceReader::resetTrace()
+{
+	gzrewind(traceInput);
+}
+
+
 ProsperoTraceEntry* ProsperoCompressedBinaryTraceReader::readNextEntry() {
 	output->verbose(CALL_INFO, 4, 0, "Reading next trace entry...\n");
 
@@ -60,6 +66,7 @@ ProsperoTraceEntry* ProsperoCompressedBinaryTraceReader::readNextEntry() {
 	uint64_t reqCycles  = 0;
 	char reqType = 'R';
 	uint32_t reqLength  = 0;
+        uint64_t reqData = 0;
 	uint32_t reqAtomic = NON_ATOMIC;
 
 	if(gzeof(traceInput)) {
@@ -75,10 +82,11 @@ ProsperoTraceEntry* ProsperoCompressedBinaryTraceReader::readNextEntry() {
 		copy((char*) &reqType,    buffer, sizeof(uint64_t), sizeof(char));
 		copy((char*) &reqAddress, buffer, sizeof(uint64_t) + sizeof(char), sizeof(uint64_t));
 		copy((char*) &reqLength,  buffer, sizeof(uint64_t) + sizeof(char) + sizeof(uint64_t), sizeof(uint32_t));
-		copy((char*) &reqAtomic,  buffer, sizeof(uint64_t) + sizeof(char) + sizeof(uint64_t) + sizeof(uint32_t), sizeof(uint32_t));
+		copy((char*) &reqData,    buffer, sizeof(uint64_t) + sizeof(char) + sizeof(uint64_t)+sizeof(uint32_t), sizeof(uint64_t));
+		copy((char*) &reqAtomic,  buffer, sizeof(uint64_t) + sizeof(char) + sizeof(uint64_t) + sizeof(uint32_t)+sizeof(uint64_t), sizeof(uint32_t));
 
 		return new ProsperoTraceEntry(reqCycles, reqAddress,
-			reqLength,
+			reqLength,reqData,
 			(reqType == 'R' || reqType == 'r') ? READ : WRITE, reqAtomic);
 	} else {
 		output->verbose(CALL_INFO, 2, 0, "Did not read a full record from the compressed trace, returning empty request.\n");

@@ -35,6 +35,7 @@
 #include "c_TokenChgEvent.hpp"
 #include "c_CmdPtrPkgEvent.hpp"
 #include "c_CmdResEvent.hpp"
+#include "c_ControllerPCA.hpp"
 
 using namespace SST;
 using namespace SST::n_Bank;
@@ -203,10 +204,16 @@ std::vector<c_BankCommand*> c_TxnConverter::getCommands(c_Transaction* x_txn) {
 	x_txn->setWaitingCommands(1);
 	x_txn->isProcessed(true);
 	for (auto& l_cmd : l_commandVec) {
+		c_ControllerPCA* owner = dynamic_cast<c_ControllerPCA*> (m_owner);
+		l_cmd->m_memzip_mode=owner->isMemzipMode();
         l_cmd->setTxnSeqNum(x_txn->getSeqNum());
 		l_cmd->setChipAccessRatio(x_txn->getChipAccessRatio());
 		if(x_txn->isHelper())
 			l_cmd->setHelper();
+        if(x_txn->isMetaDataTxn())
+            l_cmd->setMetadataCmd();
+
+		l_cmd->setTxn(x_txn);
 		x_txn->addCommandPtr(l_cmd); // only copies seq num
 	}
 
@@ -223,8 +230,9 @@ void c_TxnConverter::getPreCommands(
 	//close policy
 	if(k_bankPolicy==0)
 	{
-		x_commandVec.push_back(
-			new c_BankCommand(m_cmdSeqNum++, e_BankCommandType::ACT, x_nAddr, l_hashedAddr));
+		if(!l_bankinfo->isRowOpen())
+            x_commandVec.push_back(
+                new c_BankCommand(m_cmdSeqNum++, e_BankCommandType::ACT, x_nAddr, l_hashedAddr));
 	}//open policy or pseudo open
 	else if(k_bankPolicy==1 || k_bankPolicy==2)
 	{
@@ -293,10 +301,13 @@ void c_TxnConverter::getPostCommands(
 				new c_BankCommand(m_cmdSeqNum++, l_CmdType, x_nAddr, l_hashedAddr));
 
 		// Last command will be precharge IFF ReadA is not used
-		if (!l_useAutoPRE)
-			x_commandVec.push_back(
-					new c_BankCommand(m_cmdSeqNum++, e_BankCommandType::PRE,
-									  x_nAddr, l_hashedAddr));
+        if(!x_txn->isMetaDataTxn() || x_txn->isWrite())  //don't close row if it is metadata txn
+		{
+			if (!l_useAutoPRE)
+				x_commandVec.push_back(
+						new c_BankCommand(m_cmdSeqNum++, e_BankCommandType::PRE,
+										  x_nAddr, l_hashedAddr));
+		}
 
 	} else if(k_bankPolicy==1 || k_bankPolicy==2){		//open policy
 
@@ -333,7 +344,10 @@ void c_TxnConverter::updateBankInfo(c_Transaction* x_txn)
 
 	if(k_bankPolicy==0)//close policy
 	{
-		m_bankInfo.at(l_bankid)->resetRowOpen();
+		if(x_txn->isMetaDataTxn() && !x_txn->isWrite()) //in case of metadata request, we should wait normal request before closing the row
+			m_bankInfo.at(l_bankid)->setRowOpen();
+		else
+			m_bankInfo.at(l_bankid)->resetRowOpen();
 	} else if(k_bankPolicy==1) //open policy
 	{
 		m_bankInfo.at(l_bankid)->setRowOpen();

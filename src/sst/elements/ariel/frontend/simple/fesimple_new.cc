@@ -78,6 +78,8 @@ KNOB<UINT32> KeepMallocStackTrace(KNOB_MODE_WRITEONCE, "pintool",
     "k", "0", "Should keep shadow stack and dump on malloc calls. 1 = enabled, 0 = disabled");
 KNOB<UINT32> DefaultMemoryPool(KNOB_MODE_WRITEONCE, "pintool",
     "d", "0", "Default SST Memory Pool");
+KNOB<UINT32> SimilarityDistance(KNOB_MODE_WRITEONCE, "pintool",
+    "a", "0", "Default SST Memory Pool");
 KNOB<UINT32> MemCompProfile(KNOB_MODE_WRITEONCE, "pintool",
     "x", "0", "Enable memory compression profiler");
 KNOB<string> MemCompTraceName(KNOB_MODE_WRITEONCE, "pintool",
@@ -112,6 +114,11 @@ UINT64* lastMallocLoc;
 std::vector< std::set<ADDRINT> > instPtrsList;
 UINT32 overridePool;
 bool shouldOverride;
+
+UINT64 g_similarity_comp_cnt=0;
+UINT64 g_similarity_incomp_cnt=0;
+UINT64 g_accessed_cacheline_num=0;
+int similarity_distance=0;
 
 
 typedef struct {
@@ -220,6 +227,266 @@ class StackRecord {
 };
 
 
+uint32_t getDataSize(int64_t data_)
+{
+	int size=65; //bit
+
+	if(data_==0)
+		return 0;
+
+	uint64_t data=llabs(data_);
+
+	for(int i=1; i<64; i++)
+	{
+		if(data==(data & ~(0xffffffffffffffff<<i)))
+		{
+			size = i+1; //1 bit is used for sign bit.
+			break;
+		}
+	}
+
+	return size;
+}
+
+//VOID checkSimilarity(uint64_t*,uint64_t);
+VOID ReadCacheLine(uint64_t addr, uint64_t * data)
+{
+	//assume that cache line size is 64B
+#if 0
+	ADDRINT addr_new = (addr);
+        int copied_size= PIN_SafeCopy(data, (VOID*) addr_new, 8);
+        if(copied_size !=8)
+            fprintf(stderr, "ariel memory copy fail\n");
+        fprintf(stderr,"addr:%lld data:%lld\n", addr, *(uint64_t*)data);
+
+#else
+	uint64_t addr_new = (addr>>6)<<6;
+	int copied_size= PIN_SafeCopy((uint8_t*)data, (VOID*) addr_new, 64);
+	if(copied_size !=64)
+		fprintf(stderr, "ariel memory copy fail\n");
+
+
+	//checkSimilarity(data,addr);
+//#ifdef COMP_DEBUG
+//        for(int i=0;i<8;i++)
+//        {
+//
+//            fprintf(stderr,"[PINTOOL] cacheline read [%d] addr:%llx data:%llx \n", i, addr_new+i*8, *(data+i));
+//        }
+//#endif
+
+
+#endif
+}
+
+uint32_t getCompressedSize(uint8_t *cacheline) {
+
+
+	int min_compressed_size = 512;
+
+
+	std::vector<uint64_t> data_vec;
+
+	std::vector<uint32_t> base_size(3);
+	std::map<uint32_t, uint32_t> min_delta_size_map;
+	std::map<uint32_t, uint64_t> min_base_map;
+	std::map<uint32_t, uint32_t> min_compressed_size_map;
+	//base_size = {2, 4, 8}; //
+	base_size = {4, 8}; //
+	//base_size = {8}; //
+
+	std::vector<int64_t> delta_base_vector;
+	std::vector<int64_t> delta_immd_vector;
+	std::vector<uint32_t> delta_flag;
+	uint32_t base_id;
+
+	uint64_t min_base = 0;
+	int min_k = 0;
+
+
+	for (auto &k: base_size) {
+		uint8_t *ptr;
+		data_vec.clear();
+		for (int i = 0; i < 64 / k; i++) {
+			ptr = (cacheline + i * k);
+			if (k == 2)
+				data_vec.push_back((uint64_t) (*(uint16_t *) ptr));
+			else if (k == 4)
+				data_vec.push_back((uint64_t) (*(uint32_t *) ptr));
+			else if (k == 8)
+				data_vec.push_back((uint64_t) (*(uint64_t *) ptr));
+		}
+
+		int64_t delta_base = 0;
+		int64_t delta_immd = 0;
+		int64_t immd = 0;
+
+		//calculate the delta
+		int compressed_size = 0;
+
+		for (auto &base:data_vec) {
+			delta_immd_vector.clear();
+			delta_base_vector.clear();
+			delta_flag.clear();
+			base_id = 0;
+
+			int max_delta_size_immd = 0;
+			int max_delta_size_base = 0;
+
+			//calculate delta
+			for (auto &data:data_vec) {
+
+				delta_base = data - base;
+				delta_immd = data - immd;
+
+				if (llabs(delta_base) >= llabs(delta_immd)) {
+					int size = getDataSize(delta_immd);
+					if (size > 64)
+						break;
+
+					if (max_delta_size_immd < size)
+						max_delta_size_immd = size;
+
+					delta_immd_vector.push_back(delta_immd);
+					delta_flag.push_back(0);
+
+				} else {
+					int size = getDataSize(delta_base);
+					if (size > 64)
+						break;
+
+					if (max_delta_size_base < size)
+						max_delta_size_base = size;
+
+					delta_base_vector.push_back(delta_base);
+					delta_flag.push_back(1);
+				}
+			}
+
+			//calculate compressed size
+			compressed_size =
+					k * 8 + delta_base_vector.size() * max_delta_size_base +
+					delta_immd_vector.size() * max_delta_size_immd +
+					(64 / k) + 6 * 2 + 2; //bits
+			// compressed_size = base + delta@base + delta@immd
+			//                   + delta_flag       //indicate base
+			//                   + delta_size
+			//                   + base_size        // (2B or 4B or 8B)
+
+			//	output->verbose(CALL_INFO, 5, 0,
+			//					"k:%d base: %llx max_delta_size_base: %d max_delta_size_immd: %d num_delta_base:%d num_delta_immd:%d compressed_size:%d compression ratio:%lf\n",
+			//					k, base, max_delta_size_base, max_delta_size_immd, delta_base_vector.size(),
+			//					delta_immd_vector.size(), compressed_size, (double) 512 / (double) compressed_size);
+
+
+			//get min compressed size
+			if (compressed_size < min_compressed_size) {
+				min_k = k;
+				min_base = base;
+				min_compressed_size = compressed_size;
+
+				//validate compression algorithm
+				/*if (1) {
+                        int base_idx = 0;
+                        int immd_idx = 0;
+                        int data_idx = 0;
+                        uint64_t delta = 0;
+
+                        std::vector<uint64_t> decompressed_data;
+
+                        for (auto &flag:delta_flag) {
+                            uint64_t data;
+                            if (flag == 0) {
+                                delta = delta_immd_vector[immd_idx++];
+                                data = delta;
+                            } else {
+                                delta = delta_base_vector[base_idx++];
+
+                                data = base + getSignedExtension(delta, getDataSize(delta));
+                            }
+                            decompressed_data.push_back(data);
+                            //output->verbose(CALL_INFO, 5, 0, "data: %llx decompressed data: %llx\n",
+                                            data_vec[data_idx], data);
+                            if (data != data_vec[data_idx++]) {
+                                printf("decompression error\n");
+                                exit(1);
+                            }
+                        }
+                    }*/
+			}
+		}
+	}
+	//output->verbose(CALL_INFO, 5, 0,
+	//				"[CompressionResult] k:%d base: %llx compressed_size:%d compression ratio:%lf\n",
+	//min_k, min_base, min_compressed_size, (double) 512 / (double) min_compressed_size);
+
+	return min_compressed_size;
+}
+
+
+
+VOID checkSimilarity(uint64_t* data, uint64_t addr)
+{
+	int cacheline_addr=(addr>>6)<<6;
+	int compressed_size=getCompressedSize((uint8_t*)data);
+	bool compressible=false;
+
+	if(compressed_size<=256)
+		compressible = true;
+
+	bool neighbor_compressible=false;
+
+	char* tmp = (char*) malloc(sizeof(char)*64);
+	int cnt=0;
+	int l_similarity_comp_cnt=0;
+	int l_similarity_incomp_cnt=0;
+
+	g_accessed_cacheline_num++;
+
+	//fprintf(stderr,"[PINTOOL] compressed size: %d\n",compressed_size);
+
+	uint64_t neighbor_addr=addr+9;
+	uint64_t page_num=(addr>>12);
+
+	for(int i=0;i<similarity_distance;i++)
+	{
+
+		uint64_t neighbor_page=(neighbor_addr>>12);
+
+		//fprintf(stderr,"[PINTOOL] page_num: %lld neigh pae_nu:%lld\n", page_num, neighbor_page);
+		if(page_num!=neighbor_page)
+			break;
+
+		//ReadCacheLine(neighbor_addr,(uint64_t*)tmp);
+		int neighbor_compressed_size=getCompressedSize((uint8_t*) tmp);
+		if(compressible) {
+			if (neighbor_compressed_size <= 256)
+				l_similarity_comp_cnt++;
+		}
+		else {
+			if (neighbor_compressed_size > 256)
+				l_similarity_incomp_cnt++;
+		}
+
+		if(g_accessed_cacheline_num%1000000==0)
+			fprintf(stderr,"[PINTOOL]distance: %d addr: %llx neighbor address:%llx neighbor compressed size: %d l_similarity_comp_cnt:%lld l_similarity_incomp_cnt:%lld accessed_cnt:%lld\n",
+				similarity_distance, addr, neighbor_addr, neighbor_compressed_size, l_similarity_comp_cnt,l_similarity_incomp_cnt,g_accessed_cacheline_num);
+
+		neighbor_addr+=8;
+	}
+
+	if(l_similarity_comp_cnt==similarity_distance)
+		g_similarity_comp_cnt++;
+
+	if(l_similarity_incomp_cnt==similarity_distance)
+		g_similarity_incomp_cnt++;
+
+	if(g_accessed_cacheline_num%1000000==0)
+		fprintf(stderr,"[PINTOOL] g_similarity_cmp_cnt:%lld g_similarity_incomp_cnt:%lld accessed_cnt:%lld\n", g_similarity_comp_cnt,g_similarity_incomp_cnt,g_accessed_cacheline_num);
+
+	free(tmp);
+}
+
 std::vector<std::vector<StackRecord> > arielStack; // Per-thread stacks
 
 /* Instrumentation function to be called on function calls */
@@ -324,6 +591,15 @@ VOID InstrumentTrace (TRACE trace, VOID* args) {
         }
     }
 }
+int64_t getSignedExtension(int64_t data, uint32_t size) {
+	assert(size<=65);
+	int64_t new_data;
+	new_data=(data<<(64-size))>>(64-size);
+	return new_data;
+}
+
+
+
 
 /****************************************************************/
 /******************** END SHADOW STACK **************************/
@@ -335,12 +611,22 @@ VOID Fini(INT32 code, VOID* v)
 		std::cout << "SSTARIEL: Execution completed, shutting down." << std::endl;
 	}
 
+		if(similarity_distance>0)
+	{
+		fprintf(stderr,"g_similarity_comp_cnt:%lld", g_similarity_comp_cnt);
+		fprintf(stderr,"g_similarity_incomp_cnt:%lld", g_similarity_incomp_cnt);
+		fprintf(stderr,"accessed_cacheline_num:%lld", g_accessed_cacheline_num);
+		fprintf(stderr,"simularity:%f", (g_similarity_incomp_cnt+g_similarity_comp_cnt)/g_accessed_cacheline_num);
+
+	}
+
     ArielCommand ac;
     ac.command = ARIEL_PERFORM_EXIT;
     ac.instPtr = (uint64_t) 0;
     tunnel->writeMessage(0, ac);
 
     delete tunnel;
+
 
     if(funcProfileLevel > 0) {
     	FILE* funcProfileOutput = fopen("func.profile", "wt");
@@ -368,6 +654,8 @@ VOID Fini(INT32 code, VOID* v)
     }
 }
 
+
+
 VOID copy(void* dest, const void* input, UINT32 length) {
 	for(UINT32 i = 0; i < length; ++i) {
 		((char*) dest)[i] = ((char*) input)[i];
@@ -385,34 +673,8 @@ VOID RecordAddrSize(THREADID thr, VOID* raddr, UINT32 rsize, VOID* waddr, UINT32
 }
 
 
-VOID ReadCacheLine(uint64_t addr, uint64_t * data)
-{
-        //assume that cache line size is 64B
-#if 0
-    ADDRINT addr_new = (addr);
-        int copied_size= PIN_SafeCopy(data, (VOID*) addr_new, 8);
-        if(copied_size !=8)
-            fprintf(stderr, "ariel memory copy fail\n");
-        fprintf(stderr,"addr:%lld data:%lld\n", addr, *(uint64_t*)data);
-
-#else
-        uint64_t addr_new = (addr>>6)<<6;
-        int copied_size= PIN_SafeCopy((uint8_t*)data, (VOID*) addr_new, 64);
-        if(copied_size !=64)
-            fprintf(stderr, "ariel memory copy fail\n");
 
 
-//#ifdef COMP_DEBUG
-//        for(int i=0;i<8;i++)
-//        {
-//
-//            fprintf(stderr,"[PINTOOL] cacheline read [%d] addr:%llx data:%llx \n", i, addr_new+i*8, *(data+i));
-//        }
-//#endif
-
-
-#endif
-}
 
 VOID WriteInstructionRead(UINT64 addr, UINT32 size, THREADID thr, ADDRINT ip,
 	UINT32 instClass, UINT32 simdOpWidth) {
@@ -421,6 +683,7 @@ VOID WriteInstructionRead(UINT64 addr, UINT32 size, THREADID thr, ADDRINT ip,
 
 	if(inst_cnt<warmup_insts) {
 		enable_output = false;
+		//enable_output = true;
 	}
 	else if(inst_cnt==warmup_insts) {
 		fprintf(stderr,"warmup inst_cnt[%lld]\n", inst_cnt);
@@ -458,7 +721,10 @@ VOID WriteInstructionRead(UINT64 addr, UINT32 size, THREADID thr, ADDRINT ip,
 #ifdef COMP_DEBUG
 				fprintf(stderr,"[PINTOOL] [%d] read addr:%llx data:%llx ac.inst.data:%llx\n", i, addr, *(data+i), ac.inst.data[i]);
 #endif
+
 			}
+			if(similarity_distance>0)
+				checkSimilarity((uint64_t*)ac.inst.data,ac.inst.addr);
 			free(data);
 		}
 
@@ -477,8 +743,10 @@ VOID WriteInstructionWrite(UINT64 addr, UINT32 size, THREADID thr, ADDRINT ip,
 
 	inst_cnt++;
 
+
 	if(inst_cnt<warmup_insts) {
 		enable_output = false;
+		//enable_output=true;
 	}
 	else if(inst_cnt==warmup_insts) {
 		fprintf(stderr,"warmup inst_cnt[%lld]\n", inst_cnt);
@@ -522,6 +790,8 @@ VOID WriteInstructionWrite(UINT64 addr, UINT32 size, THREADID thr, ADDRINT ip,
 //#endif
 
 			}
+
+			checkSimilarity(data, addr);
 			free(data);
 		}
 
@@ -1263,6 +1533,8 @@ int main(int argc, char *argv[])
  //   memcomp_tracefile = MemCompTraceName();
   //  memcomp_interval = MemCompTraceInterval();
     warmup_insts = WarmupInstructions.Value();
+	similarity_distance = SimilarityDistance.Value();
+
 	std::cout<<"warmup_insts: "<<warmup_insts<<std::endl;
 
     INS_AddInstrumentFunction(InstrumentInstruction, 0);

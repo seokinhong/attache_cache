@@ -49,6 +49,8 @@ c_BankCommand::c_BankCommand(unsigned x_cmdSeqNum,
 	m_cmdToString[e_BankCommandType::PRE] = "PRE";
 	m_cmdToString[e_BankCommandType::PREA] = "PREA";
 	m_cmdToString[e_BankCommandType::REF] = "REF";
+	m_metadataFlag=false;
+	m_memzip_mode=false;
 }
 
 c_BankCommand::c_BankCommand(unsigned x_cmdSeqNum,
@@ -68,6 +70,9 @@ c_BankCommand::c_BankCommand(unsigned x_cmdSeqNum,
 	m_cmdToString[e_BankCommandType::PRE] = "PRE";
 	m_cmdToString[e_BankCommandType::PREA] = "PREA";
 	m_cmdToString[e_BankCommandType::REF] = "REF";
+
+	m_metadataFlag=false;
+	m_memzip_mode=false;
 }
 
 c_BankCommand::c_BankCommand(unsigned x_cmdSeqNum,
@@ -90,6 +95,9 @@ c_BankCommand::c_BankCommand(unsigned x_cmdSeqNum,
 	m_cmdToString[e_BankCommandType::PRE] = "PRE";
 	m_cmdToString[e_BankCommandType::PREA] = "PREA";
 	m_cmdToString[e_BankCommandType::REF] = "REF";
+
+	m_metadataFlag=false;
+	m_memzip_mode=false;
 }
 
 ulong c_BankCommand::getAddress() const {
@@ -143,7 +151,7 @@ void c_BankCommand::print(SST::Output *x_debugOutput, SimTime_t x_cycle) const {
 }
 
 void c_BankCommand::print(SST::Output *x_debugOutput,const std::string x_prefix, SimTime_t x_cycle) const {
-	x_debugOutput->verbosePrefix(x_prefix.c_str(),CALL_INFO,1,0,"Cycle:%lld Cmd:%s seqNum: %llu CH:%d PCH:%d Rank:%d BG:%d B:%d Row:%d Col:%d RankId:%d BankId:%d isHeler?:%d\n",
+	x_debugOutput->verbosePrefix(x_prefix.c_str(),CALL_INFO,1,0,"Cycle:%lld Cmd:%s seqNum: %llu CH:%d PCH:%d Rank:%d BG:%d B:%d Row:%d Col:%d RankId:%d BankId:%d isHeler?:%d metadata?:%d\n",
 							x_cycle,
 							getCommandString().c_str(),
 							m_seqNum,
@@ -156,7 +164,7 @@ void c_BankCommand::print(SST::Output *x_debugOutput,const std::string x_prefix,
 							getHashedAddress()->getCol(),
 								 getHashedAddress()->getRankId(),
 							getHashedAddress()->getBankId(),
-							m_helperFlag);
+							m_helperFlag,m_metadataFlag);
 
 }
 

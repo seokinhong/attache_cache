@@ -305,24 +305,24 @@ c_DeviceDriver::c_DeviceDriver(Component *owner, Params& params) : SubComponent(
         std::cout << "nBL value is missing ... exiting" << std::endl;
         exit(-1);
     }
-	bool pca_mode = (bool)params.find<bool>("pca_enable",false);
+	pca_mode = (bool)params.find<bool>("pca_enable",false);
 
 	int l_numRanks=0;
 
 
 	//for Partial-chip Access
-	int l_numRanksPerChannel=1;
+	int l_numPChannelsPerChannel=1;
 	if(pca_mode)
 	{
-		assert(k_numRanksPerChannel ==1);
-		l_numRanksPerChannel=2;
+		assert(k_numPChannelsPerChannel ==1);
+		l_numPChannelsPerChannel=2;
 	} else
-		l_numRanksPerChannel=k_numRanksPerChannel;
+		l_numPChannelsPerChannel=k_numPChannelsPerChannel;
 
 	// configure the memory hierarchy
 	m_numChannels =  k_numChannels;
-	m_numPseudoChannels = m_numChannels * k_numPChannelsPerChannel;
-	m_numRanks = m_numPseudoChannels * l_numRanksPerChannel;
+	m_numPseudoChannels = m_numChannels * l_numPChannelsPerChannel;
+	m_numRanks = m_numPseudoChannels * k_numRanksPerChannel;
 	m_numBankGroups = m_numRanks * k_numBankGroupsPerRank;
 	m_numBanks = m_numBankGroups * k_numBanksPerBankGroup;
 
@@ -348,7 +348,7 @@ c_DeviceDriver::c_DeviceDriver(Component *owner, Params& params) : SubComponent(
 		c_Channel *l_channel = new c_Channel(&m_bankParams, l_i);
 		m_channel.push_back(l_channel);
 		//   int l_i = 0;
-		for (unsigned l_j = 0; l_j != l_numRanksPerChannel; ++l_j) {
+		for (unsigned l_j = 0; l_j != k_numRanksPerChannel; ++l_j) {
 			//std::cout << "Attaching Channel" << l_i << " to Rank" << l_rankNum << std::endl;
 			m_channel.at(l_i)->acceptRank(m_ranks.at(l_rankNum));
 			m_ranks.at(l_rankNum)->acceptChannel(m_channel.at(l_i));
@@ -680,17 +680,20 @@ void c_DeviceDriver::sendRequest() {
 					l_cmdPtrItr=m_inputQ.erase(l_cmdPtrItr);
 
 					if (l_cmdPtr->isColCommand()) {
-						assert((m_lastDataCmdType != ((l_cmdPtr))->getCommandMnemonic()) ||
+						assert((((m_lastDataCmdType != ((l_cmdPtr))->getCommandMnemonic()) ||
 							   (m_lastPseudoChannel != (l_cmdPtr->getHashedAddress()->getPChannel())) ||
 							   (m_lastChannel !=(l_cmdPtr->getHashedAddress()->getChannel())) ||
+								m_lastRank != (l_cmdPtr->getHashedAddress()->getRank()) ||
 							   (m_Owner->getSimCycle() - m_lastDataCmdIssueCycle) >=
 							   (std::min(m_bankParams.at("nBL"),
-										 std::max(m_bankParams.at("nCCD_L"), m_bankParams.at("nCCD_S")))));
+										 std::max(m_bankParams.at("nCCD_L"), m_bankParams.at("nCCD_S")))))));
+
 
 						m_lastChannel = ((l_cmdPtr))->getHashedAddress()->getChannel();
 						m_lastDataCmdIssueCycle = m_Owner->getSimCycle();
 						m_lastDataCmdType = ((l_cmdPtr))->getCommandMnemonic();
 						m_lastPseudoChannel = ((l_cmdPtr))->getHashedAddress()->getPChannel();
+						m_lastRank = ((l_cmdPtr))->getHashedAddress()->getRank();
 					}
 
 					bool l_isACT= (e_BankCommandType::ACT == ((l_cmdPtr))->getCommandMnemonic());
@@ -701,7 +704,8 @@ void c_DeviceDriver::sendRequest() {
 					}
 
 					//commands for helper transaction do not occupy bus
-					if(l_cmdPtr->isHelper())
+					if(pca_mode)
+						if(l_cmdPtr->isHelper())
 							continue;
 
 					if (occupyCommandBus(l_cmdPtr))
@@ -799,6 +803,9 @@ bool c_DeviceDriver::occupyCommandBus(c_BankCommand *l_cmdPtr) {
 	uint32_t l_ChannelNum=0;
 	uint32_t l_NumAvailableBus=0;
 
+	if(pca_mode)
+		return false;
+
 	l_ChannelNum = l_cmdPtr->getHashedAddress()->getChannel();
 	uint32_t l_cmdCycle;
 
@@ -891,7 +898,8 @@ bool c_DeviceDriver::sendCommand(c_BankCommand* x_bankCommandPtr,
 				  << " " << std::dec << x_bankCommandPtr->getHashedAddress()->getBank()
 				  << " " << std::dec << x_bankCommandPtr->getHashedAddress()->getRow()
 				  << " " << std::dec << x_bankCommandPtr->getHashedAddress()->getCol()
-				  << " " << std::dec << x_bankCommandPtr->getHashedAddress()->getCacheline()
+//<< " " << std::dec << x_bankCommandPtr->getHashedAddress()->getCacheline()
+				  << " " << std::dec << x_bankCommandPtr->isHelper()
 				  << "\t" << std::dec << x_bankCommandPtr->getBankId()
 				  << std::endl;
 	    }

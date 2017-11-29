@@ -117,8 +117,8 @@ c_Dimm::c_Dimm(SST::ComponentId_t x_id, SST::Params& x_params) :
 	pca_mode=x_params.find<bool>("pca_enable",false);
 	if(pca_mode)
 	{
-		assert(k_numRanksPerChannel==1);
-		k_numRanksPerChannel=2;
+		assert(k_numPChannelsPerChannel==1);
+		k_numPChannelsPerChannel=2;
 	}
 
 	m_numRanks = k_numChannels * k_numPChannelsPerChannel * k_numRanksPerChannel;
@@ -263,6 +263,18 @@ c_Dimm::c_Dimm(SST::ComponentId_t x_id, SST::Params& x_params) :
 	s_preCmdsRecvd     = registerStatistic<uint64_t>("preCmdsRecvd");
 	s_refCmdsRecvd     = registerStatistic<uint64_t>("refCmdsRecvd");
 
+	s_actCmdsRecvdMetadata     = registerStatistic<uint64_t>("actCmdsMetaRecvd");
+	s_readCmdsRecvdMetadata    = registerStatistic<uint64_t>("readCmdsMetaRecvd");
+	s_writeCmdsRecvdMetadata   = registerStatistic<uint64_t>("writeCmdsMetaRecvd");
+	s_preCmdsRecvdMetadata     = registerStatistic<uint64_t>("preCmdsMetaRecvd");
+
+	s_actPower     = registerStatistic<double>("actprePower");
+	s_readPower     = registerStatistic<double>("readPower");
+	s_writePower     = registerStatistic<double>("writePower");
+	s_refPower     = registerStatistic<double>("refPower");
+	s_totalPower     = registerStatistic<double>("totalPower");
+	s_totalEnergy     = registerStatistic<double>("totalEnergy");
+
 	m_actCmdsRecvd.resize(m_numRanks);
 	m_readCmdsRecvd.resize(m_numRanks);
 	m_readACmdsRecvd.resize(m_numRanks);
@@ -335,6 +347,7 @@ void c_Dimm::handleInCmdUnitReqPtrEvent(SST::Event *ev) {
 		if(pca_mode) {
 		//	printf("txnseq:%lld cmdseq:%lld\n", l_cmdReq->getTxnSeqNum(), l_cmdReq->getSeqNum());
 
+
 			if (l_cmdReq->isHelper()) {
 				event_cnt = false;
 				if (l_cmdReq->getCommandMnemonic() == e_BankCommandType::PRE) {
@@ -354,18 +367,25 @@ void c_Dimm::handleInCmdUnitReqPtrEvent(SST::Event *ev) {
 				case e_BankCommandType::ACT:
 					s_actCmdsRecvd->addData(1);
 					m_actCmdsRecvd[l_rank] += 1;
+                    if(l_cmdReq->isMetadataCmd())
+						s_actCmdsRecvdMetadata->addData(1);
 					break;
 				case e_BankCommandType::READ:
 					s_readCmdsRecvd->addData(1);
 					m_readCmdsRecvd[l_rank] += 1;
+					  if(l_cmdReq->isMetadataCmd())
+						s_readCmdsRecvdMetadata->addData(1);
 					break;
 				case e_BankCommandType::READA:
 					s_readACmdsRecvd->addData(1);
 					m_readACmdsRecvd[l_rank] += 1;
+
 					break;
 				case e_BankCommandType::WRITE:
 					s_writeCmdsRecvd->addData(1);
 					m_writeCmdsRecvd[l_rank] += 1;
+					  if(l_cmdReq->isMetadataCmd())
+						s_writeCmdsRecvdMetadata->addData(1);
 					break;
 				case e_BankCommandType::WRITEA:
 					s_writeACmdsRecvd->addData(1);
@@ -374,6 +394,8 @@ void c_Dimm::handleInCmdUnitReqPtrEvent(SST::Event *ev) {
 				case e_BankCommandType::PRE:
 					s_preCmdsRecvd->addData(1);
 					m_preCmdsRecvd[l_rank] += 1;
+					  if(l_cmdReq->isMetadataCmd())
+						s_preCmdsRecvdMetadata->addData(1);
 					break;
 				case e_BankCommandType::REF:
 					s_refCmdsRecvd->addData(1);
@@ -588,8 +610,18 @@ void c_Dimm::finish(){
                   << l_backgroundPower
                   << "(" << l_backgroundPower/l_totalPower*100 << "%)"
                   << std::endl;
+
+	s_actPower->addData(l_actprePower);
+	s_readPower->addData(l_readPower);
+	s_writePower->addData(l_writePower);
+	s_refPower->addData(l_refreshPower);
+	s_totalPower->addData(l_totalPower);
+	s_totalEnergy->addData(l_totalEnergy);
 	}
 	std::cout << "=====================================================================================\n";
+
+
+
 }
 
 

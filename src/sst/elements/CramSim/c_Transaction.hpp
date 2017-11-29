@@ -71,6 +71,8 @@ private:
   unsigned m_dataWidth;
   bool m_processed; //<! flag that is set when this transaction is split into commands
   bool m_skip_metadata_lookup;
+    bool m_metadataFlag;
+    uint64_t m_hostReqId;
 
   //std::list<c_BankCommand*> m_cmdPtrList; //<! list of c_BankCommand shared_ptrs that compose this c_Transaction
   std::list<uint64_t> m_cmdSeqNumList; //<! list of c_BankCommand Sequence numbers that compose this c_Transaction
@@ -84,9 +86,13 @@ private:
     double m_chipAccessRatio;
 
 public:
-
+    uint64_t m_time_arrived_Controller;
+    uint64_t m_time_inserted_TxnQ;
+    uint64_t m_time_inserted_CmdQ;
+    uint64_t m_time_issued_CmdQ;
 //  friend std::ostream& operator<< (std::ostream& x_stream, const c_Transaction& x_transaction);
-
+    void setHostReqID(uint64_t reqid) {m_hostReqId=reqid;}
+    uint64_t getHostReqID(){return m_hostReqId;}
   c_Transaction() {} // required for ImplementSerializable
   c_Transaction( ulong x_seqNum, e_TransactionType x_cmdType , ulong x_addr , unsigned x_dataWidth);
   ~c_Transaction();
@@ -98,9 +104,9 @@ public:
   void setMetaDataSkip(){
       m_skip_metadata_lookup=true;
   }
-        bool isMetaDataSkip(){
-            return m_skip_metadata_lookup;
-        }
+        void setMetaDataTxn() {m_metadataFlag=true;}
+        bool isMetaDataSkip(){ return m_skip_metadata_lookup; }
+        bool isMetaDataTxn(){ return m_metadataFlag; }
   void setResponseReady(); //<! sets the flag that this transaction has received its response.
   bool isResponseReady();  //<! returns the flag that this transaction has received its response.
         void donotRespond(){m_isResponseRequired=false;}

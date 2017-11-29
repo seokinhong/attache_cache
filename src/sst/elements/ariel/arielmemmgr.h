@@ -146,7 +146,7 @@ class ArielMemoryManager : public SubComponent {
                     std::vector<uint64_t> preRandomizedPages;
                     preRandomizedPages.resize(pageCount);
                     MarsagliaRNG pageRandomizer(11+ownerid, 201010101);
-                                    
+
                     for(uint64_t j = 0; j < pageCount; ++j) {
                         preRandomizedPages[j] = nextMemoryAddress;
                         nextMemoryAddress += pageSize;

@@ -111,10 +111,20 @@ void c_CmdScheduler::run(){
                     isSuccess = m_deviceController->push(l_cmdPtr);
                     if (isSuccess) {
                         l_cmdQueue.pop_front();
+                        if(!l_cmdPtr->isHelper() && !l_cmdPtr->isMetadataCmd() && (l_cmdPtr->getCommandMnemonic()==e_BankCommandType::READ || l_cmdPtr->getCommandMnemonic()==e_BankCommandType::WRITE))
+                        {
+                            l_cmdPtr->getTransaction()->m_time_issued_CmdQ=m_owner->getSimCycle();
+                            uint64_t totalQueueing_delay = m_owner->getSimCycle() - l_cmdPtr->getTransaction()->m_time_arrived_Controller;
+                            uint64_t cmdQueueing_delay = m_owner->getSimCycle() - l_cmdPtr->getTransaction()->m_time_inserted_CmdQ;
+                            uint64_t txnQueueing_delay = l_cmdPtr->getTransaction()->m_time_inserted_CmdQ - l_cmdPtr->getTransaction()->m_time_inserted_TxnQ;
+                            m_owner->s_totalQueueing_delay->addData(totalQueueing_delay);
+                            m_owner->s_cmdQueueing_delay->addData(cmdQueueing_delay);
+                            m_owner->s_txnQueueing_delay->addData(txnQueueing_delay);
+                        }
 
-#ifdef __SST_DEBUG_OUTPUT__
+//#ifdef __SST_DEBUG_OUTPUT__
                         l_cmdPtr->print(output, "[c_CmdScheduler]",m_owner->getSimCycle());
-#endif
+//#endif
                     }
                 }
             }

@@ -97,7 +97,7 @@ void c_MemhBridge::createTxn() {
         else
                 mTxn = new c_Transaction(event->getReqId(), e_TransactionType::READ, addr, 1);
 
-        
+        mTxn->setHostReqID(event->getReqId());
         std::pair<c_Transaction*, uint64_t > l_entry = std::make_pair(mTxn,l_cycle);
         m_txnReqQ.push_back(l_entry);
      
@@ -110,7 +110,8 @@ void c_MemhBridge::createTxn() {
 void c_MemhBridge::readResponse() {
 	if (m_txnResQ.size() > 0) {
                 c_Transaction* l_txn = m_txnResQ.front();
-                
+
+
 		MemRespEvent *event = new MemRespEvent(l_txn->getSeqNum(), l_txn->getAddress(), 0);
 
 		l_txn->print(output,"[memhbridge.readResponse]", m_simCycle);

@@ -1,728 +1,124 @@
-Job <527878>, User <seokin>, Project <default>, Job Group </seokin/_/default>, Status <RUN>, Queue <x86_24h>, Command <sst --output-json /u/seokin/workspace/pca/output/sstcfg.run100M.4cpu.base.rank1.ddr4-3200-2ch --print-timing-info "--model-options=--configfile=/u/seokin/workspace/pca/config/ddr4-3200-2ch.cfg --warmup=10000000000 --maxinst=100000000 --executable=h264ref --statname=/u/seokin/workspace/pca/output/simstat.h264ref.run100M.4cpu.base.rank1.ddr4-3200-2ch numRanksPerChannel=1" /u/seokin/workspace/pca/ariel_4cpu_base.py>, Share group charged </seokin>
-Sun Nov 12 03:36:58: Submitted from host <dccxl001>, CWD <$HOME/workspace/pca/benchmark/h264ref>, Output File (overwrite) </u/seokin/workspace/pca/output/simresult.h264ref.run100M.4cpu.base.rank1.ddr4-3200-2ch>, Error File (overwrite) </u/seokin/workspace/pca/output/simresult.h264ref.run100M.4cpu.base.rank1.ddr4-3200-2ch>, Requested Resources <rusage[mem=10752] affinity[core(1)]>, memory/swap limit enforced per-job/per-host;
-RUNLIMIT
-  1440.0 min of dccxc162
-MEMLIMIT
-  10 G
-  Sun Nov 12 03:36:59: Started 1 Task(s) on Host(s) <dccxc162>, Allocated 1 Slot(s) on Host(s) <dccxc162>, Execution Home </u/seokin>, Execution CWD </u/seokin/workspace/pca/benchmark/h264ref>;
-  Sun Nov 12 08:43:06: Resource usage collected. The CPU time used is 2143 seconds. MEM: 47 Mbytes; SWAP: 0 Mbytes; NTHREAD: 1; PGID: 7826; PIDs: 7888;
-MEMORY USAGE:
-MAX MEM: 412 Mbytes;  AVG MEM: 90 Mbytes
-RESOURCE REQUIREMENT DETAILS:
-  Combined: select[(type == X86_64 &&ostype = RHEL7.2 &&!cudav90&&!v100&&!jobsfromhellnode) && (type == any)] order[r15s:pg] rusage[mem=10752.00] affinity[core(1)*1]
-  Effective: select[((type == X86_64 &&ostype = RHEL7.2 &&!cudav90&&!v100&&!jobsfromhellnode) && (type == any))] order[r15s:pg] rusage[mem=10752.00] affinity[core(1)*1]
-
-Job <527871>, User <seokin>, Project <default>, Job Group </seokin/_/default>, Status <RUN>, Queue <x86_24h>, Command <sst --output-json /u/seokin/workspace/pca/output/sstcfg.run100M.4cpu.base.rank2.ddr4-3200-2ch --print-timing-info "--model-options=--configfile=/u/seokin/workspace/pca/config/ddr4-3200-2ch.cfg --warmup=10000000000 --maxinst=100000000 --executable=milc --statname=/u/seokin/workspace/pca/output/simstat.milc.run100M.4cpu.base.rank2.ddr4-3200-2ch numRanksPerChannel=2" /u/seokin/workspace/pca/ariel_4cpu_base.py>, Share group charged </seokin>
-Sun Nov 12 03:36:57: Submitted from host <dccxl001>, CWD <$HOME/workspace/pca/benchmark/milc>, Output File (overwrite) </u/seokin/workspace/pca/output/simresult.milc.run100M.4cpu.base.rank2.ddr4-3200-2ch>, Error File (overwrite) </u/seokin/workspace/pca/output/simresult.milc.run100M.4cpu.base.rank2.ddr4-3200-2ch>, Requested Resources <rusage[mem=10752] affinity[core(1)]>, memory/swap limit enforced per-job/per-host;
-RUNLIMIT
-  1440.0 min of dccxc087
-MEMLIMIT
-  10 G
-  Sun Nov 12 03:36:58: Started 1 Task(s) on Host(s) <dccxc087>, Allocated 1 Slot(s) on Host(s) <dccxc087>, Execution Home </u/seokin>, Execution CWD </u/seokin/workspace/pca/benchmark/milc>;
-  Sun Nov 12 08:48:33: Resource usage collected. The CPU time used is 3404 seconds. MEM: 558 Mbytes; SWAP: 0 Mbytes; NTHREAD: 1; PGID: 13698; PIDs: 13762;
-MEMORY USAGE:
-MAX MEM: 3 Gbytes;  AVG MEM: 980 Mbytes
-RESOURCE REQUIREMENT DETAILS:
-  Combined: select[(type == X86_64 &&ostype = RHEL7.2 &&!cudav90&&!v100&&!jobsfromhellnode) && (type == any)] order[r15s:pg] rusage[mem=10752.00] affinity[core(1)*1]
-  Effective: select[((type == X86_64 &&ostype = RHEL7.2 &&!cudav90&&!v100&&!jobsfromhellnode) && (type == any))] order[r15s:pg] rusage[mem=10752.00] affinity[core(1)*1]
-
-Job <527935>, User <seokin>, Project <default>, Job Group </seokin/_/default>, Status <RUN>, Queue <x86_24h>, Command <sst --output-json /u/seokin/workspace/pca/output/sstcfg.run100M.4cpu-metacache.hitrate0.ddr4-3200-2ch --print-timing-info "--model-options=--configfile=/u/seokin/workspace/pca/config/ddr4-3200-2ch.cfg --warmup=1000 --maxinst=100000 --executable=mcf --statname=/u/seokin/workspace/pca/output/simstat.mcf.run100M.4cpu-metacache.hitrate0.ddr4-3200-2ch metacache_hitrate=0 boolPowerCalc=1" /u/seokin/workspace/pca/ariel_4cpu_metacache.py>, Share group charged </seokin>
-Sun Nov 12 04:10:38: Submitted from host <dccxl001>, CWD <$HOME/workspace/pca/benchmark/mcf>, Output File (overwrite) </u/seokin/workspace/pca/output/simresult.mcf.run100M.4cpu-metacache.hitrate0.ddr4-3200-2ch>, Error File (overwrite) </u/seokin/workspace/pca/output/simresult.mcf.run100M.4cpu-metacache.hitrate0.ddr4-3200-2ch>, Requested Resources <rusage[mem=10752] affinity[core(1)]>, memory/swap limit enforced per-job/per-host;
-RUNLIMIT
-  1440.0 min of dccxc092
-MEMLIMIT
-  10 G
-  Sun Nov 12 04:10:40: Started 1 Task(s) on Host(s) <dccxc092>, Allocated 1 Slot(s) on Host(s) <dccxc092>, Execution Home </u/seokin>, Execution CWD </u/seokin/workspace/pca/benchmark/mcf>;
-  Sun Nov 12 08:43:16: Resource usage collected. The CPU time used is 1211 seconds. MEM: 40 Mbytes; SWAP: 0 Mbytes; NTHREAD: 4; PGID: 30279; PIDs: 30302 30322 30338 30354;
-MEMORY USAGE:
-MAX MEM: 159 Mbytes;  AVG MEM: 40 Mbytes
-RESOURCE REQUIREMENT DETAILS:
-  Combined: select[(type == X86_64 &&ostype = RHEL7.2 &&!cudav90&&!v100&&!jobsfromhellnode) && (type == any)] order[r15s:pg] rusage[mem=10752.00] affinity[core(1)*1]
-  Effective: select[((type == X86_64 &&ostype = RHEL7.2 &&!cudav90&&!v100&&!jobsfromhellnode) && (type == any))] order[r15s:pg] rusage[mem=10752.00] affinity[core(1)*1]
-
-Job <527866>, User <seokin>, Project <default>, Job Group </seokin/_/default>, Status <RUN>, Queue <x86_24h>, Command <sst --output-json /u/seokin/workspace/pca/output/sstcfg.run100M.4cpu.base.rank1.ddr4-3200-2ch --print-timing-info "--model-options=--configfile=/u/seokin/workspace/pca/config/ddr4-3200-2ch.cfg --warmup=10000000000 --maxinst=100000000 --executable=lbm --statname=/u/seokin/workspace/pca/output/simstat.lbm.run100M.4cpu.base.rank1.ddr4-3200-2ch numRanksPerChannel=1" /u/seokin/workspace/pca/ariel_4cpu_base.py>, Share group charged </seokin>
-Sun Nov 12 03:36:57: Submitted from host <dccxl001>, CWD <$HOME/workspace/pca/benchmark/lbm>, Output File (overwrite) </u/seokin/workspace/pca/output/simresult.lbm.run100M.4cpu.base.rank1.ddr4-3200-2ch>, Error File (overwrite) </u/seokin/workspace/pca/output/simresult.lbm.run100M.4cpu.base.rank1.ddr4-3200-2ch>, Requested Resources <rusage[mem=10752] affinity[core(1)]>, memory/swap limit enforced per-job/per-host;
-RUNLIMIT
-  1440.0 min of dccxc101
-MEMLIMIT
-  10 G
-  Sun Nov 12 03:36:58: Started 1 Task(s) on Host(s) <dccxc101>, Allocated 1 Slot(s) on Host(s) <dccxc101>, Execution Home </u/seokin>, Execution CWD </u/seokin/workspace/pca/benchmark/lbm>;
-  Sun Nov 12 08:43:00: Resource usage collected. The CPU time used is 5673 seconds. MEM: 426 Mbytes; SWAP: 0 Mbytes; NTHREAD: 1; PGID: 1676; PIDs: 1806;
-MEMORY USAGE:
-MAX MEM: 3.8 Gbytes;  AVG MEM: 1.1 Gbytes
-RESOURCE REQUIREMENT DETAILS:
-  Combined: select[(type == X86_64 &&ostype = RHEL7.2 &&!cudav90&&!v100&&!jobsfromhellnode) && (type == any)] order[r15s:pg] rusage[mem=10752.00] affinity[core(1)*1]
-  Effective: select[((type == X86_64 &&ostype = RHEL7.2 &&!cudav90&&!v100&&!jobsfromhellnode) && (type == any))] order[r15s:pg] rusage[mem=10752.00] affinity[core(1)*1]
-
-Job <527859>, User <seokin>, Project <default>, Job Group </seokin/_/default>, Status <RUN>, Queue <x86_24h>, Command <sst --output-json /u/seokin/workspace/pca/output/sstcfg.run100M.4cpu.base.rank2.ddr4-3200-2ch --print-timing-info "--model-options=--configfile=/u/seokin/workspace/pca/config/ddr4-3200-2ch.cfg --warmup=10000000000 --maxinst=100000000 --executable=GemsFDTD --statname=/u/seokin/workspace/pca/output/simstat.GemsFDTD.run100M.4cpu.base.rank2.ddr4-3200-2ch numRanksPerChannel=2" /u/seokin/workspace/pca/ariel_4cpu_base.py>, Share group charged </seokin>
-Sun Nov 12 03:36:56: Submitted from host <dccxl001>, CWD <$HOME/workspace/pca/benchmark/GemsFDTD>, Output File (overwrite) </u/seokin/workspace/pca/output/simresult.GemsFDTD.run100M.4cpu.base.rank2.ddr4-3200-2ch>, Error File (overwrite) </u/seokin/workspace/pca/output/simresult.GemsFDTD.run100M.4cpu.base.rank2.ddr4-3200-2ch>, Requested Resources <rusage[mem=10752] affinity[core(1)]>, memory/swap limit enforced per-job/per-host;
-RUNLIMIT
-  1440.0 min of dccxc079
-MEMLIMIT
-  10 G
-  Sun Nov 12 03:36:57: Started 1 Task(s) on Host(s) <dccxc079>, Allocated 1 Slot(s) on Host(s) <dccxc079>, Execution Home </u/seokin>, Execution CWD </u/seokin/workspace/pca/benchmark/GemsFDTD>;
-  Sun Nov 12 08:44:48: Resource usage collected. The CPU time used is 4603 seconds. MEM: 857 Mbytes; SWAP: 0 Mbytes; NTHREAD: 1; PGID: 11681; PIDs: 11757;
-MEMORY USAGE:
-MAX MEM: 4.2 Gbytes;  AVG MEM: 1.6 Gbytes
-RESOURCE REQUIREMENT DETAILS:
-  Combined: select[(type == X86_64 &&ostype = RHEL7.2 &&!cudav90&&!v100&&!jobsfromhellnode) && (type == any)] order[r15s:pg] rusage[mem=10752.00] affinity[core(1)*1]
-  Effective: select[((type == X86_64 &&ostype = RHEL7.2 &&!cudav90&&!v100&&!jobsfromhellnode) && (type == any))] order[r15s:pg] rusage[mem=10752.00] affinity[core(1)*1]
-
-Job <527877>, User <seokin>, Project <default>, Job Group </seokin/_/default>, Status <RUN>, Queue <x86_24h>, Command <sst --output-json /u/seokin/workspace/pca/output/sstcfg.run100M.4cpu.base.rank2.ddr4-3200-2ch --print-timing-info "--model-options=--configfile=/u/seokin/workspace/pca/config/ddr4-3200-2ch.cfg --warmup=10000000000 --maxinst=100000000 --executable=astar --statname=/u/seokin/workspace/pca/output/simstat.astar.run100M.4cpu.base.rank2.ddr4-3200-2ch numRanksPerChannel=2" /u/seokin/workspace/pca/ariel_4cpu_base.py>, Share group charged </seokin>
-Sun Nov 12 03:36:58: Submitted from host <dccxl001>, CWD <$HOME/workspace/pca/benchmark/astar>, Output File (overwrite) </u/seokin/workspace/pca/output/simresult.astar.run100M.4cpu.base.rank2.ddr4-3200-2ch>, Error File (overwrite) </u/seokin/workspace/pca/output/simresult.astar.run100M.4cpu.base.rank2.ddr4-3200-2ch>, Requested Resources <rusage[mem=10752] affinity[core(1)]>, memory/swap limit enforced per-job/per-host;
-RUNLIMIT
-  1440.0 min of dccxc059
-MEMLIMIT
-  10 G
-  Sun Nov 12 03:36:59: Started 1 Task(s) on Host(s) <dccxc059>, Allocated 1 Slot(s) on Host(s) <dccxc059>, Execution Home </u/seokin>, Execution CWD </u/seokin/workspace/pca/benchmark/astar>;
-  Sun Nov 12 08:45:38: Resource usage collected. The CPU time used is 2277 seconds. MEM: 347 Mbytes; SWAP: 0 Mbytes; NTHREAD: 1; PGID: 23358; PIDs: 23481;
-MEMORY USAGE:
-MAX MEM: 1.7 Gbytes;  AVG MEM: 533 Mbytes
-RESOURCE REQUIREMENT DETAILS:
-  Combined: select[(type == X86_64 &&ostype = RHEL7.2 &&!cudav90&&!v100&&!jobsfromhellnode) && (type == any)] order[r15s:pg] rusage[mem=10752.00] affinity[core(1)*1]
-  Effective: select[((type == X86_64 &&ostype = RHEL7.2 &&!cudav90&&!v100&&!jobsfromhellnode) && (type == any))] order[r15s:pg] rusage[mem=10752.00] affinity[core(1)*1]
-
-Job <527876>, User <seokin>, Project <default>, Job Group </seokin/_/default>, Status <RUN>, Queue <x86_24h>, Command <sst --output-json /u/seokin/workspace/pca/output/sstcfg.run100M.4cpu.base.rank1.ddr4-3200-2ch --print-timing-info "--model-options=--configfile=/u/seokin/workspace/pca/config/ddr4-3200-2ch.cfg --warmup=10000000000 --maxinst=100000000 --executable=astar --statname=/u/seokin/workspace/pca/output/simstat.astar.run100M.4cpu.base.rank1.ddr4-3200-2ch numRanksPerChannel=1" /u/seokin/workspace/pca/ariel_4cpu_base.py>, Share group charged </seokin>
-Sun Nov 12 03:36:58: Submitted from host <dccxl001>, CWD <$HOME/workspace/pca/benchmark/astar>, Output File (overwrite) </u/seokin/workspace/pca/output/simresult.astar.run100M.4cpu.base.rank1.ddr4-3200-2ch>, Error File (overwrite) </u/seokin/workspace/pca/output/simresult.astar.run100M.4cpu.base.rank1.ddr4-3200-2ch>, Requested Resources <rusage[mem=10752] affinity[core(1)]>, memory/swap limit enforced per-job/per-host;
-RUNLIMIT
-  1440.0 min of dccxc094
-MEMLIMIT
-  10 G
-  Sun Nov 12 03:36:59: Started 1 Task(s) on Host(s) <dccxc094>, Allocated 1 Slot(s) on Host(s) <dccxc094>, Execution Home </u/seokin>, Execution CWD </u/seokin/workspace/pca/benchmark/astar>;
-  Sun Nov 12 08:42:25: Resource usage collected. The CPU time used is 2129 seconds. MEM: 344 Mbytes; SWAP: 0 Mbytes; NTHREAD: 1; PGID: 18716; PIDs: 18781;
-MEMORY USAGE:
-MAX MEM: 1.6 Gbytes;  AVG MEM: 512 Mbytes
-RESOURCE REQUIREMENT DETAILS:
-  Combined: select[(type == X86_64 &&ostype = RHEL7.2 &&!cudav90&&!v100&&!jobsfromhellnode) && (type == any)] order[r15s:pg] rusage[mem=10752.00] affinity[core(1)*1]
-  Effective: select[((type == X86_64 &&ostype = RHEL7.2 &&!cudav90&&!v100&&!jobsfromhellnode) && (type == any))] order[r15s:pg] rusage[mem=10752.00] affinity[core(1)*1]
-
-Job <527875>, User <seokin>, Project <default>, Job Group </seokin/_/default>, Status <RUN>, Queue <x86_24h>, Command <sst --output-json /u/seokin/workspace/pca/output/sstcfg.run100M.4cpu.base.rank2.ddr4-3200-2ch --print-timing-info "--model-options=--configfile=/u/seokin/workspace/pca/config/ddr4-3200-2ch.cfg --warmup=10000000000 --maxinst=100000000 --executable=sphinx3 --statname=/u/seokin/workspace/pca/output/simstat.sphinx3.run100M.4cpu.base.rank2.ddr4-3200-2ch numRanksPerChannel=2" /u/seokin/workspace/pca/ariel_4cpu_base.py>, Share group charged </seokin>
-Sun Nov 12 03:36:58: Submitted from host <dccxl001>, CWD <$HOME/workspace/pca/benchmark/sphinx3>, Output File (overwrite) </u/seokin/workspace/pca/output/simresult.sphinx3.run100M.4cpu.base.rank2.ddr4-3200-2ch>, Error File (overwrite) </u/seokin/workspace/pca/output/simresult.sphinx3.run100M.4cpu.base.rank2.ddr4-3200-2ch>, Requested Resources <rusage[mem=10752] affinity[core(1)]>, memory/swap limit enforced per-job/per-host;
-RUNLIMIT
-  1440.0 min of dccxc027
-MEMLIMIT
-  10 G
-  Sun Nov 12 03:36:58: Started 1 Task(s) on Host(s) <dccxc027>, Allocated 1 Slot(s) on Host(s) <dccxc027>, Execution Home </u/seokin>, Execution CWD </u/seokin/workspace/pca/benchmark/sphinx3>;
-  Sun Nov 12 08:47:41: Resource usage collected. The CPU time used is 2488 seconds. MEM: 63 Mbytes; SWAP: 0 Mbytes; NTHREAD: 1; PGID: 6088; PIDs: 6149;
-MEMORY USAGE:
-MAX MEM: 959 Mbytes;  AVG MEM: 151 Mbytes
-RESOURCE REQUIREMENT DETAILS:
-  Combined: select[(type == X86_64 &&ostype = RHEL7.2 &&!cudav90&&!v100&&!jobsfromhellnode) && (type == any)] order[r15s:pg] rusage[mem=10752.00] affinity[core(1)*1]
-  Effective: select[((type == X86_64 &&ostype = RHEL7.2 &&!cudav90&&!v100&&!jobsfromhellnode) && (type == any))] order[r15s:pg] rusage[mem=10752.00] affinity[core(1)*1]
-
-Job <527889>, User <seokin>, Project <default>, Job Group </seokin/_/default>, Status <RUN>, Queue <x86_24h>, Command <sst --output-json /u/seokin/workspace/pca/output/sstcfg.run100M.4cpu.base.rank2.ddr4-3200-2ch --print-timing-info "--model-options=--configfile=/u/seokin/workspace/pca/config/ddr4-3200-2ch.cfg --warmup=10000000000 --maxinst=100000000 --executable=gcc --statname=/u/seokin/workspace/pca/output/simstat.gcc.run100M.4cpu.base.rank2.ddr4-3200-2ch numRanksPerChannel=2" /u/seokin/workspace/pca/ariel_4cpu_base.py>, Share group charged </seokin>
-Sun Nov 12 03:36:59: Submitted from host <dccxl001>, CWD <$HOME/workspace/pca/benchmark/gcc>, Output File (overwrite) </u/seokin/workspace/pca/output/simresult.gcc.run100M.4cpu.base.rank2.ddr4-3200-2ch>, Error File (overwrite) </u/seokin/workspace/pca/output/simresult.gcc.run100M.4cpu.base.rank2.ddr4-3200-2ch>, Requested Resources <rusage[mem=10752] affinity[core(1)]>, memory/swap limit enforced per-job/per-host;
-RUNLIMIT
-  1440.0 min of dccxc119
-MEMLIMIT
-  10 G
-  Sun Nov 12 03:37:00: Started 1 Task(s) on Host(s) <dccxc119>, Allocated 1 Slot(s) on Host(s) <dccxc119>, Execution Home </u/seokin>, Execution CWD </u/seokin/workspace/pca/benchmark/gcc>;
-  Sun Nov 12 08:45:02: Resource usage collected. The CPU time used is 2284 seconds. MEM: 211 Mbytes; SWAP: 0 Mbytes; NTHREAD: 1; PGID: 16086; PIDs: 16172;
-MEMORY USAGE:
-MAX MEM: 1.1 Gbytes;  AVG MEM: 329 Mbytes
-RESOURCE REQUIREMENT DETAILS:
-  Combined: select[(type == X86_64 &&ostype = RHEL7.2 &&!cudav90&&!v100&&!jobsfromhellnode) && (type == any)] order[r15s:pg] rusage[mem=10752.00] affinity[core(1)*1]
-  Effective: select[((type == X86_64 &&ostype = RHEL7.2 &&!cudav90&&!v100&&!jobsfromhellnode) && (type == any))] order[r15s:pg] rusage[mem=10752.00] affinity[core(1)*1]
-
-Job <527858>, User <seokin>, Project <default>, Job Group </seokin/_/default>, Status <RUN>, Queue <x86_24h>, Command <sst --output-json /u/seokin/workspace/pca/output/sstcfg.run100M.4cpu.base.rank1.ddr4-3200-2ch --print-timing-info "--model-options=--configfile=/u/seokin/workspace/pca/config/ddr4-3200-2ch.cfg --warmup=10000000000 --maxinst=100000000 --executable=GemsFDTD --statname=/u/seokin/workspace/pca/output/simstat.GemsFDTD.run100M.4cpu.base.rank1.ddr4-3200-2ch numRanksPerChannel=1" /u/seokin/workspace/pca/ariel_4cpu_base.py>, Share group charged </seokin>
-Sun Nov 12 03:36:56: Submitted from host <dccxl001>, CWD <$HOME/workspace/pca/benchmark/GemsFDTD>, Output File (overwrite) </u/seokin/workspace/pca/output/simresult.GemsFDTD.run100M.4cpu.base.rank1.ddr4-3200-2ch>, Error File (overwrite) </u/seokin/workspace/pca/output/simresult.GemsFDTD.run100M.4cpu.base.rank1.ddr4-3200-2ch>, Requested Resources <rusage[mem=10752] affinity[core(1)]>, memory/swap limit enforced per-job/per-host;
-RUNLIMIT
-  1440.0 min of dccxc114
-MEMLIMIT
-  10 G
-  Sun Nov 12 03:36:57: Started 1 Task(s) on Host(s) <dccxc114>, Allocated 1 Slot(s) on Host(s) <dccxc114>, Execution Home </u/seokin>, Execution CWD </u/seokin/workspace/pca/benchmark/GemsFDTD>;
-  Sun Nov 12 08:47:41: Resource usage collected. The CPU time used is 3777 seconds. MEM: 855 Mbytes; SWAP: 0 Mbytes; NTHREAD: 1; PGID: 30919; PIDs: 31000;
-MEMORY USAGE:
-MAX MEM: 4.2 Gbytes;  AVG MEM: 1.4 Gbytes
-RESOURCE REQUIREMENT DETAILS:
-  Combined: select[(type == X86_64 &&ostype = RHEL7.2 &&!cudav90&&!v100&&!jobsfromhellnode) && (type == any)] order[r15s:pg] rusage[mem=10752.00] affinity[core(1)*1]
-  Effective: select[((type == X86_64 &&ostype = RHEL7.2 &&!cudav90&&!v100&&!jobsfromhellnode) && (type == any))] order[r15s:pg] rusage[mem=10752.00] affinity[core(1)*1]
-
-Job <527961>, User <seokin>, Project <default>, Job Group </seokin/_/default>, Status <RUN>, Queue <x86_24h>, Command <sst --output-json /u/seokin/workspace/pca/output/sstcfg.run100M.4cpu-metacache.hitrate0.ddr4-3200-2ch --print-timing-info "--model-options=--configfile=/u/seokin/workspace/pca/config/ddr4-3200-2ch.cfg --warmup=1000 --maxinst=100000 --executable=mcf --statname=/u/seokin/workspace/pca/output/simstat.mcf.run100M.4cpu-metacache.hitrate0.ddr4-3200-2ch metacache_hitrate=0 boolPowerCalc=1" /u/seokin/workspace/pca/ariel_4cpu_metacache.py>, Share group charged </seokin>
-Sun Nov 12 04:46:14: Submitted from host <dccxl001>, CWD <$HOME/workspace/pca/benchmark/mcf>, Output File (overwrite) </u/seokin/workspace/pca/output/simresult.mcf.run100M.4cpu-metacache.hitrate0.ddr4-3200-2ch>, Error File (overwrite) </u/seokin/workspace/pca/output/simresult.mcf.run100M.4cpu-metacache.hitrate0.ddr4-3200-2ch>, Requested Resources <rusage[mem=10752] affinity[core(1)]>, memory/swap limit enforced per-job/per-host;
-RUNLIMIT
-  1440.0 min of dccxc082
-MEMLIMIT
-  10 G
-  Sun Nov 12 04:46:15: Started 1 Task(s) on Host(s) <dccxc082>, Allocated 1 Slot(s) on Host(s) <dccxc082>, Execution Home </u/seokin>, Execution CWD </u/seokin/workspace/pca/benchmark/mcf>;
-  Sun Nov 12 08:44:26: Resource usage collected. The CPU time used is 1168 seconds. MEM: 44 Mbytes; SWAP: 0 Mbytes; NTHREAD: 4; PGID: 11295; PIDs: 11308 11324 11340 11356;
-MEMORY USAGE:
-MAX MEM: 159 Mbytes;  AVG MEM: 43 Mbytes
-RESOURCE REQUIREMENT DETAILS:
-  Combined: select[(type == X86_64 &&ostype = RHEL7.2 &&!cudav90&&!v100&&!jobsfromhellnode) && (type == any)] order[r15s:pg] rusage[mem=10752.00] affinity[core(1)*1]
-  Effective: select[((type == X86_64 &&ostype = RHEL7.2 &&!cudav90&&!v100&&!jobsfromhellnode) && (type == any))] order[r15s:pg] rusage[mem=10752.00] affinity[core(1)*1]
-
-Job <527869>, User <seokin>, Project <default>, Job Group </seokin/_/default>, Status <RUN>, Queue <x86_24h>, Command <sst --output-json /u/seokin/workspace/pca/output/sstcfg.run100M.4cpu.base.rank2.ddr4-3200-2ch --print-timing-info "--model-options=--configfile=/u/seokin/workspace/pca/config/ddr4-3200-2ch.cfg --warmup=10000000000 --maxinst=100000000 --executable=libquantum --statname=/u/seokin/workspace/pca/output/simstat.libquantum.run100M.4cpu.base.rank2.ddr4-3200-2ch numRanksPerChannel=2" /u/seokin/workspace/pca/ariel_4cpu_base.py>, Share group charged </seokin>
-Sun Nov 12 03:36:57: Submitted from host <dccxl001>, CWD <$HOME/workspace/pca/benchmark/libquantum>, Output File (overwrite) </u/seokin/workspace/pca/output/simresult.libquantum.run100M.4cpu.base.rank2.ddr4-3200-2ch>, Error File (overwrite) </u/seokin/workspace/pca/output/simresult.libquantum.run100M.4cpu.base.rank2.ddr4-3200-2ch>, Requested Resources <rusage[mem=10752] affinity[core(1)]>, memory/swap limit enforced per-job/per-host;
-RUNLIMIT
-  1440.0 min of dccxc057
-MEMLIMIT
-  10 G
-  Sun Nov 12 03:36:58: Started 1 Task(s) on Host(s) <dccxc057>, Allocated 1 Slot(s) on Host(s) <dccxc057>, Execution Home </u/seokin>, Execution CWD </u/seokin/workspace/pca/benchmark/libquantum>;
-  Sun Nov 12 08:46:42: Resource usage collected. The CPU time used is 3736 seconds. MEM: 81 Mbytes; SWAP: 0 Mbytes; NTHREAD: 1; PGID: 2667; PIDs: 2760;
-MEMORY USAGE:
-MAX MEM: 2.2 Gbytes;  AVG MEM: 349 Mbytes
-RESOURCE REQUIREMENT DETAILS:
-  Combined: select[(type == X86_64 &&ostype = RHEL7.2 &&!cudav90&&!v100&&!jobsfromhellnode) && (type == any)] order[r15s:pg] rusage[mem=10752.00] affinity[core(1)*1]
-  Effective: select[((type == X86_64 &&ostype = RHEL7.2 &&!cudav90&&!v100&&!jobsfromhellnode) && (type == any))] order[r15s:pg] rusage[mem=10752.00] affinity[core(1)*1]
-
-Job <527886>, User <seokin>, Project <default>, Job Group </seokin/_/default>, Status <RUN>, Queue <x86_24h>, Command <sst --output-json /u/seokin/workspace/pca/output/sstcfg.run100M.4cpu.base.rank1.ddr4-3200-2ch --print-timing-info "--model-options=--configfile=/u/seokin/workspace/pca/config/ddr4-3200-2ch.cfg --warmup=10000000000 --maxinst=100000000 --executable=bwaves --statname=/u/seokin/workspace/pca/output/simstat.bwaves.run100M.4cpu.base.rank1.ddr4-3200-2ch numRanksPerChannel=1" /u/seokin/workspace/pca/ariel_4cpu_base.py>, Share group charged </seokin>
-Sun Nov 12 03:36:58: Submitted from host <dccxl001>, CWD <$HOME/workspace/pca/benchmark/bwaves>, Output File (overwrite) </u/seokin/workspace/pca/output/simresult.bwaves.run100M.4cpu.base.rank1.ddr4-3200-2ch>, Error File (overwrite) </u/seokin/workspace/pca/output/simresult.bwaves.run100M.4cpu.base.rank1.ddr4-3200-2ch>, Requested Resources <rusage[mem=10752] affinity[core(1)]>, memory/swap limit enforced per-job/per-host;
-RUNLIMIT
-  1440.0 min of dccxc096
-MEMLIMIT
-  10 G
-  Sun Nov 12 03:36:59: Started 1 Task(s) on Host(s) <dccxc096>, Allocated 1 Slot(s) on Host(s) <dccxc096>, Execution Home </u/seokin>, Execution CWD </u/seokin/workspace/pca/benchmark/bwaves>;
-  Sun Nov 12 08:41:11: Resource usage collected. The CPU time used is 1656 seconds. MEM: 849 Mbytes; SWAP: 0 Mbytes; NTHREAD: 1; PGID: 12336; PIDs: 12408;
-MEMORY USAGE:
-MAX MEM: 3.6 Gbytes;  AVG MEM: 1.1 Gbytes
-RESOURCE REQUIREMENT DETAILS:
-  Combined: select[(type == X86_64 &&ostype = RHEL7.2 &&!cudav90&&!v100&&!jobsfromhellnode) && (type == any)] order[r15s:pg] rusage[mem=10752.00] affinity[core(1)*1]
-  Effective: select[((type == X86_64 &&ostype = RHEL7.2 &&!cudav90&&!v100&&!jobsfromhellnode) && (type == any))] order[r15s:pg] rusage[mem=10752.00] affinity[core(1)*1]
-
-Job <527941>, User <seokin>, Project <default>, Job Group </seokin/_/default>, Status <RUN>, Queue <x86_24h>, Command <sst --output-json /u/seokin/workspace/pca/output/sstcfg.run100M.4cpu-metacache.hitrate0.ddr4-3200-2ch --print-timing-info "--model-options=--configfile=/u/seokin/workspace/pca/config/ddr4-3200-2ch.cfg --warmup=1000 --maxinst=100000 --executable=mcf --statname=/u/seokin/workspace/pca/output/simstat.mcf.run100M.4cpu-metacache.hitrate0.ddr4-3200-2ch metacache_hitrate=0 boolPowerCalc=1" /u/seokin/workspace/pca/ariel_4cpu_metacache.py>, Share group charged </seokin>
-Sun Nov 12 04:16:03: Submitted from host <dccxl001>, CWD <$HOME/workspace/pca/benchmark/mcf>, Output File (overwrite) </u/seokin/workspace/pca/output/simresult.mcf.run100M.4cpu-metacache.hitrate0.ddr4-3200-2ch>, Error File (overwrite) </u/seokin/workspace/pca/output/simresult.mcf.run100M.4cpu-metacache.hitrate0.ddr4-3200-2ch>, Requested Resources <rusage[mem=10752] affinity[core(1)]>, memory/swap limit enforced per-job/per-host;
-RUNLIMIT
-  1440.0 min of dccxc008
-MEMLIMIT
-  10 G
-  Sun Nov 12 04:16:03: Started 1 Task(s) on Host(s) <dccxc008>, Allocated 1 Slot(s) on Host(s) <dccxc008>, Execution Home </u/seokin>, Execution CWD </u/seokin/workspace/pca/benchmark/mcf>;
-  Sun Nov 12 08:41:39: Resource usage collected. The CPU time used is 1157 seconds. MEM: 40 Mbytes; SWAP: 0 Mbytes; NTHREAD: 4; PGID: 10048; PIDs: 10061 10084 10108 10150;
-MEMORY USAGE:
-MAX MEM: 157 Mbytes;  AVG MEM: 39 Mbytes
-RESOURCE REQUIREMENT DETAILS:
-  Combined: select[(type == X86_64 &&ostype = RHEL7.2 &&!cudav90&&!v100&&!jobsfromhellnode) && (type == any)] order[r15s:pg] rusage[mem=10752.00] affinity[core(1)*1]
-  Effective: select[((type == X86_64 &&ostype = RHEL7.2 &&!cudav90&&!v100&&!jobsfromhellnode) && (type == any))] order[r15s:pg] rusage[mem=10752.00] affinity[core(1)*1]
-
-Job <527905>, User <seokin>, Project <default>, Job Group </seokin/_/default>, Status <RUN>, Queue <x86_24h>, Command <sst --output-json /u/seokin/workspace/pca/output/sstcfg.run100M.4cpu-metacache.hitrate100.ddr4-3200-2ch --print-timing-info "--model-options=--configfile=/u/seokin/workspace/pca/config/ddr4-3200-2ch.cfg --warmup=1000 --maxinst=100000 --executable=mcf --statname=/u/seokin/workspace/pca/output/simstat.mcf.run100M.4cpu-metacache.hitrate100.ddr4-3200-2ch metacache_hitrate=100 boolPowerCalc=1" /u/seokin/workspace/pca/ariel_4cpu_metacache.py>, Share group charged </seokin>
-Sun Nov 12 03:48:19: Submitted from host <dccxl001>, CWD <$HOME/workspace/pca/benchmark/mcf>, Output File (overwrite) </u/seokin/workspace/pca/output/simresult.mcf.run100M.4cpu-metacache.hitrate100.ddr4-3200-2ch>, Error File (overwrite) </u/seokin/workspace/pca/output/simresult.mcf.run100M.4cpu-metacache.hitrate100.ddr4-3200-2ch>, Requested Resources <rusage[mem=10752] affinity[core(1)]>, memory/swap limit enforced per-job/per-host;
-RUNLIMIT
-  1440.0 min of dccxc129
-MEMLIMIT
-  10 G
-  Sun Nov 12 03:48:20: Started 1 Task(s) on Host(s) <dccxc129>, Allocated 1 Slot(s) on Host(s) <dccxc129>, Execution Home </u/seokin>, Execution CWD </u/seokin/workspace/pca/benchmark/mcf>;
-  Sun Nov 12 08:42:04: Resource usage collected. The CPU time used is 1362 seconds. MEM: 44 Mbytes; SWAP: 0 Mbytes; NTHREAD: 4; PGID: 25008; PIDs: 25021 25038 25054 25070;
-MEMORY USAGE:
-MAX MEM: 159 Mbytes;  AVG MEM: 44 Mbytes
-RESOURCE REQUIREMENT DETAILS:
-  Combined: select[(type == X86_64 &&ostype = RHEL7.2 &&!cudav90&&!v100&&!jobsfromhellnode) && (type == any)] order[r15s:pg] rusage[mem=10752.00] affinity[core(1)*1]
-  Effective: select[((type == X86_64 &&ostype = RHEL7.2 &&!cudav90&&!v100&&!jobsfromhellnode) && (type == any))] order[r15s:pg] rusage[mem=10752.00] affinity[core(1)*1]
-
-Job <527911>, User <seokin>, Project <default>, Job Group </seokin/_/default>, Status <RUN>, Queue <x86_24h>, Command <sst --output-json /u/seokin/workspace/pca/output/sstcfg.run100M.4cpu-metacache.hitrate0.ddr4-3200-2ch --print-timing-info "--model-options=--configfile=/u/seokin/workspace/pca/config/ddr4-3200-2ch.cfg --warmup=1000 --maxinst=100000 --executable=mcf --statname=/u/seokin/workspace/pca/output/simstat.mcf.run100M.4cpu-metacache.hitrate0.ddr4-3200-2ch metacache_hitrate=0 boolPowerCalc=1" /u/seokin/workspace/pca/ariel_4cpu_metacache.py>, Share group charged </seokin>
-Sun Nov 12 03:57:45: Submitted from host <dccxl001>, CWD <$HOME/workspace/pca/benchmark/mcf>, Output File (overwrite) </u/seokin/workspace/pca/output/simresult.mcf.run100M.4cpu-metacache.hitrate0.ddr4-3200-2ch>, Error File (overwrite) </u/seokin/workspace/pca/output/simresult.mcf.run100M.4cpu-metacache.hitrate0.ddr4-3200-2ch>, Requested Resources <rusage[mem=10752] affinity[core(1)]>, memory/swap limit enforced per-job/per-host;
-RUNLIMIT
-  1440.0 min of dccxc129
-MEMLIMIT
-  10 G
-  Sun Nov 12 03:57:45: Started 1 Task(s) on Host(s) <dccxc129>, Allocated 1 Slot(s) on Host(s) <dccxc129>, Execution Home </u/seokin>, Execution CWD </u/seokin/workspace/pca/benchmark/mcf>;
-  Sun Nov 12 08:45:35: Resource usage collected. The CPU time used is 1306 seconds. MEM: 52 Mbytes; SWAP: 0 Mbytes; NTHREAD: 4; PGID: 26362; PIDs: 26375 26391 26415 26431;
-MEMORY USAGE:
-MAX MEM: 165 Mbytes;  AVG MEM: 52 Mbytes
-RESOURCE REQUIREMENT DETAILS:
-  Combined: select[(type == X86_64 &&ostype = RHEL7.2 &&!cudav90&&!v100&&!jobsfromhellnode) && (type == any)] order[r15s:pg] rusage[mem=10752.00] affinity[core(1)*1]
-  Effective: select[((type == X86_64 &&ostype = RHEL7.2 &&!cudav90&&!v100&&!jobsfromhellnode) && (type == any))] order[r15s:pg] rusage[mem=10752.00] affinity[core(1)*1]
-
-Job <527872>, User <seokin>, Project <default>, Job Group </seokin/_/default>, Status <RUN>, Queue <x86_24h>, Command <sst --output-json /u/seokin/workspace/pca/output/sstcfg.run100M.4cpu.base.rank1.ddr4-3200-2ch --print-timing-info "--model-options=--configfile=/u/seokin/workspace/pca/config/ddr4-3200-2ch.cfg --warmup=10000000000 --maxinst=100000000 --executable=leslie3d --statname=/u/seokin/workspace/pca/output/simstat.leslie3d.run100M.4cpu.base.rank1.ddr4-3200-2ch numRanksPerChannel=1" /u/seokin/workspace/pca/ariel_4cpu_base.py>, Share group charged </seokin>
-Sun Nov 12 03:36:57: Submitted from host <dccxl001>, CWD <$HOME/workspace/pca/benchmark/leslie3d>, Output File (overwrite) </u/seokin/workspace/pca/output/simresult.leslie3d.run100M.4cpu.base.rank1.ddr4-3200-2ch>, Error File (overwrite) </u/seokin/workspace/pca/output/simresult.leslie3d.run100M.4cpu.base.rank1.ddr4-3200-2ch>, Requested Resources <rusage[mem=10752] affinity[core(1)]>, memory/swap limit enforced per-job/per-host;
-RUNLIMIT
-  1440.0 min of dccxc172
-MEMLIMIT
-  10 G
-  Sun Nov 12 03:36:58: Started 1 Task(s) on Host(s) <dccxc172>, Allocated 1 Slot(s) on Host(s) <dccxc172>, Execution Home </u/seokin>, Execution CWD </u/seokin/workspace/pca/benchmark/leslie3d>;
-  Sun Nov 12 08:43:09: Resource usage collected. The CPU time used is 3874 seconds. MEM: 145 Mbytes; SWAP: 0 Mbytes; NTHREAD: 1; PGID: 7180; PIDs: 7242;
-MEMORY USAGE:
-MAX MEM: 2.1 Gbytes;  AVG MEM: 430 Mbytes
-RESOURCE REQUIREMENT DETAILS:
-  Combined: select[(type == X86_64 &&ostype = RHEL7.2 &&!cudav90&&!v100&&!jobsfromhellnode) && (type == any)] order[r15s:pg] rusage[mem=10752.00] affinity[core(1)*1]
-  Effective: select[((type == X86_64 &&ostype = RHEL7.2 &&!cudav90&&!v100&&!jobsfromhellnode) && (type == any))] order[r15s:pg] rusage[mem=10752.00] affinity[core(1)*1]
-
-Job <527912>, User <seokin>, Project <default>, Job Group </seokin/_/default>, Status <RUN>, Queue <x86_24h>, Command <sst --output-json /u/seokin/workspace/pca/output/sstcfg.run100M.4cpu-metacache.hitrate80.ddr4-3200-2ch --print-timing-info "--model-options=--configfile=/u/seokin/workspace/pca/config/ddr4-3200-2ch.cfg --warmup=1000 --maxinst=100000 --executable=mcf --statname=/u/seokin/workspace/pca/output/simstat.mcf.run100M.4cpu-metacache.hitrate80.ddr4-3200-2ch metacache_hitrate=80 boolPowerCalc=1" /u/seokin/workspace/pca/ariel_4cpu_metacache.py>, Share group charged </seokin>
-Sun Nov 12 03:57:45: Submitted from host <dccxl001>, CWD <$HOME/workspace/pca/benchmark/mcf>, Output File (overwrite) </u/seokin/workspace/pca/output/simresult.mcf.run100M.4cpu-metacache.hitrate80.ddr4-3200-2ch>, Error File (overwrite) </u/seokin/workspace/pca/output/simresult.mcf.run100M.4cpu-metacache.hitrate80.ddr4-3200-2ch>, Requested Resources <rusage[mem=10752] affinity[core(1)]>, memory/swap limit enforced per-job/per-host;
-RUNLIMIT
-  1440.0 min of dccxc097
-MEMLIMIT
-  10 G
-  Sun Nov 12 03:57:46: Started 1 Task(s) on Host(s) <dccxc097>, Allocated 1 Slot(s) on Host(s) <dccxc097>, Execution Home </u/seokin>, Execution CWD </u/seokin/workspace/pca/benchmark/mcf>;
-  Sun Nov 12 08:42:44: Resource usage collected. The CPU time used is 1270 seconds. MEM: 50 Mbytes; SWAP: 0 Mbytes; NTHREAD: 4; PGID: 22182; PIDs: 22195 22211 22227 22243;
-MEMORY USAGE:
-MAX MEM: 163 Mbytes;  AVG MEM: 50 Mbytes
-RESOURCE REQUIREMENT DETAILS:
-  Combined: select[(type == X86_64 &&ostype = RHEL7.2 &&!cudav90&&!v100&&!jobsfromhellnode) && (type == any)] order[r15s:pg] rusage[mem=10752.00] affinity[core(1)*1]
-  Effective: select[((type == X86_64 &&ostype = RHEL7.2 &&!cudav90&&!v100&&!jobsfromhellnode) && (type == any))] order[r15s:pg] rusage[mem=10752.00] affinity[core(1)*1]
-
-Job <527879>, User <seokin>, Project <default>, Job Group </seokin/_/default>, Status <RUN>, Queue <x86_24h>, Command <sst --output-json /u/seokin/workspace/pca/output/sstcfg.run100M.4cpu.base.rank2.ddr4-3200-2ch --print-timing-info "--model-options=--configfile=/u/seokin/workspace/pca/config/ddr4-3200-2ch.cfg --warmup=10000000000 --maxinst=100000000 --executable=h264ref --statname=/u/seokin/workspace/pca/output/simstat.h264ref.run100M.4cpu.base.rank2.ddr4-3200-2ch numRanksPerChannel=2" /u/seokin/workspace/pca/ariel_4cpu_base.py>, Share group charged </seokin>
-Sun Nov 12 03:36:58: Submitted from host <dccxl001>, CWD <$HOME/workspace/pca/benchmark/h264ref>, Output File (overwrite) </u/seokin/workspace/pca/output/simresult.h264ref.run100M.4cpu.base.rank2.ddr4-3200-2ch>, Error File (overwrite) </u/seokin/workspace/pca/output/simresult.h264ref.run100M.4cpu.base.rank2.ddr4-3200-2ch>, Requested Resources <rusage[mem=10752] affinity[core(1)]>, memory/swap limit enforced per-job/per-host;
-RUNLIMIT
-  1440.0 min of dccxc105
-MEMLIMIT
-  10 G
-  Sun Nov 12 03:36:59: Started 1 Task(s) on Host(s) <dccxc105>, Allocated 1 Slot(s) on Host(s) <dccxc105>, Execution Home </u/seokin>, Execution CWD </u/seokin/workspace/pca/benchmark/h264ref>;
-  Sun Nov 12 08:41:28: Resource usage collected. The CPU time used is 2117 seconds. MEM: 47 Mbytes; SWAP: 0 Mbytes; NTHREAD: 1; PGID: 6053; PIDs: 6142;
-MEMORY USAGE:
-MAX MEM: 453 Mbytes;  AVG MEM: 94 Mbytes
-RESOURCE REQUIREMENT DETAILS:
-  Combined: select[(type == X86_64 &&ostype = RHEL7.2 &&!cudav90&&!v100&&!jobsfromhellnode) && (type == any)] order[r15s:pg] rusage[mem=10752.00] affinity[core(1)*1]
-  Effective: select[((type == X86_64 &&ostype = RHEL7.2 &&!cudav90&&!v100&&!jobsfromhellnode) && (type == any))] order[r15s:pg] rusage[mem=10752.00] affinity[core(1)*1]
-
-Job <527913>, User <seokin>, Project <default>, Job Group </seokin/_/default>, Status <RUN>, Queue <x86_24h>, Command <sst --output-json /u/seokin/workspace/pca/output/sstcfg.run100M.4cpu-metacache.hitrate90.ddr4-3200-2ch --print-timing-info "--model-options=--configfile=/u/seokin/workspace/pca/config/ddr4-3200-2ch.cfg --warmup=1000 --maxinst=100000 --executable=mcf --statname=/u/seokin/workspace/pca/output/simstat.mcf.run100M.4cpu-metacache.hitrate90.ddr4-3200-2ch metacache_hitrate=90 boolPowerCalc=1" /u/seokin/workspace/pca/ariel_4cpu_metacache.py>, Share group charged </seokin>
-Sun Nov 12 03:57:45: Submitted from host <dccxl001>, CWD <$HOME/workspace/pca/benchmark/mcf>, Output File (overwrite) </u/seokin/workspace/pca/output/simresult.mcf.run100M.4cpu-metacache.hitrate90.ddr4-3200-2ch>, Error File (overwrite) </u/seokin/workspace/pca/output/simresult.mcf.run100M.4cpu-metacache.hitrate90.ddr4-3200-2ch>, Requested Resources <rusage[mem=10752] affinity[core(1)]>, memory/swap limit enforced per-job/per-host;
-RUNLIMIT
-  1440.0 min of dccxc044
-MEMLIMIT
-  10 G
-  Sun Nov 12 03:57:46: Started 1 Task(s) on Host(s) <dccxc044>, Allocated 1 Slot(s) on Host(s) <dccxc044>, Execution Home </u/seokin>, Execution CWD </u/seokin/workspace/pca/benchmark/mcf>;
-  Sun Nov 12 08:45:06: Resource usage collected. The CPU time used is 1281 seconds. MEM: 40 Mbytes; SWAP: 0 Mbytes; NTHREAD: 4; PGID: 4832; PIDs: 4852 4875 4895 4915;
-MEMORY USAGE:
-MAX MEM: 157 Mbytes;  AVG MEM: 40 Mbytes
-RESOURCE REQUIREMENT DETAILS:
-  Combined: select[(type == X86_64 &&ostype = RHEL7.2 &&!cudav90&&!v100&&!jobsfromhellnode) && (type == any)] order[r15s:pg] rusage[mem=10752.00] affinity[core(1)*1]
-  Effective: select[((type == X86_64 &&ostype = RHEL7.2 &&!cudav90&&!v100&&!jobsfromhellnode) && (type == any))] order[r15s:pg] rusage[mem=10752.00] affinity[core(1)*1]
-
-Job <527965>, User <seokin>, Project <default>, Job Group </seokin/_/default>, Status <RUN>, Queue <x86_24h>, Command <sst --output-json /u/seokin/workspace/pca/output/sstcfg.run100M.4cpu-metacache.hitrate0.ddr4-3200-2ch --print-timing-info "--model-options=--configfile=/u/seokin/workspace/pca/config/ddr4-3200-2ch.cfg --warmup=1000 --maxinst=100000 --executable=mcf --statname=/u/seokin/workspace/pca/output/simstat.mcf.run100M.4cpu-metacache.hitrate0.ddr4-3200-2ch metacache_hitrate=0 boolPowerCalc=1" /u/seokin/workspace/pca/ariel_4cpu_metacache.py>, Share group charged </seokin>
-Sun Nov 12 04:51:01: Submitted from host <dccxl001>, CWD <$HOME/workspace/pca/benchmark/mcf>, Output File (overwrite) </u/seokin/workspace/pca/output/simresult.mcf.run100M.4cpu-metacache.hitrate0.ddr4-3200-2ch>, Error File (overwrite) </u/seokin/workspace/pca/output/simresult.mcf.run100M.4cpu-metacache.hitrate0.ddr4-3200-2ch>, Requested Resources <rusage[mem=10752] affinity[core(1)]>, memory/swap limit enforced per-job/per-host;
-RUNLIMIT
-  1440.0 min of dccxc151
-MEMLIMIT
-  10 G
-  Sun Nov 12 04:51:01: Started 1 Task(s) on Host(s) <dccxc151>, Allocated 1 Slot(s) on Host(s) <dccxc151>, Execution Home </u/seokin>, Execution CWD </u/seokin/workspace/pca/benchmark/mcf>;
-  Sun Nov 12 08:45:27: Resource usage collected. The CPU time used is 1024 seconds. MEM: 44 Mbytes; SWAP: 0 Mbytes; NTHREAD: 4; PGID: 3647; PIDs: 3661 3677 3693 3710;
-MEMORY USAGE:
-MAX MEM: 159 Mbytes;  AVG MEM: 43 Mbytes
-RESOURCE REQUIREMENT DETAILS:
-  Combined: select[(type == X86_64 &&ostype = RHEL7.2 &&!cudav90&&!v100&&!jobsfromhellnode) && (type == any)] order[r15s:pg] rusage[mem=10752.00] affinity[core(1)*1]
-  Effective: select[((type == X86_64 &&ostype = RHEL7.2 &&!cudav90&&!v100&&!jobsfromhellnode) && (type == any))] order[r15s:pg] rusage[mem=10752.00] affinity[core(1)*1]
-
-Job <527887>, User <seokin>, Project <default>, Job Group </seokin/_/default>, Status <RUN>, Queue <x86_24h>, Command <sst --output-json /u/seokin/workspace/pca/output/sstcfg.run100M.4cpu.base.rank2.ddr4-3200-2ch --print-timing-info "--model-options=--configfile=/u/seokin/workspace/pca/config/ddr4-3200-2ch.cfg --warmup=10000000000 --maxinst=100000000 --executable=bwaves --statname=/u/seokin/workspace/pca/output/simstat.bwaves.run100M.4cpu.base.rank2.ddr4-3200-2ch numRanksPerChannel=2" /u/seokin/workspace/pca/ariel_4cpu_base.py>, Share group charged </seokin>
-Sun Nov 12 03:36:58: Submitted from host <dccxl001>, CWD <$HOME/workspace/pca/benchmark/bwaves>, Output File (overwrite) </u/seokin/workspace/pca/output/simresult.bwaves.run100M.4cpu.base.rank2.ddr4-3200-2ch>, Error File (overwrite) </u/seokin/workspace/pca/output/simresult.bwaves.run100M.4cpu.base.rank2.ddr4-3200-2ch>, Requested Resources <rusage[mem=10752] affinity[core(1)]>, memory/swap limit enforced per-job/per-host;
-RUNLIMIT
-  1440.0 min of dccxc062
-MEMLIMIT
-  10 G
-  Sun Nov 12 03:36:59: Started 1 Task(s) on Host(s) <dccxc062>, Allocated 1 Slot(s) on Host(s) <dccxc062>, Execution Home </u/seokin>, Execution CWD </u/seokin/workspace/pca/benchmark/bwaves>;
-  Sun Nov 12 08:47:05: Resource usage collected. The CPU time used is 1557 seconds. MEM: 847 Mbytes; SWAP: 0 Mbytes; NTHREAD: 1; PGID: 14801; PIDs: 14862;
-MEMORY USAGE:
-MAX MEM: 3.6 Gbytes;  AVG MEM: 1.1 Gbytes
-RESOURCE REQUIREMENT DETAILS:
-  Combined: select[(type == X86_64 &&ostype = RHEL7.2 &&!cudav90&&!v100&&!jobsfromhellnode) && (type == any)] order[r15s:pg] rusage[mem=10752.00] affinity[core(1)*1]
-  Effective: select[((type == X86_64 &&ostype = RHEL7.2 &&!cudav90&&!v100&&!jobsfromhellnode) && (type == any))] order[r15s:pg] rusage[mem=10752.00] affinity[core(1)*1]
-
-Job <527893>, User <seokin>, Project <default>, Job Group </seokin/_/default>, Status <RUN>, Queue <x86_24h>, Command <sst --output-json /u/seokin/workspace/pca/output/sstcfg.run100M.4cpu.base.rank2.ddr4-3200-2ch --print-timing-info "--model-options=--configfile=/u/seokin/workspace/pca/config/ddr4-3200-2ch.cfg --warmup=10000000000 --maxinst=100000000 --executable=xalancbmk --statname=/u/seokin/workspace/pca/output/simstat.xalancbmk.run100M.4cpu.base.rank2.ddr4-3200-2ch numRanksPerChannel=2" /u/seokin/workspace/pca/ariel_4cpu_base.py>, Share group charged </seokin>
-Sun Nov 12 03:36:59: Submitted from host <dccxl001>, CWD <$HOME/workspace/pca/benchmark/xalancbmk>, Output File (overwrite) </u/seokin/workspace/pca/output/simresult.xalancbmk.run100M.4cpu.base.rank2.ddr4-3200-2ch>, Error File (overwrite) </u/seokin/workspace/pca/output/simresult.xalancbmk.run100M.4cpu.base.rank2.ddr4-3200-2ch>, Requested Resources <rusage[mem=10752] affinity[core(1)]>, memory/swap limit enforced per-job/per-host;
-RUNLIMIT
-  1440.0 min of dccxc014
-MEMLIMIT
-  10 G
-  Sun Nov 12 03:37:00: Started 1 Task(s) on Host(s) <dccxc014>, Allocated 1 Slot(s) on Host(s) <dccxc014>, Execution Home </u/seokin>, Execution CWD </u/seokin/workspace/pca/benchmark/xalancbmk>;
-  Sun Nov 12 08:48:14: Resource usage collected. The CPU time used is 3307 seconds. MEM: 126 Mbytes; SWAP: 0 Mbytes; NTHREAD: 1; PGID: 28890; PIDs: 29033;
-MEMORY USAGE:
-MAX MEM: 1.5 Gbytes;  AVG MEM: 312 Mbytes
-RESOURCE REQUIREMENT DETAILS:
-  Combined: select[(type == X86_64 &&ostype = RHEL7.2 &&!cudav90&&!v100&&!jobsfromhellnode) && (type == any)] order[r15s:pg] rusage[mem=10752.00] affinity[core(1)*1]
-  Effective: select[((type == X86_64 &&ostype = RHEL7.2 &&!cudav90&&!v100&&!jobsfromhellnode) && (type == any))] order[r15s:pg] rusage[mem=10752.00] affinity[core(1)*1]
-
-Job <527890>, User <seokin>, Project <default>, Job Group </seokin/_/default>, Status <RUN>, Queue <x86_24h>, Command <sst --output-json /u/seokin/workspace/pca/output/sstcfg.run100M.4cpu.base.rank1.ddr4-3200-2ch --print-timing-info "--model-options=--configfile=/u/seokin/workspace/pca/config/ddr4-3200-2ch.cfg --warmup=10000000000 --maxinst=100000000 --executable=bzip2 --statname=/u/seokin/workspace/pca/output/simstat.bzip2.run100M.4cpu.base.rank1.ddr4-3200-2ch numRanksPerChannel=1" /u/seokin/workspace/pca/ariel_4cpu_base.py>, Share group charged </seokin>
-Sun Nov 12 03:36:59: Submitted from host <dccxl001>, CWD <$HOME/workspace/pca/benchmark/bzip2>, Output File (overwrite) </u/seokin/workspace/pca/output/simresult.bzip2.run100M.4cpu.base.rank1.ddr4-3200-2ch>, Error File (overwrite) </u/seokin/workspace/pca/output/simresult.bzip2.run100M.4cpu.base.rank1.ddr4-3200-2ch>, Requested Resources <rusage[mem=10752] affinity[core(1)]>, memory/swap limit enforced per-job/per-host;
-RUNLIMIT
-  1440.0 min of dccxc273
-MEMLIMIT
-  10 G
-  Sun Nov 12 03:37:00: Started 1 Task(s) on Host(s) <dccxc273>, Allocated 1 Slot(s) on Host(s) <dccxc273>, Execution Home </u/seokin>, Execution CWD </u/seokin/workspace/pca/benchmark/bzip2>;
-  Sun Nov 12 08:48:08: Resource usage collected. The CPU time used is 1664 seconds. MEM: 114 Mbytes; SWAP: 0 Mbytes; NTHREAD: 1; PGID: 24710; PIDs: 24840;
-MEMORY USAGE:
-MAX MEM: 599 Mbytes;  AVG MEM: 166 Mbytes
-RESOURCE REQUIREMENT DETAILS:
-  Combined: select[(type == X86_64 &&ostype = RHEL7.2 &&!cudav90&&!v100&&!jobsfromhellnode) && (type == any)] order[r15s:pg] rusage[mem=10752.00] affinity[core(1)*1]
-  Effective: select[((type == X86_64 &&ostype = RHEL7.2 &&!cudav90&&!v100&&!jobsfromhellnode) && (type == any))] order[r15s:pg] rusage[mem=10752.00] affinity[core(1)*1]
-
-Job <527902>, User <seokin>, Project <default>, Job Group </seokin/_/default>, Status <RUN>, Queue <x86_24h>, Command <sst --output-json /u/seokin/workspace/pca/output/sstcfg.run100M.4cpu-metacache.hitrate0.ddr4-3200-2ch --print-timing-info "--model-options=--configfile=/u/seokin/workspace/pca/config/ddr4-3200-2ch.cfg --warmup=1000 --maxinst=100000 --executable=mcf --statname=/u/seokin/workspace/pca/output/simstat.mcf.run100M.4cpu-metacache.hitrate0.ddr4-3200-2ch metacache_hitrate=0 boolPowerCalc=1" /u/seokin/workspace/pca/ariel_4cpu_metacache.py>, Share group charged </seokin>
-Sun Nov 12 03:48:19: Submitted from host <dccxl001>, CWD <$HOME/workspace/pca/benchmark/mcf>, Output File (overwrite) </u/seokin/workspace/pca/output/simresult.mcf.run100M.4cpu-metacache.hitrate0.ddr4-3200-2ch>, Error File (overwrite) </u/seokin/workspace/pca/output/simresult.mcf.run100M.4cpu-metacache.hitrate0.ddr4-3200-2ch>, Requested Resources <rusage[mem=10752] affinity[core(1)]>, memory/swap limit enforced per-job/per-host;
-RUNLIMIT
-  1440.0 min of dccxc069
-MEMLIMIT
-  10 G
-  Sun Nov 12 03:48:20: Started 1 Task(s) on Host(s) <dccxc069>, Allocated 1 Slot(s) on Host(s) <dccxc069>, Execution Home </u/seokin>, Execution CWD </u/seokin/workspace/pca/benchmark/mcf>;
-  Sun Nov 12 08:45:20: Resource usage collected. The CPU time used is 1321 seconds. MEM: 41 Mbytes; SWAP: 0 Mbytes; NTHREAD: 4; PGID: 17801; PIDs: 17814 17834 17851 17881;
-MEMORY USAGE:
-MAX MEM: 157 Mbytes;  AVG MEM: 41 Mbytes
-RESOURCE REQUIREMENT DETAILS:
-  Combined: select[(type == X86_64 &&ostype = RHEL7.2 &&!cudav90&&!v100&&!jobsfromhellnode) && (type == any)] order[r15s:pg] rusage[mem=10752.00] affinity[core(1)*1]
-  Effective: select[((type == X86_64 &&ostype = RHEL7.2 &&!cudav90&&!v100&&!jobsfromhellnode) && (type == any))] order[r15s:pg] rusage[mem=10752.00] affinity[core(1)*1]
-
-Job <527864>, User <seokin>, Project <default>, Job Group </seokin/_/default>, Status <RUN>, Queue <x86_24h>, Command <sst --output-json /u/seokin/workspace/pca/output/sstcfg.run100M.4cpu.base.rank1.ddr4-3200-2ch --print-timing-info "--model-options=--configfile=/u/seokin/workspace/pca/config/ddr4-3200-2ch.cfg --warmup=10000000000 --maxinst=100000000 --executable=mcf --statname=/u/seokin/workspace/pca/output/simstat.mcf.run100M.4cpu.base.rank1.ddr4-3200-2ch numRanksPerChannel=1" /u/seokin/workspace/pca/ariel_4cpu_base.py>, Share group charged </seokin>
-Sun Nov 12 03:36:57: Submitted from host <dccxl001>, CWD <$HOME/workspace/pca/benchmark/mcf>, Output File (overwrite) </u/seokin/workspace/pca/output/simresult.mcf.run100M.4cpu.base.rank1.ddr4-3200-2ch>, Error File (overwrite) </u/seokin/workspace/pca/output/simresult.mcf.run100M.4cpu.base.rank1.ddr4-3200-2ch>, Requested Resources <rusage[mem=10752] affinity[core(1)]>, memory/swap limit enforced per-job/per-host;
-RUNLIMIT
-  1440.0 min of dccxc019
-MEMLIMIT
-  10 G
-  Sun Nov 12 03:36:58: Started 1 Task(s) on Host(s) <dccxc019>, Allocated 1 Slot(s) on Host(s) <dccxc019>, Execution Home </u/seokin>, Execution CWD </u/seokin/workspace/pca/benchmark/mcf>;
-  Sun Nov 12 08:47:49: Resource usage collected. The CPU time used is 4687 seconds. MEM: 1.6 Gbytes; SWAP: 0 Mbytes; NTHREAD: 1; PGID: 24860; PIDs: 24945;
-MEMORY USAGE:
-MAX MEM: 8.4 Gbytes;  AVG MEM: 3.2 Gbytes
-RESOURCE REQUIREMENT DETAILS:
-  Combined: select[(type == X86_64 &&ostype = RHEL7.2 &&!cudav90&&!v100&&!jobsfromhellnode) && (type == any)] order[r15s:pg] rusage[mem=10752.00] affinity[core(1)*1]
-  Effective: select[((type == X86_64 &&ostype = RHEL7.2 &&!cudav90&&!v100&&!jobsfromhellnode) && (type == any))] order[r15s:pg] rusage[mem=10752.00] affinity[core(1)*1]
-
-Job <527883>, User <seokin>, Project <default>, Job Group </seokin/_/default>, Status <RUN>, Queue <x86_24h>, Command <sst --output-json /u/seokin/workspace/pca/output/sstcfg.run100M.4cpu.base.rank2.ddr4-3200-2ch --print-timing-info "--model-options=--configfile=/u/seokin/workspace/pca/config/ddr4-3200-2ch.cfg --warmup=10000000000 --maxinst=100000000 --executable=cactusADM --statname=/u/seokin/workspace/pca/output/simstat.cactusADM.run100M.4cpu.base.rank2.ddr4-3200-2ch numRanksPerChannel=2" /u/seokin/workspace/pca/ariel_4cpu_base.py>, Share group charged </seokin>
-Sun Nov 12 03:36:58: Submitted from host <dccxl001>, CWD <$HOME/workspace/pca/benchmark/cactusADM>, Output File (overwrite) </u/seokin/workspace/pca/output/simresult.cactusADM.run100M.4cpu.base.rank2.ddr4-3200-2ch>, Error File (overwrite) </u/seokin/workspace/pca/output/simresult.cactusADM.run100M.4cpu.base.rank2.ddr4-3200-2ch>, Requested Resources <rusage[mem=10752] affinity[core(1)]>, memory/swap limit enforced per-job/per-host;
-RUNLIMIT
-  1440.0 min of dccxc036
-MEMLIMIT
-  10 G
-  Sun Nov 12 03:36:59: Started 1 Task(s) on Host(s) <dccxc036>, Allocated 1 Slot(s) on Host(s) <dccxc036>, Execution Home </u/seokin>, Execution CWD </u/seokin/workspace/pca/benchmark/cactusADM>;
-  Sun Nov 12 08:41:00: Resource usage collected. The CPU time used is 3269 seconds. MEM: 769 Mbytes; SWAP: 0 Mbytes; NTHREAD: 1; PGID: 9109; PIDs: 9172;
-MEMORY USAGE:
-MAX MEM: 3.6 Gbytes;  AVG MEM: 1.2 Gbytes
-RESOURCE REQUIREMENT DETAILS:
-  Combined: select[(type == X86_64 &&ostype = RHEL7.2 &&!cudav90&&!v100&&!jobsfromhellnode) && (type == any)] order[r15s:pg] rusage[mem=10752.00] affinity[core(1)*1]
-  Effective: select[((type == X86_64 &&ostype = RHEL7.2 &&!cudav90&&!v100&&!jobsfromhellnode) && (type == any))] order[r15s:pg] rusage[mem=10752.00] affinity[core(1)*1]
-
-Job <527892>, User <seokin>, Project <default>, Job Group </seokin/_/default>, Status <RUN>, Queue <x86_24h>, Command <sst --output-json /u/seokin/workspace/pca/output/sstcfg.run100M.4cpu.base.rank1.ddr4-3200-2ch --print-timing-info "--model-options=--configfile=/u/seokin/workspace/pca/config/ddr4-3200-2ch.cfg --warmup=10000000000 --maxinst=100000000 --executable=xalancbmk --statname=/u/seokin/workspace/pca/output/simstat.xalancbmk.run100M.4cpu.base.rank1.ddr4-3200-2ch numRanksPerChannel=1" /u/seokin/workspace/pca/ariel_4cpu_base.py>, Share group charged </seokin>
-Sun Nov 12 03:36:59: Submitted from host <dccxl001>, CWD <$HOME/workspace/pca/benchmark/xalancbmk>, Output File (overwrite) </u/seokin/workspace/pca/output/simresult.xalancbmk.run100M.4cpu.base.rank1.ddr4-3200-2ch>, Error File (overwrite) </u/seokin/workspace/pca/output/simresult.xalancbmk.run100M.4cpu.base.rank1.ddr4-3200-2ch>, Requested Resources <rusage[mem=10752] affinity[core(1)]>, memory/swap limit enforced per-job/per-host;
-RUNLIMIT
-  1440.0 min of dccxc144
-MEMLIMIT
-  10 G
-  Sun Nov 12 03:37:00: Started 1 Task(s) on Host(s) <dccxc144>, Allocated 1 Slot(s) on Host(s) <dccxc144>, Execution Home </u/seokin>, Execution CWD </u/seokin/workspace/pca/benchmark/xalancbmk>;
-  Sun Nov 12 08:43:47: Resource usage collected. The CPU time used is 3072 seconds. MEM: 126 Mbytes; SWAP: 0 Mbytes; NTHREAD: 1; PGID: 6196; PIDs: 6281;
-MEMORY USAGE:
-MAX MEM: 1.5 Gbytes;  AVG MEM: 302 Mbytes
-RESOURCE REQUIREMENT DETAILS:
-  Combined: select[(type == X86_64 &&ostype = RHEL7.2 &&!cudav90&&!v100&&!jobsfromhellnode) && (type == any)] order[r15s:pg] rusage[mem=10752.00] affinity[core(1)*1]
-  Effective: select[((type == X86_64 &&ostype = RHEL7.2 &&!cudav90&&!v100&&!jobsfromhellnode) && (type == any))] order[r15s:pg] rusage[mem=10752.00] affinity[core(1)*1]
-
-Job <527880>, User <seokin>, Project <default>, Job Group </seokin/_/default>, Status <RUN>, Queue <x86_24h>, Command <sst --output-json /u/seokin/workspace/pca/output/sstcfg.run100M.4cpu.base.rank1.ddr4-3200-2ch --print-timing-info "--model-options=--configfile=/u/seokin/workspace/pca/config/ddr4-3200-2ch.cfg --warmup=10000000000 --maxinst=100000000 --executable=sjeng --statname=/u/seokin/workspace/pca/output/simstat.sjeng.run100M.4cpu.base.rank1.ddr4-3200-2ch numRanksPerChannel=1" /u/seokin/workspace/pca/ariel_4cpu_base.py>, Share group charged </seokin>
-Sun Nov 12 03:36:58: Submitted from host <dccxl001>, CWD <$HOME/workspace/pca/benchmark/sjeng>, Output File (overwrite) </u/seokin/workspace/pca/output/simresult.sjeng.run100M.4cpu.base.rank1.ddr4-3200-2ch>, Error File (overwrite) </u/seokin/workspace/pca/output/simresult.sjeng.run100M.4cpu.base.rank1.ddr4-3200-2ch>, Requested Resources <rusage[mem=10752] affinity[core(1)]>, memory/swap limit enforced per-job/per-host;
-RUNLIMIT
-  1440.0 min of dccxc010
-MEMLIMIT
-  10 G
-  Sun Nov 12 03:36:59: Started 1 Task(s) on Host(s) <dccxc010>, Allocated 1 Slot(s) on Host(s) <dccxc010>, Execution Home </u/seokin>, Execution CWD </u/seokin/workspace/pca/benchmark/sjeng>;
-  Sun Nov 12 08:47:06: Resource usage collected. The CPU time used is 1690 seconds. MEM: 193 Mbytes; SWAP: 0 Mbytes; NTHREAD: 1; PGID: 6105; PIDs: 6173;
-MEMORY USAGE:
-MAX MEM: 931 Mbytes;  AVG MEM: 274 Mbytes
-RESOURCE REQUIREMENT DETAILS:
-  Combined: select[(type == X86_64 &&ostype = RHEL7.2 &&!cudav90&&!v100&&!jobsfromhellnode) && (type == any)] order[r15s:pg] rusage[mem=10752.00] affinity[core(1)*1]
-  Effective: select[((type == X86_64 &&ostype = RHEL7.2 &&!cudav90&&!v100&&!jobsfromhellnode) && (type == any))] order[r15s:pg] rusage[mem=10752.00] affinity[core(1)*1]
-
-Job <527944>, User <seokin>, Project <default>, Job Group </seokin/_/default>, Status <RUN>, Queue <x86_24h>, Command <sst --output-json /u/seokin/workspace/pca/output/sstcfg.run100M.4cpu-metacache.hitrate0.ddr4-3200-2ch --print-timing-info "--model-options=--configfile=/u/seokin/workspace/pca/config/ddr4-3200-2ch.cfg --warmup=1000 --maxinst=100000 --executable=mcf --statname=/u/seokin/workspace/pca/output/simstat.mcf.run100M.4cpu-metacache.hitrate0.ddr4-3200-2ch metacache_hitrate=0 boolPowerCalc=1" /u/seokin/workspace/pca/ariel_4cpu_metacache.py>, Share group charged </seokin>
-Sun Nov 12 04:18:59: Submitted from host <dccxl001>, CWD <$HOME/workspace/pca/benchmark/mcf>, Output File (overwrite) </u/seokin/workspace/pca/output/simresult.mcf.run100M.4cpu-metacache.hitrate0.ddr4-3200-2ch>, Error File (overwrite) </u/seokin/workspace/pca/output/simresult.mcf.run100M.4cpu-metacache.hitrate0.ddr4-3200-2ch>, Requested Resources <rusage[mem=10752] affinity[core(1)]>, memory/swap limit enforced per-job/per-host;
-RUNLIMIT
-  1440.0 min of dccxc147
-MEMLIMIT
-  10 G
-  Sun Nov 12 04:19:00: Started 1 Task(s) on Host(s) <dccxc147>, Allocated 1 Slot(s) on Host(s) <dccxc147>, Execution Home </u/seokin>, Execution CWD </u/seokin/workspace/pca/benchmark/mcf>;
-  Sun Nov 12 08:46:47: Resource usage collected. The CPU time used is 1178 seconds. MEM: 44 Mbytes; SWAP: 0 Mbytes; NTHREAD: 4; PGID: 1609; PIDs: 1629 1645 1665 1681;
-MEMORY USAGE:
-MAX MEM: 159 Mbytes;  AVG MEM: 44 Mbytes
-RESOURCE REQUIREMENT DETAILS:
-  Combined: select[(type == X86_64 &&ostype = RHEL7.2 &&!cudav90&&!v100&&!jobsfromhellnode) && (type == any)] order[r15s:pg] rusage[mem=10752.00] affinity[core(1)*1]
-  Effective: select[((type == X86_64 &&ostype = RHEL7.2 &&!cudav90&&!v100&&!jobsfromhellnode) && (type == any))] order[r15s:pg] rusage[mem=10752.00] affinity[core(1)*1]
-
-Job <527870>, User <seokin>, Project <default>, Job Group </seokin/_/default>, Status <RUN>, Queue <x86_24h>, Command <sst --output-json /u/seokin/workspace/pca/output/sstcfg.run100M.4cpu.base.rank1.ddr4-3200-2ch --print-timing-info "--model-options=--configfile=/u/seokin/workspace/pca/config/ddr4-3200-2ch.cfg --warmup=10000000000 --maxinst=100000000 --executable=milc --statname=/u/seokin/workspace/pca/output/simstat.milc.run100M.4cpu.base.rank1.ddr4-3200-2ch numRanksPerChannel=1" /u/seokin/workspace/pca/ariel_4cpu_base.py>, Share group charged </seokin>
-Sun Nov 12 03:36:57: Submitted from host <dccxl001>, CWD <$HOME/workspace/pca/benchmark/milc>, Output File (overwrite) </u/seokin/workspace/pca/output/simresult.milc.run100M.4cpu.base.rank1.ddr4-3200-2ch>, Error File (overwrite) </u/seokin/workspace/pca/output/simresult.milc.run100M.4cpu.base.rank1.ddr4-3200-2ch>, Requested Resources <rusage[mem=10752] affinity[core(1)]>, memory/swap limit enforced per-job/per-host;
-RUNLIMIT
-  1440.0 min of dccxc033
-MEMLIMIT
-  10 G
-  Sun Nov 12 03:36:58: Started 1 Task(s) on Host(s) <dccxc033>, Allocated 1 Slot(s) on Host(s) <dccxc033>, Execution Home </u/seokin>, Execution CWD </u/seokin/workspace/pca/benchmark/milc>;
-  Sun Nov 12 08:44:36: Resource usage collected. The CPU time used is 2580 seconds. MEM: 557 Mbytes; SWAP: 0 Mbytes; NTHREAD: 1; PGID: 31135; PIDs: 31218;
-MEMORY USAGE:
-MAX MEM: 2.9 Gbytes;  AVG MEM: 905 Mbytes
-RESOURCE REQUIREMENT DETAILS:
-  Combined: select[(type == X86_64 &&ostype = RHEL7.2 &&!cudav90&&!v100&&!jobsfromhellnode) && (type == any)] order[r15s:pg] rusage[mem=10752.00] affinity[core(1)*1]
-  Effective: select[((type == X86_64 &&ostype = RHEL7.2 &&!cudav90&&!v100&&!jobsfromhellnode) && (type == any))] order[r15s:pg] rusage[mem=10752.00] affinity[core(1)*1]
-
-Job <527881>, User <seokin>, Project <default>, Job Group </seokin/_/default>, Status <RUN>, Queue <x86_24h>, Command <sst --output-json /u/seokin/workspace/pca/output/sstcfg.run100M.4cpu.base.rank2.ddr4-3200-2ch --print-timing-info "--model-options=--configfile=/u/seokin/workspace/pca/config/ddr4-3200-2ch.cfg --warmup=10000000000 --maxinst=100000000 --executable=sjeng --statname=/u/seokin/workspace/pca/output/simstat.sjeng.run100M.4cpu.base.rank2.ddr4-3200-2ch numRanksPerChannel=2" /u/seokin/workspace/pca/ariel_4cpu_base.py>, Share group charged </seokin>
-Sun Nov 12 03:36:58: Submitted from host <dccxl001>, CWD <$HOME/workspace/pca/benchmark/sjeng>, Output File (overwrite) </u/seokin/workspace/pca/output/simresult.sjeng.run100M.4cpu.base.rank2.ddr4-3200-2ch>, Error File (overwrite) </u/seokin/workspace/pca/output/simresult.sjeng.run100M.4cpu.base.rank2.ddr4-3200-2ch>, Requested Resources <rusage[mem=10752] affinity[core(1)]>, memory/swap limit enforced per-job/per-host;
-RUNLIMIT
-  1440.0 min of dccxc264
-MEMLIMIT
-  10 G
-  Sun Nov 12 03:36:59: Started 1 Task(s) on Host(s) <dccxc264>, Allocated 1 Slot(s) on Host(s) <dccxc264>, Execution Home </u/seokin>, Execution CWD </u/seokin/workspace/pca/benchmark/sjeng>;
-  Sun Nov 12 08:41:15: Resource usage collected. The CPU time used is 3396 seconds. MEM: 193 Mbytes; SWAP: 0 Mbytes; NTHREAD: 1; PGID: 1793; PIDs: 1861;
-MEMORY USAGE:
-MAX MEM: 976 Mbytes;  AVG MEM: 365 Mbytes
-RESOURCE REQUIREMENT DETAILS:
-  Combined: select[(type == X86_64 &&ostype = RHEL7.2 &&!cudav90&&!v100&&!jobsfromhellnode) && (type == any)] order[r15s:pg] rusage[mem=10752.00] affinity[core(1)*1]
-  Effective: select[((type == X86_64 &&ostype = RHEL7.2 &&!cudav90&&!v100&&!jobsfromhellnode) && (type == any))] order[r15s:pg] rusage[mem=10752.00] affinity[core(1)*1]
-
-Job <527903>, User <seokin>, Project <default>, Job Group </seokin/_/default>, Status <RUN>, Queue <x86_24h>, Command <sst --output-json /u/seokin/workspace/pca/output/sstcfg.run100M.4cpu-metacache.hitrate80.ddr4-3200-2ch --print-timing-info "--model-options=--configfile=/u/seokin/workspace/pca/config/ddr4-3200-2ch.cfg --warmup=1000 --maxinst=100000 --executable=mcf --statname=/u/seokin/workspace/pca/output/simstat.mcf.run100M.4cpu-metacache.hitrate80.ddr4-3200-2ch metacache_hitrate=80 boolPowerCalc=1" /u/seokin/workspace/pca/ariel_4cpu_metacache.py>, Share group charged </seokin>
-Sun Nov 12 03:48:19: Submitted from host <dccxl001>, CWD <$HOME/workspace/pca/benchmark/mcf>, Output File (overwrite) </u/seokin/workspace/pca/output/simresult.mcf.run100M.4cpu-metacache.hitrate80.ddr4-3200-2ch>, Error File (overwrite) </u/seokin/workspace/pca/output/simresult.mcf.run100M.4cpu-metacache.hitrate80.ddr4-3200-2ch>, Requested Resources <rusage[mem=10752] affinity[core(1)]>, memory/swap limit enforced per-job/per-host;
-RUNLIMIT
-  1440.0 min of dccxc267
-MEMLIMIT
-  10 G
-  Sun Nov 12 03:48:20: Started 1 Task(s) on Host(s) <dccxc267>, Allocated 1 Slot(s) on Host(s) <dccxc267>, Execution Home </u/seokin>, Execution CWD </u/seokin/workspace/pca/benchmark/mcf>;
-  Sun Nov 12 08:45:25: Resource usage collected. The CPU time used is 1358 seconds. MEM: 44 Mbytes; SWAP: 0 Mbytes; NTHREAD: 4; PGID: 7637; PIDs: 7662 7689 7705 7732;
-MEMORY USAGE:
-MAX MEM: 159 Mbytes;  AVG MEM: 44 Mbytes
-RESOURCE REQUIREMENT DETAILS:
-  Combined: select[(type == X86_64 &&ostype = RHEL7.2 &&!cudav90&&!v100&&!jobsfromhellnode) && (type == any)] order[r15s:pg] rusage[mem=10752.00] affinity[core(1)*1]
-  Effective: select[((type == X86_64 &&ostype = RHEL7.2 &&!cudav90&&!v100&&!jobsfromhellnode) && (type == any))] order[r15s:pg] rusage[mem=10752.00] affinity[core(1)*1]
-
-Job <527939>, User <seokin>, Project <default>, Job Group </seokin/_/default>, Status <RUN>, Queue <x86_24h>, Command <sst --output-json /u/seokin/workspace/pca/output/sstcfg.run100M.4cpu-metacache.hitrate0.ddr4-3200-2ch --print-timing-info "--model-options=--configfile=/u/seokin/workspace/pca/config/ddr4-3200-2ch.cfg --warmup=1000 --maxinst=100000 --executable=mcf --statname=/u/seokin/workspace/pca/output/simstat.mcf.run100M.4cpu-metacache.hitrate0.ddr4-3200-2ch metacache_hitrate=0 boolPowerCalc=1" /u/seokin/workspace/pca/ariel_4cpu_metacache.py>, Share group charged </seokin>
-Sun Nov 12 04:13:36: Submitted from host <dccxl001>, CWD <$HOME/workspace/pca/benchmark/mcf>, Output File (overwrite) </u/seokin/workspace/pca/output/simresult.mcf.run100M.4cpu-metacache.hitrate0.ddr4-3200-2ch>, Error File (overwrite) </u/seokin/workspace/pca/output/simresult.mcf.run100M.4cpu-metacache.hitrate0.ddr4-3200-2ch>, Requested Resources <rusage[mem=10752] affinity[core(1)]>, memory/swap limit enforced per-job/per-host;
-RUNLIMIT
-  1440.0 min of dccxc232
-MEMLIMIT
-  10 G
-  Sun Nov 12 04:13:37: Started 1 Task(s) on Host(s) <dccxc232>, Allocated 1 Slot(s) on Host(s) <dccxc232>, Execution Home </u/seokin>, Execution CWD </u/seokin/workspace/pca/benchmark/mcf>;
-  Sun Nov 12 08:41:00: Resource usage collected. The CPU time used is 1145 seconds. MEM: 46 Mbytes; SWAP: 0 Mbytes; NTHREAD: 4; PGID: 10367; PIDs: 10380 10396 10414 10430;
-MEMORY USAGE:
-MAX MEM: 155 Mbytes;  AVG MEM: 45 Mbytes
-RESOURCE REQUIREMENT DETAILS:
-  Combined: select[(type == X86_64 &&ostype = RHEL7.2 &&!cudav90&&!v100&&!jobsfromhellnode) && (type == any)] order[r15s:pg] rusage[mem=10752.00] affinity[core(1)*1]
-  Effective: select[((type == X86_64 &&ostype = RHEL7.2 &&!cudav90&&!v100&&!jobsfromhellnode) && (type == any))] order[r15s:pg] rusage[mem=10752.00] affinity[core(1)*1]
-
-Job <527885>, User <seokin>, Project <default>, Job Group </seokin/_/default>, Status <RUN>, Queue <x86_24h>, Command <sst --output-json /u/seokin/workspace/pca/output/sstcfg.run100M.4cpu.base.rank2.ddr4-3200-2ch --print-timing-info "--model-options=--configfile=/u/seokin/workspace/pca/config/ddr4-3200-2ch.cfg --warmup=10000000000 --maxinst=100000000 --executable=zeusmp --statname=/u/seokin/workspace/pca/output/simstat.zeusmp.run100M.4cpu.base.rank2.ddr4-3200-2ch numRanksPerChannel=2" /u/seokin/workspace/pca/ariel_4cpu_base.py>, Share group charged </seokin>
-Sun Nov 12 03:36:58: Submitted from host <dccxl001>, CWD <$HOME/workspace/pca/benchmark/zeusmp>, Output File (overwrite) </u/seokin/workspace/pca/output/simresult.zeusmp.run100M.4cpu.base.rank2.ddr4-3200-2ch>, Error File (overwrite) </u/seokin/workspace/pca/output/simresult.zeusmp.run100M.4cpu.base.rank2.ddr4-3200-2ch>, Requested Resources <rusage[mem=10752] affinity[core(1)]>, memory/swap limit enforced per-job/per-host;
-RUNLIMIT
-  1440.0 min of dccxc228
-MEMLIMIT
-  10 G
-  Sun Nov 12 03:36:59: Started 1 Task(s) on Host(s) <dccxc228>, Allocated 1 Slot(s) on Host(s) <dccxc228>, Execution Home </u/seokin>, Execution CWD </u/seokin/workspace/pca/benchmark/zeusmp>;
-  Sun Nov 12 08:45:33: Resource usage collected. The CPU time used is 4057 seconds. MEM: 537 Mbytes; SWAP: 0 Mbytes; NTHREAD: 1; PGID: 14752; PIDs: 14830;
-MEMORY USAGE:
-MAX MEM: 3.6 Gbytes;  AVG MEM: 1 Gbytes
-RESOURCE REQUIREMENT DETAILS:
-  Combined: select[(type == X86_64 &&ostype = RHEL7.2 &&!cudav90&&!v100&&!jobsfromhellnode) && (type == any)] order[r15s:pg] rusage[mem=10752.00] affinity[core(1)*1]
-  Effective: select[((type == X86_64 &&ostype = RHEL7.2 &&!cudav90&&!v100&&!jobsfromhellnode) && (type == any))] order[r15s:pg] rusage[mem=10752.00] affinity[core(1)*1]
-
-Job <527873>, User <seokin>, Project <default>, Job Group </seokin/_/default>, Status <RUN>, Queue <x86_24h>, Command <sst --output-json /u/seokin/workspace/pca/output/sstcfg.run100M.4cpu.base.rank2.ddr4-3200-2ch --print-timing-info "--model-options=--configfile=/u/seokin/workspace/pca/config/ddr4-3200-2ch.cfg --warmup=10000000000 --maxinst=100000000 --executable=leslie3d --statname=/u/seokin/workspace/pca/output/simstat.leslie3d.run100M.4cpu.base.rank2.ddr4-3200-2ch numRanksPerChannel=2" /u/seokin/workspace/pca/ariel_4cpu_base.py>, Share group charged </seokin>
-Sun Nov 12 03:36:57: Submitted from host <dccxl001>, CWD <$HOME/workspace/pca/benchmark/leslie3d>, Output File (overwrite) </u/seokin/workspace/pca/output/simresult.leslie3d.run100M.4cpu.base.rank2.ddr4-3200-2ch>, Error File (overwrite) </u/seokin/workspace/pca/output/simresult.leslie3d.run100M.4cpu.base.rank2.ddr4-3200-2ch>, Requested Resources <rusage[mem=10752] affinity[core(1)]>, memory/swap limit enforced per-job/per-host;
-RUNLIMIT
-  1440.0 min of dccxc242
-MEMLIMIT
-  10 G
-  Sun Nov 12 03:36:58: Started 1 Task(s) on Host(s) <dccxc242>, Allocated 1 Slot(s) on Host(s) <dccxc242>, Execution Home </u/seokin>, Execution CWD </u/seokin/workspace/pca/benchmark/leslie3d>;
-  Sun Nov 12 08:42:34: Resource usage collected. The CPU time used is 3867 seconds. MEM: 142 Mbytes; SWAP: 0 Mbytes; NTHREAD: 1; PGID: 31229; PIDs: 31402;
-MEMORY USAGE:
-MAX MEM: 2.1 Gbytes;  AVG MEM: 437 Mbytes
-RESOURCE REQUIREMENT DETAILS:
-  Combined: select[(type == X86_64 &&ostype = RHEL7.2 &&!cudav90&&!v100&&!jobsfromhellnode) && (type == any)] order[r15s:pg] rusage[mem=10752.00] affinity[core(1)*1]
-  Effective: select[((type == X86_64 &&ostype = RHEL7.2 &&!cudav90&&!v100&&!jobsfromhellnode) && (type == any))] order[r15s:pg] rusage[mem=10752.00] affinity[core(1)*1]
-
-Job <527884>, User <seokin>, Project <default>, Job Group </seokin/_/default>, Status <RUN>, Queue <x86_24h>, Command <sst --output-json /u/seokin/workspace/pca/output/sstcfg.run100M.4cpu.base.rank1.ddr4-3200-2ch --print-timing-info "--model-options=--configfile=/u/seokin/workspace/pca/config/ddr4-3200-2ch.cfg --warmup=10000000000 --maxinst=100000000 --executable=zeusmp --statname=/u/seokin/workspace/pca/output/simstat.zeusmp.run100M.4cpu.base.rank1.ddr4-3200-2ch numRanksPerChannel=1" /u/seokin/workspace/pca/ariel_4cpu_base.py>, Share group charged </seokin>
-Sun Nov 12 03:36:58: Submitted from host <dccxl001>, CWD <$HOME/workspace/pca/benchmark/zeusmp>, Output File (overwrite) </u/seokin/workspace/pca/output/simresult.zeusmp.run100M.4cpu.base.rank1.ddr4-3200-2ch>, Error File (overwrite) </u/seokin/workspace/pca/output/simresult.zeusmp.run100M.4cpu.base.rank1.ddr4-3200-2ch>, Requested Resources <rusage[mem=10752] affinity[core(1)]>, memory/swap limit enforced per-job/per-host;
-RUNLIMIT
-  1440.0 min of dccxc250
-MEMLIMIT
-  10 G
-  Sun Nov 12 03:36:59: Started 1 Task(s) on Host(s) <dccxc250>, Allocated 1 Slot(s) on Host(s) <dccxc250>, Execution Home </u/seokin>, Execution CWD </u/seokin/workspace/pca/benchmark/zeusmp>;
-  Sun Nov 12 08:48:11: Resource usage collected. The CPU time used is 3832 seconds. MEM: 537 Mbytes; SWAP: 0 Mbytes; NTHREAD: 1; PGID: 1609; PIDs: 1684;
-MEMORY USAGE:
-MAX MEM: 3.5 Gbytes;  AVG MEM: 1 Gbytes
-RESOURCE REQUIREMENT DETAILS:
-  Combined: select[(type == X86_64 &&ostype = RHEL7.2 &&!cudav90&&!v100&&!jobsfromhellnode) && (type == any)] order[r15s:pg] rusage[mem=10752.00] affinity[core(1)*1]
-  Effective: select[((type == X86_64 &&ostype = RHEL7.2 &&!cudav90&&!v100&&!jobsfromhellnode) && (type == any))] order[r15s:pg] rusage[mem=10752.00] affinity[core(1)*1]
-
-Job <527867>, User <seokin>, Project <default>, Job Group </seokin/_/default>, Status <RUN>, Queue <x86_24h>, Command <sst --output-json /u/seokin/workspace/pca/output/sstcfg.run100M.4cpu.base.rank2.ddr4-3200-2ch --print-timing-info "--model-options=--configfile=/u/seokin/workspace/pca/config/ddr4-3200-2ch.cfg --warmup=10000000000 --maxinst=100000000 --executable=lbm --statname=/u/seokin/workspace/pca/output/simstat.lbm.run100M.4cpu.base.rank2.ddr4-3200-2ch numRanksPerChannel=2" /u/seokin/workspace/pca/ariel_4cpu_base.py>, Share group charged </seokin>
-Sun Nov 12 03:36:57: Submitted from host <dccxl001>, CWD <$HOME/workspace/pca/benchmark/lbm>, Output File (overwrite) </u/seokin/workspace/pca/output/simresult.lbm.run100M.4cpu.base.rank2.ddr4-3200-2ch>, Error File (overwrite) </u/seokin/workspace/pca/output/simresult.lbm.run100M.4cpu.base.rank2.ddr4-3200-2ch>, Requested Resources <rusage[mem=10752] affinity[core(1)]>, memory/swap limit enforced per-job/per-host;
-RUNLIMIT
-  1440.0 min of dccxc256
-MEMLIMIT
-  10 G
-  Sun Nov 12 03:36:58: Started 1 Task(s) on Host(s) <dccxc256>, Allocated 1 Slot(s) on Host(s) <dccxc256>, Execution Home </u/seokin>, Execution CWD </u/seokin/workspace/pca/benchmark/lbm>;
-  Sun Nov 12 08:45:27: Resource usage collected. The CPU time used is 5370 seconds. MEM: 426 Mbytes; SWAP: 0 Mbytes; NTHREAD: 1; PGID: 22980; PIDs: 23074;
-MEMORY USAGE:
-MAX MEM: 3.8 Gbytes;  AVG MEM: 1.1 Gbytes
-RESOURCE REQUIREMENT DETAILS:
-  Combined: select[(type == X86_64 &&ostype = RHEL7.2 &&!cudav90&&!v100&&!jobsfromhellnode) && (type == any)] order[r15s:pg] rusage[mem=10752.00] affinity[core(1)*1]
-  Effective: select[((type == X86_64 &&ostype = RHEL7.2 &&!cudav90&&!v100&&!jobsfromhellnode) && (type == any))] order[r15s:pg] rusage[mem=10752.00] affinity[core(1)*1]
-
-Job <527937>, User <seokin>, Project <default>, Job Group </seokin/_/default>, Status <RUN>, Queue <x86_24h>, Command <sst --output-json /u/seokin/workspace/pca/output/sstcfg.run100M.4cpu-metacache.hitrate0.ddr4-3200-2ch --print-timing-info "--model-options=--configfile=/u/seokin/workspace/pca/config/ddr4-3200-2ch.cfg --warmup=1000 --maxinst=100000 --executable=mcf --statname=/u/seokin/workspace/pca/output/simstat.mcf.run100M.4cpu-metacache.hitrate0.ddr4-3200-2ch metacache_hitrate=0 boolPowerCalc=1" /u/seokin/workspace/pca/ariel_4cpu_metacache.py>, Share group charged </seokin>
-Sun Nov 12 04:12:29: Submitted from host <dccxl001>, CWD <$HOME/workspace/pca/benchmark/mcf>, Output File (overwrite) </u/seokin/workspace/pca/output/simresult.mcf.run100M.4cpu-metacache.hitrate0.ddr4-3200-2ch>, Error File (overwrite) </u/seokin/workspace/pca/output/simresult.mcf.run100M.4cpu-metacache.hitrate0.ddr4-3200-2ch>, Requested Resources <rusage[mem=10752] affinity[core(1)]>, memory/swap limit enforced per-job/per-host;
-RUNLIMIT
-  1440.0 min of dccxc261
-MEMLIMIT
-  10 G
-  Sun Nov 12 04:12:31: Started 1 Task(s) on Host(s) <dccxc261>, Allocated 1 Slot(s) on Host(s) <dccxc261>, Execution Home </u/seokin>, Execution CWD </u/seokin/workspace/pca/benchmark/mcf>;
-  Sun Nov 12 08:45:46: Resource usage collected. The CPU time used is 1224 seconds. MEM: 44 Mbytes; SWAP: 0 Mbytes; NTHREAD: 4; PGID: 27836; PIDs: 27864 27893 27911 27931;
-MEMORY USAGE:
-MAX MEM: 159 Mbytes;  AVG MEM: 42 Mbytes
-RESOURCE REQUIREMENT DETAILS:
-  Combined: select[(type == X86_64 &&ostype = RHEL7.2 &&!cudav90&&!v100&&!jobsfromhellnode) && (type == any)] order[r15s:pg] rusage[mem=10752.00] affinity[core(1)*1]
-  Effective: select[((type == X86_64 &&ostype = RHEL7.2 &&!cudav90&&!v100&&!jobsfromhellnode) && (type == any))] order[r15s:pg] rusage[mem=10752.00] affinity[core(1)*1]
-
-Job <527865>, User <seokin>, Project <default>, Job Group </seokin/_/default>, Status <RUN>, Queue <x86_24h>, Command <sst --output-json /u/seokin/workspace/pca/output/sstcfg.run100M.4cpu.base.rank2.ddr4-3200-2ch --print-timing-info "--model-options=--configfile=/u/seokin/workspace/pca/config/ddr4-3200-2ch.cfg --warmup=10000000000 --maxinst=100000000 --executable=mcf --statname=/u/seokin/workspace/pca/output/simstat.mcf.run100M.4cpu.base.rank2.ddr4-3200-2ch numRanksPerChannel=2" /u/seokin/workspace/pca/ariel_4cpu_base.py>, Share group charged </seokin>
-Sun Nov 12 03:36:57: Submitted from host <dccxl001>, CWD <$HOME/workspace/pca/benchmark/mcf>, Output File (overwrite) </u/seokin/workspace/pca/output/simresult.mcf.run100M.4cpu.base.rank2.ddr4-3200-2ch>, Error File (overwrite) </u/seokin/workspace/pca/output/simresult.mcf.run100M.4cpu.base.rank2.ddr4-3200-2ch>, Requested Resources <rusage[mem=10752] affinity[core(1)]>, memory/swap limit enforced per-job/per-host;
-RUNLIMIT
-  1440.0 min of dccxc244
-MEMLIMIT
-  10 G
-  Sun Nov 12 03:36:58: Started 1 Task(s) on Host(s) <dccxc244>, Allocated 1 Slot(s) on Host(s) <dccxc244>, Execution Home </u/seokin>, Execution CWD </u/seokin/workspace/pca/benchmark/mcf>;
-  Sun Nov 12 08:41:46: Resource usage collected. The CPU time used is 4736 seconds. MEM: 1.6 Gbytes; SWAP: 0 Mbytes; NTHREAD: 1; PGID: 20085; PIDs: 20172;
-MEMORY USAGE:
-MAX MEM: 8.4 Gbytes;  AVG MEM: 3.2 Gbytes
-RESOURCE REQUIREMENT DETAILS:
-  Combined: select[(type == X86_64 &&ostype = RHEL7.2 &&!cudav90&&!v100&&!jobsfromhellnode) && (type == any)] order[r15s:pg] rusage[mem=10752.00] affinity[core(1)*1]
-  Effective: select[((type == X86_64 &&ostype = RHEL7.2 &&!cudav90&&!v100&&!jobsfromhellnode) && (type == any))] order[r15s:pg] rusage[mem=10752.00] affinity[core(1)*1]
-
-Job <527860>, User <seokin>, Project <default>, Job Group </seokin/_/default>, Status <RUN>, Queue <x86_24h>, Command <sst --output-json /u/seokin/workspace/pca/output/sstcfg.run100M.4cpu.base.rank1.ddr4-3200-2ch --print-timing-info "--model-options=--configfile=/u/seokin/workspace/pca/config/ddr4-3200-2ch.cfg --warmup=10000000000 --maxinst=100000000 --executable=omnetpp --statname=/u/seokin/workspace/pca/output/simstat.omnetpp.run100M.4cpu.base.rank1.ddr4-3200-2ch numRanksPerChannel=1" /u/seokin/workspace/pca/ariel_4cpu_base.py>, Share group charged </seokin>
-Sun Nov 12 03:36:56: Submitted from host <dccxl001>, CWD <$HOME/workspace/pca/benchmark/omnetpp>, Output File (overwrite) </u/seokin/workspace/pca/output/simresult.omnetpp.run100M.4cpu.base.rank1.ddr4-3200-2ch>, Error File (overwrite) </u/seokin/workspace/pca/output/simresult.omnetpp.run100M.4cpu.base.rank1.ddr4-3200-2ch>, Requested Resources <rusage[mem=10752] affinity[core(1)]>, memory/swap limit enforced per-job/per-host;
-RUNLIMIT
-  1440.0 min of dccxc237
-MEMLIMIT
-  10 G
-  Sun Nov 12 03:36:57: Started 1 Task(s) on Host(s) <dccxc237>, Allocated 1 Slot(s) on Host(s) <dccxc237>, Execution Home </u/seokin>, Execution CWD </u/seokin/workspace/pca/benchmark/omnetpp>;
-  Sun Nov 12 08:41:09: Resource usage collected. The CPU time used is 2174 seconds. MEM: 150 Mbytes; SWAP: 0 Mbytes; NTHREAD: 1; PGID: 9198; PIDs: 9284;
-MEMORY USAGE:
-MAX MEM: 1.3 Gbytes;  AVG MEM: 264 Mbytes
-RESOURCE REQUIREMENT DETAILS:
-  Combined: select[(type == X86_64 &&ostype = RHEL7.2 &&!cudav90&&!v100&&!jobsfromhellnode) && (type == any)] order[r15s:pg] rusage[mem=10752.00] affinity[core(1)*1]
-  Effective: select[((type == X86_64 &&ostype = RHEL7.2 &&!cudav90&&!v100&&!jobsfromhellnode) && (type == any))] order[r15s:pg] rusage[mem=10752.00] affinity[core(1)*1]
-
-Job <527914>, User <seokin>, Project <default>, Job Group </seokin/_/default>, Status <RUN>, Queue <x86_24h>, Command <sst --output-json /u/seokin/workspace/pca/output/sstcfg.run100M.4cpu-metacache.hitrate100.ddr4-3200-2ch --print-timing-info "--model-options=--configfile=/u/seokin/workspace/pca/config/ddr4-3200-2ch.cfg --warmup=1000 --maxinst=100000 --executable=mcf --statname=/u/seokin/workspace/pca/output/simstat.mcf.run100M.4cpu-metacache.hitrate100.ddr4-3200-2ch metacache_hitrate=100 boolPowerCalc=1" /u/seokin/workspace/pca/ariel_4cpu_metacache.py>, Share group charged </seokin>
-Sun Nov 12 03:57:45: Submitted from host <dccxl001>, CWD <$HOME/workspace/pca/benchmark/mcf>, Output File (overwrite) </u/seokin/workspace/pca/output/simresult.mcf.run100M.4cpu-metacache.hitrate100.ddr4-3200-2ch>, Error File (overwrite) </u/seokin/workspace/pca/output/simresult.mcf.run100M.4cpu-metacache.hitrate100.ddr4-3200-2ch>, Requested Resources <rusage[mem=10752] affinity[core(1)]>, memory/swap limit enforced per-job/per-host;
-RUNLIMIT
-  1440.0 min of dccxc237
-MEMLIMIT
-  10 G
-  Sun Nov 12 03:57:46: Started 1 Task(s) on Host(s) <dccxc237>, Allocated 1 Slot(s) on Host(s) <dccxc237>, Execution Home </u/seokin>, Execution CWD </u/seokin/workspace/pca/benchmark/mcf>;
-  Sun Nov 12 08:44:40: Resource usage collected. The CPU time used is 1291 seconds. MEM: 46 Mbytes; SWAP: 0 Mbytes; NTHREAD: 4; PGID: 12685; PIDs: 12763 12780 12796 12812;
-MEMORY USAGE:
-MAX MEM: 159 Mbytes;  AVG MEM: 46 Mbytes
-RESOURCE REQUIREMENT DETAILS:
-  Combined: select[(type == X86_64 &&ostype = RHEL7.2 &&!cudav90&&!v100&&!jobsfromhellnode) && (type == any)] order[r15s:pg] rusage[mem=10752.00] affinity[core(1)*1]
-  Effective: select[((type == X86_64 &&ostype = RHEL7.2 &&!cudav90&&!v100&&!jobsfromhellnode) && (type == any))] order[r15s:pg] rusage[mem=10752.00] affinity[core(1)*1]
-
-Job <527862>, User <seokin>, Project <default>, Job Group </seokin/_/default>, Status <RUN>, Queue <x86_24h>, Command <sst --output-json /u/seokin/workspace/pca/output/sstcfg.run100M.4cpu.base.rank1.ddr4-3200-2ch --print-timing-info "--model-options=--configfile=/u/seokin/workspace/pca/config/ddr4-3200-2ch.cfg --warmup=10000000000 --maxinst=100000000 --executable=soplex --statname=/u/seokin/workspace/pca/output/simstat.soplex.run100M.4cpu.base.rank1.ddr4-3200-2ch numRanksPerChannel=1" /u/seokin/workspace/pca/ariel_4cpu_base.py>, Share group charged </seokin>
-Sun Nov 12 03:36:56: Submitted from host <dccxl001>, CWD <$HOME/workspace/pca/benchmark/soplex>, Output File (overwrite) </u/seokin/workspace/pca/output/simresult.soplex.run100M.4cpu.base.rank1.ddr4-3200-2ch>, Error File (overwrite) </u/seokin/workspace/pca/output/simresult.soplex.run100M.4cpu.base.rank1.ddr4-3200-2ch>, Requested Resources <rusage[mem=10752] affinity[core(1)]>, memory/swap limit enforced per-job/per-host;
-RUNLIMIT
-  1440.0 min of dccxc234
-MEMLIMIT
-  10 G
-  Sun Nov 12 03:36:57: Started 1 Task(s) on Host(s) <dccxc234>, Allocated 1 Slot(s) on Host(s) <dccxc234>, Execution Home </u/seokin>, Execution CWD </u/seokin/workspace/pca/benchmark/soplex>;
-  Sun Nov 12 08:43:46: Resource usage collected. The CPU time used is 4354 seconds. MEM: 139 Mbytes; SWAP: 0 Mbytes; NTHREAD: 1; PGID: 7146; PIDs: 7258;
-MEMORY USAGE:
-MAX MEM: 2.3 Gbytes;  AVG MEM: 474 Mbytes
-RESOURCE REQUIREMENT DETAILS:
-  Combined: select[(type == X86_64 &&ostype = RHEL7.2 &&!cudav90&&!v100&&!jobsfromhellnode) && (type == any)] order[r15s:pg] rusage[mem=10752.00] affinity[core(1)*1]
-  Effective: select[((type == X86_64 &&ostype = RHEL7.2 &&!cudav90&&!v100&&!jobsfromhellnode) && (type == any))] order[r15s:pg] rusage[mem=10752.00] affinity[core(1)*1]
-
-Job <527888>, User <seokin>, Project <default>, Job Group </seokin/_/default>, Status <RUN>, Queue <x86_24h>, Command <sst --output-json /u/seokin/workspace/pca/output/sstcfg.run100M.4cpu.base.rank1.ddr4-3200-2ch --print-timing-info "--model-options=--configfile=/u/seokin/workspace/pca/config/ddr4-3200-2ch.cfg --warmup=10000000000 --maxinst=100000000 --executable=gcc --statname=/u/seokin/workspace/pca/output/simstat.gcc.run100M.4cpu.base.rank1.ddr4-3200-2ch numRanksPerChannel=1" /u/seokin/workspace/pca/ariel_4cpu_base.py>, Share group charged </seokin>
-Sun Nov 12 03:36:59: Submitted from host <dccxl001>, CWD <$HOME/workspace/pca/benchmark/gcc>, Output File (overwrite) </u/seokin/workspace/pca/output/simresult.gcc.run100M.4cpu.base.rank1.ddr4-3200-2ch>, Error File (overwrite) </u/seokin/workspace/pca/output/simresult.gcc.run100M.4cpu.base.rank1.ddr4-3200-2ch>, Requested Resources <rusage[mem=10752] affinity[core(1)]>, memory/swap limit enforced per-job/per-host;
-RUNLIMIT
-  1440.0 min of dccxc226
-MEMLIMIT
-  10 G
-  Sun Nov 12 03:36:59: Started 1 Task(s) on Host(s) <dccxc226>, Allocated 1 Slot(s) on Host(s) <dccxc226>, Execution Home </u/seokin>, Execution CWD </u/seokin/workspace/pca/benchmark/gcc>;
-  Sun Nov 12 08:42:08: Resource usage collected. The CPU time used is 2239 seconds. MEM: 210 Mbytes; SWAP: 0 Mbytes; NTHREAD: 1; PGID: 3735; PIDs: 3825;
-MEMORY USAGE:
-MAX MEM: 1.1 Gbytes;  AVG MEM: 318 Mbytes
-RESOURCE REQUIREMENT DETAILS:
-  Combined: select[(type == X86_64 &&ostype = RHEL7.2 &&!cudav90&&!v100&&!jobsfromhellnode) && (type == any)] order[r15s:pg] rusage[mem=10752.00] affinity[core(1)*1]
-  Effective: select[((type == X86_64 &&ostype = RHEL7.2 &&!cudav90&&!v100&&!jobsfromhellnode) && (type == any))] order[r15s:pg] rusage[mem=10752.00] affinity[core(1)*1]
-
-Job <527861>, User <seokin>, Project <default>, Job Group </seokin/_/default>, Status <RUN>, Queue <x86_24h>, Command <sst --output-json /u/seokin/workspace/pca/output/sstcfg.run100M.4cpu.base.rank2.ddr4-3200-2ch --print-timing-info "--model-options=--configfile=/u/seokin/workspace/pca/config/ddr4-3200-2ch.cfg --warmup=10000000000 --maxinst=100000000 --executable=omnetpp --statname=/u/seokin/workspace/pca/output/simstat.omnetpp.run100M.4cpu.base.rank2.ddr4-3200-2ch numRanksPerChannel=2" /u/seokin/workspace/pca/ariel_4cpu_base.py>, Share group charged </seokin>
-Sun Nov 12 03:36:56: Submitted from host <dccxl001>, CWD <$HOME/workspace/pca/benchmark/omnetpp>, Output File (overwrite) </u/seokin/workspace/pca/output/simresult.omnetpp.run100M.4cpu.base.rank2.ddr4-3200-2ch>, Error File (overwrite) </u/seokin/workspace/pca/output/simresult.omnetpp.run100M.4cpu.base.rank2.ddr4-3200-2ch>, Requested Resources <rusage[mem=10752] affinity[core(1)]>, memory/swap limit enforced per-job/per-host;
-RUNLIMIT
-  1440.0 min of dccxc265
-MEMLIMIT
-  10 G
-  Sun Nov 12 03:36:57: Started 1 Task(s) on Host(s) <dccxc265>, Allocated 1 Slot(s) on Host(s) <dccxc265>, Execution Home </u/seokin>, Execution CWD </u/seokin/workspace/pca/benchmark/omnetpp>;
-  Sun Nov 12 08:44:27: Resource usage collected. The CPU time used is 2337 seconds. MEM: 148 Mbytes; SWAP: 0 Mbytes; NTHREAD: 1; PGID: 19917; PIDs: 20023;
-MEMORY USAGE:
-MAX MEM: 1.3 Gbytes;  AVG MEM: 272 Mbytes
-RESOURCE REQUIREMENT DETAILS:
-  Combined: select[(type == X86_64 &&ostype = RHEL7.2 &&!cudav90&&!v100&&!jobsfromhellnode) && (type == any)] order[r15s:pg] rusage[mem=10752.00] affinity[core(1)*1]
-  Effective: select[((type == X86_64 &&ostype = RHEL7.2 &&!cudav90&&!v100&&!jobsfromhellnode) && (type == any))] order[r15s:pg] rusage[mem=10752.00] affinity[core(1)*1]
-
-Job <527863>, User <seokin>, Project <default>, Job Group </seokin/_/default>, Status <RUN>, Queue <x86_24h>, Command <sst --output-json /u/seokin/workspace/pca/output/sstcfg.run100M.4cpu.base.rank2.ddr4-3200-2ch --print-timing-info "--model-options=--configfile=/u/seokin/workspace/pca/config/ddr4-3200-2ch.cfg --warmup=10000000000 --maxinst=100000000 --executable=soplex --statname=/u/seokin/workspace/pca/output/simstat.soplex.run100M.4cpu.base.rank2.ddr4-3200-2ch numRanksPerChannel=2" /u/seokin/workspace/pca/ariel_4cpu_base.py>, Share group charged </seokin>
-Sun Nov 12 03:36:57: Submitted from host <dccxl001>, CWD <$HOME/workspace/pca/benchmark/soplex>, Output File (overwrite) </u/seokin/workspace/pca/output/simresult.soplex.run100M.4cpu.base.rank2.ddr4-3200-2ch>, Error File (overwrite) </u/seokin/workspace/pca/output/simresult.soplex.run100M.4cpu.base.rank2.ddr4-3200-2ch>, Requested Resources <rusage[mem=10752] affinity[core(1)]>, memory/swap limit enforced per-job/per-host;
-RUNLIMIT
-  1440.0 min of dccxc239
-MEMLIMIT
-  10 G
-  Sun Nov 12 03:36:57: Started 1 Task(s) on Host(s) <dccxc239>, Allocated 1 Slot(s) on Host(s) <dccxc239>, Execution Home </u/seokin>, Execution CWD </u/seokin/workspace/pca/benchmark/soplex>;
-  Sun Nov 12 08:41:33: Resource usage collected. The CPU time used is 4314 seconds. MEM: 142 Mbytes; SWAP: 0 Mbytes; NTHREAD: 1; PGID: 679; PIDs: 788;
-MEMORY USAGE:
-MAX MEM: 2.3 Gbytes;  AVG MEM: 493 Mbytes
-RESOURCE REQUIREMENT DETAILS:
-  Combined: select[(type == X86_64 &&ostype = RHEL7.2 &&!cudav90&&!v100&&!jobsfromhellnode) && (type == any)] order[r15s:pg] rusage[mem=10752.00] affinity[core(1)*1]
-  Effective: select[((type == X86_64 &&ostype = RHEL7.2 &&!cudav90&&!v100&&!jobsfromhellnode) && (type == any))] order[r15s:pg] rusage[mem=10752.00] affinity[core(1)*1]
-
-Job <527868>, User <seokin>, Project <default>, Job Group </seokin/_/default>, Status <RUN>, Queue <x86_24h>, Command <sst --output-json /u/seokin/workspace/pca/output/sstcfg.run100M.4cpu.base.rank1.ddr4-3200-2ch --print-timing-info "--model-options=--configfile=/u/seokin/workspace/pca/config/ddr4-3200-2ch.cfg --warmup=10000000000 --maxinst=100000000 --executable=libquantum --statname=/u/seokin/workspace/pca/output/simstat.libquantum.run100M.4cpu.base.rank1.ddr4-3200-2ch numRanksPerChannel=1" /u/seokin/workspace/pca/ariel_4cpu_base.py>, Share group charged </seokin>
-Sun Nov 12 03:36:57: Submitted from host <dccxl001>, CWD <$HOME/workspace/pca/benchmark/libquantum>, Output File (overwrite) </u/seokin/workspace/pca/output/simresult.libquantum.run100M.4cpu.base.rank1.ddr4-3200-2ch>, Error File (overwrite) </u/seokin/workspace/pca/output/simresult.libquantum.run100M.4cpu.base.rank1.ddr4-3200-2ch>, Requested Resources <rusage[mem=10752] affinity[core(1)]>, memory/swap limit enforced per-job/per-host;
-RUNLIMIT
-  1440.0 min of dccxc074
-MEMLIMIT
-  10 G
-  Sun Nov 12 03:36:58: Started 1 Task(s) on Host(s) <dccxc074>, Allocated 1 Slot(s) on Host(s) <dccxc074>, Execution Home </u/seokin>, Execution CWD </u/seokin/workspace/pca/benchmark/libquantum>;
-  Sun Nov 12 08:44:36: Resource usage collected. The CPU time used is 4169 seconds. MEM: 78 Mbytes; SWAP: 0 Mbytes; NTHREAD: 1; PGID: 4416; PIDs: 4479;
-MEMORY USAGE:
-MAX MEM: 2.1 Gbytes;  AVG MEM: 367 Mbytes
-RESOURCE REQUIREMENT DETAILS:
-  Combined: select[(type == X86_64 &&ostype = RHEL7.2 &&!cudav90&&!v100&&!jobsfromhellnode) && (type == any)] order[r15s:pg] rusage[mem=10752.00] affinity[core(1)*1]
-  Effective: select[((type == X86_64 &&ostype = RHEL7.2 &&!cudav90&&!v100&&!jobsfromhellnode) && (type == any))] order[r15s:pg] rusage[mem=10752.00] affinity[core(1)*1]
-
-Job <527874>, User <seokin>, Project <default>, Job Group </seokin/_/default>, Status <RUN>, Queue <x86_24h>, Command <sst --output-json /u/seokin/workspace/pca/output/sstcfg.run100M.4cpu.base.rank1.ddr4-3200-2ch --print-timing-info "--model-options=--configfile=/u/seokin/workspace/pca/config/ddr4-3200-2ch.cfg --warmup=10000000000 --maxinst=100000000 --executable=sphinx3 --statname=/u/seokin/workspace/pca/output/simstat.sphinx3.run100M.4cpu.base.rank1.ddr4-3200-2ch numRanksPerChannel=1" /u/seokin/workspace/pca/ariel_4cpu_base.py>, Share group charged </seokin>
-Sun Nov 12 03:36:57: Submitted from host <dccxl001>, CWD <$HOME/workspace/pca/benchmark/sphinx3>, Output File (overwrite) </u/seokin/workspace/pca/output/simresult.sphinx3.run100M.4cpu.base.rank1.ddr4-3200-2ch>, Error File (overwrite) </u/seokin/workspace/pca/output/simresult.sphinx3.run100M.4cpu.base.rank1.ddr4-3200-2ch>, Requested Resources <rusage[mem=10752] affinity[core(1)]>, memory/swap limit enforced per-job/per-host;
-RUNLIMIT
-  1440.0 min of dccxc268
-MEMLIMIT
-  10 G
-  Sun Nov 12 03:36:58: Started 1 Task(s) on Host(s) <dccxc268>, Allocated 1 Slot(s) on Host(s) <dccxc268>, Execution Home </u/seokin>, Execution CWD </u/seokin/workspace/pca/benchmark/sphinx3>;
-  Sun Nov 12 08:47:11: Resource usage collected. The CPU time used is 2113 seconds. MEM: 61 Mbytes; SWAP: 0 Mbytes; NTHREAD: 1; PGID: 21803; PIDs: 21895;
-MEMORY USAGE:
-MAX MEM: 917 Mbytes;  AVG MEM: 135 Mbytes
-RESOURCE REQUIREMENT DETAILS:
-  Combined: select[(type == X86_64 &&ostype = RHEL7.2 &&!cudav90&&!v100&&!jobsfromhellnode) && (type == any)] order[r15s:pg] rusage[mem=10752.00] affinity[core(1)*1]
-  Effective: select[((type == X86_64 &&ostype = RHEL7.2 &&!cudav90&&!v100&&!jobsfromhellnode) && (type == any))] order[r15s:pg] rusage[mem=10752.00] affinity[core(1)*1]
-
-Job <527882>, User <seokin>, Project <default>, Job Group </seokin/_/default>, Status <RUN>, Queue <x86_24h>, Command <sst --output-json /u/seokin/workspace/pca/output/sstcfg.run100M.4cpu.base.rank1.ddr4-3200-2ch --print-timing-info "--model-options=--configfile=/u/seokin/workspace/pca/config/ddr4-3200-2ch.cfg --warmup=10000000000 --maxinst=100000000 --executable=cactusADM --statname=/u/seokin/workspace/pca/output/simstat.cactusADM.run100M.4cpu.base.rank1.ddr4-3200-2ch numRanksPerChannel=1" /u/seokin/workspace/pca/ariel_4cpu_base.py>, Share group charged </seokin>
-Sun Nov 12 03:36:58: Submitted from host <dccxl001>, CWD <$HOME/workspace/pca/benchmark/cactusADM>, Output File (overwrite) </u/seokin/workspace/pca/output/simresult.cactusADM.run100M.4cpu.base.rank1.ddr4-3200-2ch>, Error File (overwrite) </u/seokin/workspace/pca/output/simresult.cactusADM.run100M.4cpu.base.rank1.ddr4-3200-2ch>, Requested Resources <rusage[mem=10752] affinity[core(1)]>, memory/swap limit enforced per-job/per-host;
-RUNLIMIT
-  1440.0 min of dccxc166
-MEMLIMIT
-  10 G
-  Sun Nov 12 03:36:59: Started 1 Task(s) on Host(s) <dccxc166>, Allocated 1 Slot(s) on Host(s) <dccxc166>, Execution Home </u/seokin>, Execution CWD </u/seokin/workspace/pca/benchmark/cactusADM>;
-  Sun Nov 12 08:47:20: Resource usage collected. The CPU time used is 3233 seconds. MEM: 766 Mbytes; SWAP: 0 Mbytes; NTHREAD: 1; PGID: 16149; PIDs: 16236;
-MEMORY USAGE:
-MAX MEM: 3.5 Gbytes;  AVG MEM: 1.2 Gbytes
-RESOURCE REQUIREMENT DETAILS:
-  Combined: select[(type == X86_64 &&ostype = RHEL7.2 &&!cudav90&&!v100&&!jobsfromhellnode) && (type == any)] order[r15s:pg] rusage[mem=10752.00] affinity[core(1)*1]
-  Effective: select[((type == X86_64 &&ostype = RHEL7.2 &&!cudav90&&!v100&&!jobsfromhellnode) && (type == any))] order[r15s:pg] rusage[mem=10752.00] affinity[core(1)*1]
-
-Job <527891>, User <seokin>, Project <default>, Job Group </seokin/_/default>, Status <RUN>, Queue <x86_24h>, Command <sst --output-json /u/seokin/workspace/pca/output/sstcfg.run100M.4cpu.base.rank2.ddr4-3200-2ch --print-timing-info "--model-options=--configfile=/u/seokin/workspace/pca/config/ddr4-3200-2ch.cfg --warmup=10000000000 --maxinst=100000000 --executable=bzip2 --statname=/u/seokin/workspace/pca/output/simstat.bzip2.run100M.4cpu.base.rank2.ddr4-3200-2ch numRanksPerChannel=2" /u/seokin/workspace/pca/ariel_4cpu_base.py>, Share group charged </seokin>
-Sun Nov 12 03:36:59: Submitted from host <dccxl001>, CWD <$HOME/workspace/pca/benchmark/bzip2>, Output File (overwrite) </u/seokin/workspace/pca/output/simresult.bzip2.run100M.4cpu.base.rank2.ddr4-3200-2ch>, Error File (overwrite) </u/seokin/workspace/pca/output/simresult.bzip2.run100M.4cpu.base.rank2.ddr4-3200-2ch>, Requested Resources <rusage[mem=10752] affinity[core(1)]>, memory/swap limit enforced per-job/per-host;
-RUNLIMIT
-  1440.0 min of dccxc270
-MEMLIMIT
-  10 G
-  Sun Nov 12 03:37:00: Started 1 Task(s) on Host(s) <dccxc270>, Allocated 1 Slot(s) on Host(s) <dccxc270>, Execution Home </u/seokin>, Execution CWD </u/seokin/workspace/pca/benchmark/bzip2>;
-  Sun Nov 12 08:46:05: Resource usage collected. The CPU time used is 1585 seconds. MEM: 112 Mbytes; SWAP: 0 Mbytes; NTHREAD: 1; PGID: 17972; PIDs: 18097;
-MEMORY USAGE:
-MAX MEM: 637 Mbytes;  AVG MEM: 165 Mbytes
-RESOURCE REQUIREMENT DETAILS:
-  Combined: select[(type == X86_64 &&ostype = RHEL7.2 &&!cudav90&&!v100&&!jobsfromhellnode) && (type == any)] order[r15s:pg] rusage[mem=10752.00] affinity[core(1)*1]
-  Effective: select[((type == X86_64 &&ostype = RHEL7.2 &&!cudav90&&!v100&&!jobsfromhellnode) && (type == any))] order[r15s:pg] rusage[mem=10752.00] affinity[core(1)*1]
-
-Job <527904>, User <seokin>, Project <default>, Job Group </seokin/_/default>, Status <RUN>, Queue <x86_24h>, Command <sst --output-json /u/seokin/workspace/pca/output/sstcfg.run100M.4cpu-metacache.hitrate90.ddr4-3200-2ch --print-timing-info "--model-options=--configfile=/u/seokin/workspace/pca/config/ddr4-3200-2ch.cfg --warmup=1000 --maxinst=100000 --executable=mcf --statname=/u/seokin/workspace/pca/output/simstat.mcf.run100M.4cpu-metacache.hitrate90.ddr4-3200-2ch metacache_hitrate=90 boolPowerCalc=1" /u/seokin/workspace/pca/ariel_4cpu_metacache.py>, Share group charged </seokin>
-Sun Nov 12 03:48:19: Submitted from host <dccxl001>, CWD <$HOME/workspace/pca/benchmark/mcf>, Output File (overwrite) </u/seokin/workspace/pca/output/simresult.mcf.run100M.4cpu-metacache.hitrate90.ddr4-3200-2ch>, Error File (overwrite) </u/seokin/workspace/pca/output/simresult.mcf.run100M.4cpu-metacache.hitrate90.ddr4-3200-2ch>, Requested Resources <rusage[mem=10752] affinity[core(1)]>, memory/swap limit enforced per-job/per-host;
-RUNLIMIT
-  1440.0 min of dccxc040
-MEMLIMIT
-  10 G
-  Sun Nov 12 03:48:20: Started 1 Task(s) on Host(s) <dccxc040>, Allocated 1 Slot(s) on Host(s) <dccxc040>, Execution Home </u/seokin>, Execution CWD </u/seokin/workspace/pca/benchmark/mcf>;
-  Sun Nov 12 08:47:41: Resource usage collected. The CPU time used is 1300 seconds. MEM: 36 Mbytes; SWAP: 0 Mbytes; NTHREAD: 4; PGID: 15987; PIDs: 16015 16031 16051 16072;
-MEMORY USAGE:
-MAX MEM: 155 Mbytes;  AVG MEM: 35 Mbytes
-RESOURCE REQUIREMENT DETAILS:
-  Combined: select[(type == X86_64 &&ostype = RHEL7.2 &&!cudav90&&!v100&&!jobsfromhellnode) && (type == any)] order[r15s:pg] rusage[mem=10752.00] affinity[core(1)*1]
-  Effective: select[((type == X86_64 &&ostype = RHEL7.2 &&!cudav90&&!v100&&!jobsfromhellnode) && (type == any))] order[r15s:pg] rusage[mem=10752.00] affinity[core(1)*1]
-
-Job <527960>, User <seokin>, Project <default>, Job Group </seokin/_/default>, Status <RUN>, Queue <x86_24h>, Command <sst --output-json /u/seokin/workspace/pca/output/sstcfg.run100M.4cpu-metacache.hitrate0.ddr4-3200-2ch --print-timing-info "--model-options=--configfile=/u/seokin/workspace/pca/config/ddr4-3200-2ch.cfg --warmup=1000 --maxinst=100000 --executable=mcf --statname=/u/seokin/workspace/pca/output/simstat.mcf.run100M.4cpu-metacache.hitrate0.ddr4-3200-2ch metacache_hitrate=0 boolPowerCalc=1" /u/seokin/workspace/pca/ariel_4cpu_metacache.py>, Share group charged </seokin>
-Sun Nov 12 04:45:19: Submitted from host <dccxl001>, CWD <$HOME/workspace/pca/benchmark/mcf>, Output File (overwrite) </u/seokin/workspace/pca/output/simresult.mcf.run100M.4cpu-metacache.hitrate0.ddr4-3200-2ch>, Error File (overwrite) </u/seokin/workspace/pca/output/simresult.mcf.run100M.4cpu-metacache.hitrate0.ddr4-3200-2ch>, Requested Resources <rusage[mem=10752] affinity[core(1)]>, memory/swap limit enforced per-job/per-host;
-RUNLIMIT
-  1440.0 min of dccxc111
-MEMLIMIT
-  10 G
-  Sun Nov 12 04:45:20: Started 1 Task(s) on Host(s) <dccxc111>, Allocated 1 Slot(s) on Host(s) <dccxc111>, Execution Home </u/seokin>, Execution CWD </u/seokin/workspace/pca/benchmark/mcf>;
-  Sun Nov 12 08:45:32: Resource usage collected. The CPU time used is 1037 seconds. MEM: 42 Mbytes; SWAP: 0 Mbytes; NTHREAD: 4; PGID: 16267; PIDs: 16280 16296 16312 16330;
-MEMORY USAGE:
-MAX MEM: 159 Mbytes;  AVG MEM: 42 Mbytes
-RESOURCE REQUIREMENT DETAILS:
-  Combined: select[(type == X86_64 &&ostype = RHEL7.2 &&!cudav90&&!v100&&!jobsfromhellnode) && (type == any)] order[r15s:pg] rusage[mem=10752.00] affinity[core(1)*1]
-  Effective: select[((type == X86_64 &&ostype = RHEL7.2 &&!cudav90&&!v100&&!jobsfromhellnode) && (type == any))] order[r15s:pg] rusage[mem=10752.00] affinity[core(1)*1]
-
+Making install in src
+make[1]: Entering directory `/home/seokin/workspace/sst/src_pca/sst-elements/src'
+Making install in sst
+make[2]: Entering directory `/home/seokin/workspace/sst/src_pca/sst-elements/src/sst'
+Making install in elements
+make[3]: Entering directory `/home/seokin/workspace/sst/src_pca/sst-elements/src/sst/elements'
+Making install in CramSim
+make[4]: Entering directory `/home/seokin/workspace/sst/src_pca/sst-elements/src/sst/elements/CramSim'
+  CXX      c_ControllerPCA.lo
+In file included from c_ControllerPCA.cpp:32:0:
+c_ControllerPCA.hpp: In member function ‘bool SST::n_Bank::c_ControllerPCA::c_MetaCache::isHit(uint64_t)’:
+c_ControllerPCA.hpp:183:53: warning: format ‘%llx’ expects argument of type ‘long long unsigned int’, but argument 8 has type ‘uint64_t {aka long unsigned int}’ [-Wformat=]
+                                           tag, index);
+                                                     ^
+c_ControllerPCA.hpp:183:53: warning: format ‘%x’ expects argument of type ‘unsigned int’, but argument 9 has type ‘uint64_t {aka long unsigned int}’ [-Wformat=]
+c_ControllerPCA.hpp:183:53: warning: format ‘%d’ expects argument of type ‘int’, but argument 10 has type ‘uint64_t {aka long unsigned int}’ [-Wformat=]
+c_ControllerPCA.hpp:186:63: warning: format ‘%llx’ expects argument of type ‘long long unsigned int’, but argument 8 has type ‘uint64_t {aka long unsigned int}’ [-Wformat=]
+                                               addr, tag, index);
+                                                               ^
+c_ControllerPCA.hpp:186:63: warning: format ‘%x’ expects argument of type ‘unsigned int’, but argument 9 has type ‘uint64_t {aka long unsigned int}’ [-Wformat=]
+c_ControllerPCA.hpp:186:63: warning: format ‘%d’ expects argument of type ‘int’, but argument 10 has type ‘uint64_t {aka long unsigned int}’ [-Wformat=]
+c_ControllerPCA.hpp:191:52: warning: format ‘%llx’ expects argument of type ‘long long unsigned int’, but argument 8 has type ‘uint64_t {aka long unsigned int}’ [-Wformat=]
+                                               index);
+                                                    ^
+c_ControllerPCA.hpp:191:52: warning: format ‘%x’ expects argument of type ‘unsigned int’, but argument 9 has type ‘uint64_t {aka long unsigned int}’ [-Wformat=]
+c_ControllerPCA.hpp:191:52: warning: format ‘%d’ expects argument of type ‘int’, but argument 10 has type ‘uint64_t {aka long unsigned int}’ [-Wformat=]
+c_ControllerPCA.hpp: In member function ‘uint64_t SST::n_Bank::c_ControllerPCA::c_MetaCache::fill(uint64_t)’:
+c_ControllerPCA.hpp:213:53: warning: format ‘%llx’ expects argument of type ‘long long unsigned int’, but argument 8 has type ‘uint64_t {aka long unsigned int}’ [-Wformat=]
+                            addr,tag,index,evict_addr);
+                                                     ^
+c_ControllerPCA.hpp:213:53: warning: format ‘%llx’ expects argument of type ‘long long unsigned int’, but argument 9 has type ‘uint64_t {aka long unsigned int}’ [-Wformat=]
+c_ControllerPCA.hpp:213:53: warning: format ‘%d’ expects argument of type ‘int’, but argument 10 has type ‘uint64_t {aka long unsigned int}’ [-Wformat=]
+c_ControllerPCA.hpp:213:53: warning: format ‘%llx’ expects argument of type ‘long long unsigned int’, but argument 11 has type ‘uint64_t {aka long unsigned int}’ [-Wformat=]
+c_ControllerPCA.hpp: In member function ‘uint64_t SST::n_Bank::c_ControllerPCA::c_MetaCache::getMetaDataAddress(uint64_t, bool)’:
+c_ControllerPCA.hpp:220:56: warning: integer overflow in expression [-Woverflow]
+                     uint64_t metaArraySize=8*1024*1024*1024;
+                                                        ^
+c_ControllerPCA.cpp: In member function ‘virtual void SST::n_Bank::c_ControllerPCA::finish()’:
+c_ControllerPCA.cpp:147:73: warning: format ‘%lld’ expects argument of type ‘long long int’, but argument 3 has type ‘std::map<int, long unsigned int>::mapped_type {aka long unsigned int}’ [-Wformat=]
+         printf("compressed_size_count: %d/%lld\n",i,m_normalized_size[i]);
+                                                                         ^
+c_ControllerPCA.cpp:151:61: warning: format ‘%lld’ expects argument of type ‘long long int’, but argument 2 has type ‘uint64_t {aka long unsigned int}’ [-Wformat=]
+     printf("compressed_size<=50 : %lld\n",compressed_size_50);
+                                                             ^
+c_ControllerPCA.cpp:152:61: warning: format ‘%lld’ expects argument of type ‘long long int’, but argument 2 has type ‘uint64_t {aka long unsigned int}’ [-Wformat=]
+     printf("compressed_size>50 : %lld\n",compressed_size_100);
+                                                             ^
+c_ControllerPCA.cpp:181:60: warning: unknown conversion type character 0x9 in format [-Wformat=]
+     printf("ch\trank\tbg\tbank\trow\t25%\t50%\t75%\t100%\n");
+                                                            ^
+c_ControllerPCA.cpp:181:60: warning: unknown conversion type character 0x9 in format [-Wformat=]
+c_ControllerPCA.cpp:181:60: warning: unknown conversion type character 0x9 in format [-Wformat=]
+c_ControllerPCA.cpp:181:60: warning: unknown conversion type character 0xa in format [-Wformat=]
+c_ControllerPCA.cpp:212:64: warning: format ‘%lld’ expects argument of type ‘long long int’, but argument 7 has type ‘uint64_t {aka long unsigned int}’ [-Wformat=]
+                                            cnt50, cnt75, cnt100);
+                                                                ^
+c_ControllerPCA.cpp:212:64: warning: format ‘%lld’ expects argument of type ‘long long int’, but argument 8 has type ‘uint64_t {aka long unsigned int}’ [-Wformat=]
+c_ControllerPCA.cpp:212:64: warning: format ‘%lld’ expects argument of type ‘long long int’, but argument 9 has type ‘uint64_t {aka long unsigned int}’ [-Wformat=]
+c_ControllerPCA.cpp:212:64: warning: format ‘%lld’ expects argument of type ‘long long int’, but argument 10 has type ‘uint64_t {aka long unsigned int}’ [-Wformat=]
+c_ControllerPCA.cpp:252:69: warning: format ‘%lld’ expects argument of type ‘long long int’, but argument 2 has type ‘uint64_t {aka long unsigned int}’ [-Wformat=]
+         printf("memzip metacache hit: %lld\n",metacache->getHitCnt());
+                                                                     ^
+c_ControllerPCA.cpp:253:71: warning: format ‘%lld’ expects argument of type ‘long long int’, but argument 2 has type ‘uint64_t {aka long unsigned int}’ [-Wformat=]
+         printf("memzip metacache miss: %lld\n",metacache->getMissCnt());
+                                                                       ^
+c_ControllerPCA.cpp:257:84: warning: format ‘%lld’ expects argument of type ‘long long int’, but argument 2 has type ‘uint64_t {aka long unsigned int}’ [-Wformat=]
+         printf("predictor metacache row hit: %lld\n",cmpSize_predictor->getHitCnt());
+                                                                                    ^
+c_ControllerPCA.cpp:258:86: warning: format ‘%lld’ expects argument of type ‘long long int’, but argument 2 has type ‘uint64_t {aka long unsigned int}’ [-Wformat=]
+         printf("predictor metacache row miss: %lld\n",cmpSize_predictor->getMissCnt());
+                                                                                      ^
+c_ControllerPCA.cpp:259:92: warning: format ‘%lld’ expects argument of type ‘long long int’, but argument 2 has type ‘uint64_t {aka long unsigned int}’ [-Wformat=]
+         printf("predictor metacache cacheline hit: %lld\n",cmpSize_predictor->getClHitCnt());
+                                                                                            ^
+c_ControllerPCA.cpp:260:94: warning: format ‘%lld’ expects argument of type ‘long long int’, but argument 2 has type ‘uint64_t {aka long unsigned int}’ [-Wformat=]
+         printf("predictor metacache cacheline miss: %lld\n",cmpSize_predictor->getClMissCnt());
+                                                                                              ^
+c_ControllerPCA.cpp:261:93: warning: format ‘%lld’ expects argument of type ‘long long int’, but argument 2 has type ‘uint64_t {aka long unsigned int}’ [-Wformat=]
+         printf("predictor prediction success: %lld\n",cmpSize_predictor->getPredSuccessCnt());
+                                                                                             ^
+c_ControllerPCA.cpp:262:87: warning: format ‘%lld’ expects argument of type ‘long long int’, but argument 2 has type ‘uint64_t {aka long unsigned int}’ [-Wformat=]
+         printf("predictor prediction fail: %lld\n",cmpSize_predictor->getPredFailCnt());
+                                                                                       ^
+c_ControllerPCA.cpp:266:39: warning: format ‘%lld’ expects argument of type ‘long long int’, but argument 2 has type ‘uint64_t {aka long unsigned int}’ [-Wformat=]
+     printf("row size0:\t%lld\n",size_0);
+                                       ^
+c_ControllerPCA.cpp:267:41: warning: format ‘%lld’ expects argument of type ‘long long int’, but argument 2 has type ‘uint64_t {aka long unsigned int}’ [-Wformat=]
+     printf("row size25:\t%lld\n",size_25);
+                                         ^
+c_ControllerPCA.cpp:268:41: warning: format ‘%lld’ expects argument of type ‘long long int’, but argument 2 has type ‘uint64_t {aka long unsigned int}’ [-Wformat=]
+     printf("row size50:\t%lld\n",size_50);
+                                         ^
+c_ControllerPCA.cpp:269:41: warning: format ‘%lld’ expects argument of type ‘long long int’, but argument 2 has type ‘uint64_t {aka long unsigned int}’ [-Wformat=]
+     printf("row size75:\t%lld\n",size_75);
+                                         ^
+c_ControllerPCA.cpp:270:43: warning: format ‘%lld’ expects argument of type ‘long long int’, but argument 2 has type ‘uint64_t {aka long unsigned int}’ [-Wformat=]
+     printf("row size100:\t%lld\n",size_100);
+                                           ^
+c_ControllerPCA.cpp:271:57: warning: format ‘%lld’ expects argument of type ‘long long int’, but argument 2 has type ‘uint64_t {aka long unsigned int}’ [-Wformat=]
+     printf("weighted_row size0:\t%lld\n",weighted_size_0);
+                                                         ^
+c_ControllerPCA.cpp:272:59: warning: format ‘%lld’ expects argument of type ‘long long int’, but argument 2 has type ‘uint64_t {aka long unsigned int}’ [-Wformat=]
+     printf("weighted_row size25:\t%lld\n",weighted_size_25);
+                                                           ^
+c_ControllerPCA.cpp:273:59: warning: format ‘%lld’ expects argument of type ‘long long int’, but argument 2 has type ‘uint64_t {aka long unsigned int}’ [-Wformat=]
+     printf("weighted_row size50:\t%lld\n",weighted_size_50);
+                                                           ^
+c_ControllerPCA.cpp:274:59: warning: format ‘%lld’ expects argument of type ‘long long int’, but argument 2 has type ‘uint64_t {aka long unsigned int}’ [-Wformat=]
+     printf("weighted_row size75:\t%lld\n",weighted_size_75);
+                                                           ^
+c_ControllerPCA.cpp:275:61: warning: format ‘%lld’ expects argument of type ‘long long int’, but argument 2 has type ‘uint64_t {aka long unsigned int}’ [-Wformat=]
+     printf("weighted_row size100:\t%lld\n",weighted_size_100);
+                                                             ^
+c_ControllerPCA.cpp: In member function ‘void SST::n_Bank::c_ControllerPCA::handleContentEvent(SST::Event*)’:
+c_ControllerPCA.cpp:661:69: warning: format ‘%llx’ expects argument of type ‘long long unsigned int’, but argument 8 has type ‘uint64_t {aka long unsigned int}’ [-Wformat=]
+                                 cacheline_vaddr + j * 8, *mem_ptr_64);
+                                                                     ^
+c_ControllerPCA.cpp:661:69: warning: format ‘%llx’ expects argument of type ‘long long unsigned int’, but argument 9 has type ‘uint64_t {aka long unsigned int}’ [-Wformat=]
+c_ControllerPCA.cpp:661:69: warning: format ‘%llx’ expects argument of type ‘long long unsigned int’, but argument 10 has type ‘uint64_t {aka long unsigned int}’ [-Wformat=]
+make[4]: *** [c_ControllerPCA.lo] Error 1
+make[3]: *** [install-recursive] Interrupt
+make[2]: *** [install-recursive] Interrupt
+make[1]: *** [install-recursive] Interrupt
+make: *** [install-recursive] Interrupt

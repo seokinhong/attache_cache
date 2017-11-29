@@ -42,14 +42,12 @@ c_ControllerPCA::c_ControllerPCA(ComponentId_t id, Params &x_params) :
 
     bool l_found;
     // Set up backing store if needed
-    m_backing_size = x_params.find<uint64_t>("backing_size",10000,l_found);
-    // internal params
     verbosity = x_params.find<int>("verbose", 0);
 
-    if(!l_found)
+    m_osPageSize = x_params.find<uint64_t>("page_size",4096,l_found);
+    if(l_found==false)
     {
-        fprintf(stderr,"[c_ControllerPCA] backing store size is missing!! exit\n");
-        exit(1);
+        fprintf(stderr,"[C_ControllerPCA] OS Page Size is not specified: it will be 4096\n");
     }
 
     loopback_en = x_params.find<bool>("loopback_en",false,l_found);
@@ -64,40 +62,68 @@ c_ControllerPCA::c_ControllerPCA(ComponentId_t id, Params &x_params) :
         fprintf(stderr,"[C_ControllerPCA] compression is enabled\n");
     }
 
+    int contentline_num= x_params.find<int>("contentline_num",1,l_found);
+    if(l_found==false)
+
+    {
+        fprintf(stderr,"[C_ControllerPCA] contentline_num is miss\n");
+    }
 
     pca_mode=x_params.find<bool>("pca_enable",false);
     oracle_mode=x_params.find<bool>("oracle_mode",false);
+    memzip_mode=x_params.find<bool>("memzip_mode",false);
+    if(memzip_mode)
+    {
+        printf("memzip mode is enabled\n");
+    }
 
-    m_compEngine = new c_CompressEngine(verbosity,true);
+    bool compression_engine_validation=x_params.find<bool>("comp_engine_validation",false);
+    m_isFixedCompressionMode=x_params.find<bool>("fixed_compression_mode",false);
+
+    if(m_isFixedCompressionMode){
+        uint32_t compression_data_rate=x_params.find<uint32_t>("compression_data_rate",false,l_found);
+        if(!l_found)
+        {
+            fprintf(stderr,"[C_ControllerPCA] compression_data_rate is miss.. exit..");
+            exit(-1);
+        }
+        else
+            m_compEngine = new c_CompressEngine(compression_data_rate);
+
+    }
+    else
+        m_compEngine = new c_CompressEngine(verbosity,compression_engine_validation);
 
 
     metadata_predictor= x_params.find<int>("metadata_predictor",0);
-    if(metadata_predictor==1)       //memzip
+    no_metadata = x_params.find<bool>("no_metadata",false);
+
+    if(metadata_predictor==1)       //meta-data cache
     {
-        bool found=false;
-        uint32_t metacache_entry_num = x_params.find<uint32_t>("metaCache_entries",0,found); //128KB, 130b per entry
-        if(!found)
+        uint32_t metacache_entry_num = x_params.find<uint32_t>("metaCache_entries",0,l_found); //128KB, 130b per entry
+        if(!l_found)
         {
             fprintf(stderr,"metaCache_entries is missing exit!!");
             exit(-1);
         }
 
         uint32_t rowsize=m_deviceDriver->getNumColPerBank()*64;
-        double hitrate= x_params.find<double>("metacache_hitrate",0,found);
-        metacache = new c_MetaCache(rowsize,metacache_entry_num,output,hitrate);
+        double hitrate= x_params.find<double>("metacache_hitrate",0,l_found);
+        int metacache_way= x_params.find<int>("metacache_way",16,l_found);
+        metacache = new c_MetaCache(rowsize,metacache_entry_num,metacache_way,output,hitrate);
     }
-    else if(metadata_predictor==2)
+    else if(metadata_predictor==2) //compression predictor
     {
         bool found=false;
-
         uint32_t metacache_entry_num = x_params.find<uint32_t>("metaCache_entries",16*1024,found); //128KB, 80b per entry
         int metacache_entry_colnum = x_params.find<uint32_t>("metaCache_Colnum",16,found); //128KB, 130b per entry
+
         cmpSize_predictor = new c_2LvPredictor(m_rownum*m_total_num_banks,metacache_entry_num,metacache_entry_colnum,output);
     }
 
     /*---- CONFIGURE LINKS ----*/
 
-    m_contentLink = configureLink( "contentLink",new Event::Handler<c_ControllerPCA>(this,&c_ControllerPCA::handleContentEvent) );
+   // m_contentLink = configureLink( "contentLink",new Event::Handler<c_ControllerPCA>(this,&c_ControllerPCA::handleContentEvent) );
 
 
    s_CompRatio = registerStatistic<double>("compRatio");
@@ -113,15 +139,45 @@ c_ControllerPCA::c_ControllerPCA(ComponentId_t id, Params &x_params) :
     s_MemzipMetaCacheMiss = registerStatistic<uint64_t>("memzip_metacache_miss");
     s_CachelineSize50 = registerStatistic<uint64_t>("cacheline_size_50");
     s_CachelineSize100 = registerStatistic<uint64_t>("cacheline_size_100");
+    s_CachelineSize100 = registerStatistic<uint64_t>("cacheline_size_100");
 
+   s_predicted_fail_below50=registerStatistic<uint64_t>("predicted_fail_below50");
+   s_predicted_success_above50=registerStatistic<uint64_t>("predicted_success_above50");
+   s_predicted_success_below50=registerStatistic<uint64_t>("predicted_success_below50");
+   s_predicted_fail_above50=registerStatistic<uint64_t>("predicted_fail_above50");
 
+    //---- configure link ----//
+
+    for (int i = 0; i < contentline_num; i++) {
+        string l_linkName = "lane_" + to_string(i);
+        Link *l_link = configureLink(l_linkName);
+
+        if (l_link) {
+            m_laneLinks.push_back(l_link);
+            cout<<l_linkName<<" is connected"<<endl;
+        } else {
+            cout<<l_linkName<<" is not found.. exit"<<endl;
+            exit(-1);
+        }
+    }
+
+    m_nextPageAddress=0;
+    m_total_num_banks= m_deviceDriver->getTotalNumBank();
+    m_chnum=m_deviceDriver->getNumChannel();
+    m_ranknum=m_deviceDriver->getNumRanksPerChannel();
+    m_bgnum=m_deviceDriver->getNumBankGroupsPerRank();
+    m_banknum=m_deviceDriver->getNumBanksPerBankGroup();
+    m_rownum=m_deviceDriver->getNumRowsPerBank();
+    m_colnum=m_deviceDriver->getNumColPerBank();
+    m_memsize=m_chnum*m_ranknum*m_bgnum*m_banknum*m_rownum*m_colnum*64;
 }
 
 void c_ControllerPCA::init(unsigned int phase){
-    if(phase==0)
+  /*  if(phase==0)
        if(m_contentLink)
             m_contentLink->sendInitData(new MemHierarchy::MemEventInit(this->getName(),MemHierarchy::MemEventInit::InitCommand::Region));
-}
+*/
+   }
 
 
 void c_ControllerPCA::finish() {
@@ -129,7 +185,7 @@ void c_ControllerPCA::finish() {
     uint64_t normalized_size_sum=0;
     uint64_t compressed_size_50=0;
     uint64_t compressed_size_100=0;
-    for(int i=0;i<50;i++)
+    for(int i=0;i<=50;i++)
     {
         compressed_size_50+=m_normalized_size[i];
     }
@@ -273,10 +329,10 @@ void c_ControllerPCA::finish() {
 
 // clock event handler
 bool c_ControllerPCA::clockTic(SST::Cycle_t clock) {
-
+    storeContent();
     m_simCycle++;
 
-    sendResponse();
+   // sendResponse();
 
     // 0. update device driver
     m_deviceDriver->update();
@@ -311,13 +367,19 @@ bool c_ControllerPCA::clockTic(SST::Cycle_t clock) {
         //calculate the compressed size of cacheline
         if(compression_en&&newTxn->getCompressedSize()<0) {
 
-                if(backing_.find(addr)==backing_.end()) {
-                   // std::cout << "Error!! cacheline is not found\n";
+                if(!m_isFixedCompressionMode &&(backing_.find(addr)==backing_.end())) {
+                    printf("Error!! cacheline is not found, %llx\n",addr);
                     backing_[addr] = 0;
                     s_BackingMiss->addData(1);
                 }
 
-                uint8_t normalized_size = backing_[addr];
+                uint8_t normalized_size = 100;
+
+                if(!m_isFixedCompressionMode)
+                    normalized_size=backing_[addr];
+                else
+                    normalized_size= m_compEngine->getCompressedSize();
+
                 m_normalized_size[normalized_size]++;
 
                 newTxn->setCompressedSize(normalized_size);
@@ -327,7 +389,8 @@ bool c_ControllerPCA::clockTic(SST::Cycle_t clock) {
                 int col = newTxn->getHashedAddress().getCol();
 
                 //record statistics
-                if(m_row_stat.find(bankid)==m_row_stat.end()) {
+            if(0)
+            {  if(m_row_stat.find(bankid)==m_row_stat.end()) {
                     m_row_stat[bankid][row]= new c_RowStat(m_colnum);
                 }
                 else if(m_row_stat[bankid].find(row)==m_row_stat[bankid].end())
@@ -336,53 +399,142 @@ bool c_ControllerPCA::clockTic(SST::Cycle_t clock) {
                 }
 
                 m_row_stat[bankid].at(row)->record(normalized_size, col);
+            }
 
         }
 
         if(loopback_en==true) {
             newTxn->setResponseReady();
+
+            if (metacache->isHit(addr)){
+            }
+            else
+            {
+                metacache->fill(addr);
+            }
+
             l_it=m_ReqQ.erase(l_it);
+
+            if ((m_ResQ.size() > 0)) {
+                c_Transaction* l_txnRes = nullptr;
+                for (std::deque<c_Transaction*>::iterator l_it = m_ResQ.begin();
+                     l_it != m_ResQ.end();)  {
+                    if ((*l_it)->isResponseReady()) {
+                        l_txnRes = *l_it;
+                        l_it=m_ResQ.erase(l_it);
+                        l_txnRes->print(output,"delete txn",m_simCycle);
+
+                        c_TxnResEvent* l_txnResEvPtr = new c_TxnResEvent();
+                        l_txnResEvPtr->m_payload = l_txnRes;
+
+                        m_txngenLink->send(l_txnResEvPtr);
+                    }
+                    else
+                    {
+                        l_it++;
+                    }
+                }
+            }
             continue;
         }
 
+        if(memzip_mode)
+        {
+            if(metadata_predictor!=2)
+            {
+                if(!metacache->isHit(addr))
+                {
+                    //fetch metadata
+                    uint64_t fetch_addr = newTxn->getAddress();
+                    c_Transaction *fillTxn
+                            = new c_Transaction((ulong) newTxn->getSeqNum(), e_TransactionType::READ,
+                                                fetch_addr, 1);
+
+                    c_HashedAddress l_hashedAddress3 = newTxn->getHashedAddress();
+
+                    fillTxn->setMetaDataSkip();
+                    fillTxn->setHashedAddress(l_hashedAddress3);
+                    //fillTxn->setHelperFlag(true);
+                    fillTxn->donotRespond();
+                    fillTxn->setCompressedSize(50);
+                    fillTxn->setChipAccessRatio(50);
+                    fillTxn->setMetaDataTxn();
+
+                    newTxn->setChipAccessRatio(50);
+
+                    m_MReqQ.push_back(fillTxn);
+                    m_ResQ.push_back(fillTxn);
+
+
+                    //write back
+                    uint64_t victim_row_addr = metacache->fill(addr);
+                    uint64_t writeback_addr = metacache->getMetaDataAddress(victim_row_addr, true);
+
+                    c_Transaction *writebackTxn
+                            = new c_Transaction(newTxn->getSeqNum(), e_TransactionType::WRITE, writeback_addr,
+                                                1);
+
+                    c_HashedAddress l_hashedAddress2;
+                    m_addrHasher->fillHashedAddress(&l_hashedAddress2, writeback_addr);
+
+
+                    writebackTxn->setHashedAddress(l_hashedAddress2);
+
+                    writebackTxn->setMetaDataSkip();
+                    writebackTxn->setMetaDataTxn();
+                    //writebackTxn->setHelperFlag(true);
+                    writebackTxn->donotRespond();
+
+                    writebackTxn->setCompressedSize(50);
+                    writebackTxn->setChipAccessRatio(50);
+
+                    m_MReqQ.push_back(writebackTxn);
+                    m_ResQ.push_back(writebackTxn);
+                }
+            }
+        }
+
         //partial-chip access
-         if(pca_mode)
-         {
-             assert(m_deviceDriver->getNumRanksPerChannel()==1);
+        else if(pca_mode) {
+             assert(m_deviceDriver->getNumPChPerChannel() == 1);
 
-            //determine subrank
+             //determine subrank
              uint32_t row = newTxn->getHashedAddress().getRow();
-             unsigned subrank=row&0x1;
-             int Chs=m_deviceDriver->getNumChannel();
-             int Ranks=m_deviceDriver->getNumRanksPerChannel();
-             int BGs=m_deviceDriver->getNumBankGroupsPerRank();
-             int Banks=m_deviceDriver->getNumBanksPerBankGroup();
+             unsigned pch = row & 0x1;
+             int Chs = m_deviceDriver->getNumChannel();
+             int PChs = m_deviceDriver->getNumPChPerChannel();
+             int Ranks = m_deviceDriver->getNumRanksPerChannel();
+             int BGs = m_deviceDriver->getNumBankGroupsPerRank();
+             int Banks = m_deviceDriver->getNumBanksPerBankGroup();
 
-             c_HashedAddress l_hashedAddress=newTxn->getHashedAddress();
-             l_hashedAddress.setRank(subrank);
+             c_HashedAddress l_hashedAddress = newTxn->getHashedAddress();
+             l_hashedAddress.setPChannel(pch);
 
              unsigned l_bankId =
                      l_hashedAddress.getBank()
                      + l_hashedAddress.getBankGroup() * Banks
-                     + l_hashedAddress.getRank()    * Banks * BGs
-                     + l_hashedAddress.getChannel()   * 1 * Banks*BGs  * (Ranks+1);
-            //std::cout <<"row: "<<row<<" subrank: "<<subrank<<" bankid[old]: "<<l_hashedAddress.getBankId()<< " bankid[new]: "<<l_bankId<<std::endl;
+                     + l_hashedAddress.getRank() * Banks * BGs
+                     + l_hashedAddress.getPChannel() * Banks * BGs * Ranks
+                     + l_hashedAddress.getChannel() * (PChs+1) * Banks * BGs * (Ranks );
+             //std::cout <<"row: "<<row<<" subrank: "<<subrank<<" bankid[old]: "<<l_hashedAddress.getBankId()<< " bankid[new]: "<<l_bankId<<std::endl;
              unsigned l_rankId =
-                     + l_hashedAddress.getRank()
-                     + l_hashedAddress.getChannel()   * 1 * (Ranks+1);
-
-                l_hashedAddress.setRankId(l_rankId);
-                l_hashedAddress.setBankId(l_bankId);
-                newTxn->setHashedAddress(l_hashedAddress);
+                     +l_hashedAddress.getRank()
+                     + l_hashedAddress.getPChannel() * Ranks
+                     + l_hashedAddress.getChannel() * (PChs+1) * (Ranks );
 
 
-             bool isNeedHelper=false;
+
+             l_hashedAddress.setRankId(l_rankId);
+             l_hashedAddress.setBankId(l_bankId);
+             newTxn->setHashedAddress(l_hashedAddress);
 
 
-             if(!newTxn->isMetaDataSkip())
-             {
+             bool isNeedHelper = false;
+
+
+             if (!newTxn->isMetaDataSkip()) {
                  newTxn->setMetaDataSkip();
-                 switch(metadata_predictor) {
+                 switch (metadata_predictor) {
                      case 0: //perfect predictor
                      {
                          isNeedHelper = newTxn->needHelper();
@@ -401,18 +553,47 @@ bool c_ControllerPCA::clockTic(SST::Cycle_t clock) {
 
                              //write back metadata
                              uint64_t victim_row_addr = metacache->fill(addr);
-                             uint64_t writeback_addr = metacache->getMetaDataAddress(victim_row_addr);
+                             uint64_t writeback_addr = metacache->getMetaDataAddress(victim_row_addr, true);
 
                              // victim_row_addr ^(victim_row_addr >> 32);
-                            c_Transaction *writebackTxn
+                             c_Transaction *writebackTxn
                                      = new c_Transaction(newTxn->getSeqNum(), e_TransactionType::WRITE, writeback_addr,
                                                          1);
 
                              c_HashedAddress l_hashedAddress2;
                              m_addrHasher->fillHashedAddress(&l_hashedAddress2, writeback_addr);
 
+                             //determine subrank
+                             uint32_t row2 = l_hashedAddress2.getRow();
+                             int Chs2 = m_deviceDriver->getNumChannel();
+                             int Pchs2 = m_deviceDriver->getNumPChPerChannel();
+                             int Ranks2 = m_deviceDriver->getNumRanksPerChannel();
+                             int BGs2 = m_deviceDriver->getNumBankGroupsPerRank();
+                             int Banks2 = m_deviceDriver->getNumBanksPerBankGroup();
+
+                             unsigned pch = row2 & 0x1;
+                             l_hashedAddress2.setPChannel(pch);
+
+
+                         unsigned l_bankId =
+                                 l_hashedAddress2.getBank()
+                                 + l_hashedAddress2.getBankGroup() * Banks2
+                                 + l_hashedAddress2.getRank() * Banks2 * BGs2
+                                 + l_hashedAddress2.getPChannel() * Banks2 * BGs2 * Ranks2
+                                 + l_hashedAddress2.getChannel() * (Pchs2+1) * Banks2 * BGs2 * (Ranks2 );
+                         //std::cout <<"row: "<<row<<" subrank: "<<subrank<<" bankid[old]: "<<l_hashedAddress.getBankId()<< " bankid[new]: "<<l_bankId<<std::endl;
+                         unsigned l_rankId =
+                                 +l_hashedAddress2.getRank()
+                                 + l_hashedAddress2.getPChannel() * Ranks2
+                                 + l_hashedAddress2.getChannel() * (Pchs2+1) * (Ranks2 );
+
+
+                             l_hashedAddress2.setRankId(l_rankId);
+                             l_hashedAddress2.setBankId(l_bankId);
                              writebackTxn->setHashedAddress(l_hashedAddress2);
+
                              writebackTxn->setMetaDataSkip();
+                             writebackTxn->setMetaDataTxn();
                              //writebackTxn->setHelperFlag(true);
                              writebackTxn->donotRespond();
 
@@ -424,12 +605,12 @@ bool c_ControllerPCA::clockTic(SST::Cycle_t clock) {
 
 
                              //fetch metadata
-                             uint64_t fetch_addr = metacache->getMetaDataAddress(addr);
+                             uint64_t fetch_addr = metacache->getMetaDataAddress(addr, false);
                              c_Transaction *fillTxn
-                                    = new c_Transaction((ulong) newTxn->getSeqNum(), e_TransactionType::READ, fetch_addr, 1);
+                                     = new c_Transaction((ulong) newTxn->getSeqNum(), e_TransactionType::READ,
+                                                         fetch_addr, 1);
 
-                             c_HashedAddress l_hashedAddress3;
-                             m_addrHasher->fillHashedAddress(&l_hashedAddress3, fetch_addr);
+                             c_HashedAddress l_hashedAddress3 = newTxn->getHashedAddress();
 
                              fillTxn->setMetaDataSkip();
                              fillTxn->setHashedAddress(l_hashedAddress3);
@@ -437,6 +618,7 @@ bool c_ControllerPCA::clockTic(SST::Cycle_t clock) {
                              fillTxn->donotRespond();
                              fillTxn->setCompressedSize(50);
                              fillTxn->setChipAccessRatio(50);
+                             fillTxn->setMetaDataTxn();
 
                              m_MReqQ.push_back(fillTxn);
                              m_ResQ.push_back(fillTxn);
@@ -444,35 +626,121 @@ bool c_ControllerPCA::clockTic(SST::Cycle_t clock) {
                          }
                          break;
                      }
-                     case 2:{
-                         assert(cmpSize_predictor!=NULL);
-                         int col=newTxn->getHashedAddress().getCol();
-                         int row=newTxn->getHashedAddress().getRow();
-                         int bankid=newTxn->getHashedAddress().getBankId();
-                         int rowoffset=(int)log2(m_rownum);
-                         int rowid=(bankid << rowoffset) | row;
+                     case 2: {
+                         assert(cmpSize_predictor != NULL);
+                         int col = newTxn->getHashedAddress().getCol();
+                         int row = newTxn->getHashedAddress().getRow();
+                         int bankid = newTxn->getHashedAddress().getBankId();
+                         int rowoffset = (int) log2(m_rownum);
+                         int rowid = (bankid << rowoffset) | row;
                          bool isWrite = newTxn->isWrite();
 
-                         int compSize=100;
+                         int compSize = 100;
 
-                         if(isWrite) {
-                             compSize=newTxn->getCompressedSize();
+                         if (isWrite) {
+                             compSize = newTxn->getCompressedSize();
                              isNeedHelper = newTxn->needHelper();
+                         } else {
+                             int predSize = cmpSize_predictor->getPredictedSize(col, rowid,
+                                                                                newTxn->getCompressedSize());
+                             int actualSize = newTxn->getCompressedSize();
+
+                             if (actualSize > 50) {
+                                 isNeedHelper = true;
+                                 compSize = actualSize;
+                                 if (predSize <= 50)
+                                     s_predicted_fail_below50->addData(1);
+                                 else
+                                     s_predicted_success_above50->addData(1);
+                             } else {
+                                 if (predSize <= 50) {
+                                     isNeedHelper = false;
+                                     compSize = predSize;
+                                     s_predicted_success_below50->addData(1);
+                                 } else {
+                                     isNeedHelper = true;
+                                     compSize = actualSize;
+                                     s_predicted_fail_above50->addData(1);
+                                 }
+                             }
                          }
-                         else{
-                             int predSize=cmpSize_predictor->getPredictedSize(col,rowid,newTxn->getCompressedSize());
 
-                             if(predSize > 50)
-                                 isNeedHelper=true;
-                             else
-                                 isNeedHelper=false;
-
-                             compSize=newTxn->getCompressedSize();
-                         }
-
-                         cmpSize_predictor->update(col, rowid,newTxn->getCompressedSize());
+                         cmpSize_predictor->update(col, rowid, newTxn->getCompressedSize());
 
                          newTxn->setChipAccessRatio(compSize);
+                         break;
+                     }
+                     case 3:{  //every time metadata access
+
+                         //fetch metadata
+                         uint64_t fetch_addr = newTxn->getAddress();
+                         c_Transaction *fillTxn
+                                 = new c_Transaction((ulong) newTxn->getSeqNum(), e_TransactionType::READ,
+                                                     fetch_addr, 1);
+
+                         c_HashedAddress l_hashedAddress3 = newTxn->getHashedAddress();
+
+                         fillTxn->setMetaDataSkip();
+                         fillTxn->setHashedAddress(l_hashedAddress3);
+                         //fillTxn->setHelperFlag(true);
+                         fillTxn->donotRespond();
+                         fillTxn->setCompressedSize(100);
+                         fillTxn->setChipAccessRatio(100);
+                         fillTxn->setMetaDataTxn();
+
+                         //no metadata support, we open full row every time
+                         s_DoubleRankAccess->addData(1);
+
+
+                         //if (fillTxn->getHelper() == NULL) {
+                      /*       c_Transaction *helper_txn = new c_Transaction(fillTxn->getSeqNum(),
+                                                                           fillTxn->getTransactionMnemonic(),
+                                                                           fillTxn->getAddress(),
+                                                                           fillTxn->getDataWidth());
+
+                             helper_txn->setChipAccessRatio(50);
+
+                             c_HashedAddress l_hashedAddress = fillTxn->getHashedAddress();
+
+                             int new_rank = 0;
+                             if (l_hashedAddress.getPChannel() == 0)
+                                 new_rank = 1;
+                             else
+                                 new_rank = 0;
+
+                             l_hashedAddress.setPChannel(new_rank);
+
+
+                             unsigned l_bankId =
+                                     l_hashedAddress.getBank()
+                                     + l_hashedAddress.getBankGroup() * Banks
+                                     + l_hashedAddress.getRank() * Banks * BGs
+                                     + l_hashedAddress.getPChannel() * Banks * BGs * Ranks
+                                     + l_hashedAddress.getChannel() * (PChs + 1) * Banks * BGs * (Ranks);
+                             //std::cout <<"row: "<<row<<" subrank: "<<subrank<<" bankid[old]: "<<l_hashedAddress.getBankId()<< " bankid[new]: "<<l_bankId<<std::endl;
+                             unsigned l_rankId =
+                                     +l_hashedAddress.getRank()
+                                     + l_hashedAddress.getPChannel() * Ranks
+                                     + l_hashedAddress.getChannel() * (PChs + 1) * (Ranks);
+
+
+                             l_hashedAddress.setRankId(l_rankId);
+                             l_hashedAddress.setBankId(l_bankId);
+
+                             helper_txn->setHashedAddress(l_hashedAddress);
+                             helper_txn->setHelperFlag(true);
+                             fillTxn->setHelper(helper_txn);
+                             fillTxn->donotRespond();
+                             m_ResQ.push_back(helper_txn);
+                             fillTxn->print(output, "newtxn\n", 0);
+                             helper_txn->print(output, "helper\n", 0);*/
+                       //  }
+                      //   else
+                       //  s_SingleRankAccess->addData(1);
+
+
+                         m_MReqQ.push_back(fillTxn);
+                         m_ResQ.push_back(fillTxn);
                          break;
                      }
                      default: {
@@ -481,58 +749,68 @@ bool c_ControllerPCA::clockTic(SST::Cycle_t clock) {
                          break;
                      }
                  }
-             }
 
 
-            //add helper transaction for incompressible data
-            if(!oracle_mode&&isNeedHelper)
-            {
-                s_DoubleRankAccess->addData(1);
+                 //add helper transaction for incompressible data
+                 if (!oracle_mode && isNeedHelper) {
+                     s_DoubleRankAccess->addData(1);
 
-                if(newTxn->getHelper()==NULL) {
-                    c_Transaction *helper_txn = new c_Transaction(newTxn->getSeqNum(), newTxn->getTransactionMnemonic(),
-                                                                  newTxn->getAddress(), newTxn->getDataWidth());
+                     if (newTxn->getHelper() == NULL) {
+                         c_Transaction *helper_txn = new c_Transaction(newTxn->getSeqNum(),
+                                                                       newTxn->getTransactionMnemonic(),
+                                                                       newTxn->getAddress(), newTxn->getDataWidth());
 
-                    helper_txn->setChipAccessRatio(50);
+                         helper_txn->setChipAccessRatio(50);
 
-                    c_HashedAddress l_hashedAddress=newTxn->getHashedAddress();
+                         c_HashedAddress l_hashedAddress = newTxn->getHashedAddress();
 
-                    int new_rank = 0;
-                    if (l_hashedAddress.getRank() == 0)
-                        new_rank = 1;
-                    else
-                        new_rank = 0;
+                         int new_rank = 0;
+                         if (l_hashedAddress.getPChannel() == 0)
+                             new_rank = 1;
+                         else
+                             new_rank = 0;
 
-                    l_hashedAddress.setRank(new_rank);
+                         l_hashedAddress.setPChannel(new_rank);
 
-                    unsigned l_bankId =
+
+             unsigned l_bankId =
                      l_hashedAddress.getBank()
                      + l_hashedAddress.getBankGroup() * Banks
-                     + l_hashedAddress.getRank()    * Banks * BGs
-                     + l_hashedAddress.getChannel()   * 1 * Banks*BGs  * (Ranks+1);
-            //std::cout <<"row: "<<row<<" subrank: "<<subrank<<" bankid[old]: "<<l_hashedAddress.getBankId()<< " bankid[new]: "<<l_bankId<<std::endl;
+                     + l_hashedAddress.getRank() * Banks * BGs
+                     + l_hashedAddress.getPChannel() * Banks * BGs * Ranks
+                     + l_hashedAddress.getChannel() * (PChs+1) * Banks * BGs * (Ranks );
+             //std::cout <<"row: "<<row<<" subrank: "<<subrank<<" bankid[old]: "<<l_hashedAddress.getBankId()<< " bankid[new]: "<<l_bankId<<std::endl;
+             unsigned l_rankId =
+                     +l_hashedAddress.getRank()
+                     + l_hashedAddress.getPChannel() * Ranks
+                     + l_hashedAddress.getChannel() * (PChs+1) * (Ranks );
 
-                    unsigned l_rankId =
-                     + l_hashedAddress.getRank()
-                     + l_hashedAddress.getChannel()   * 1 * (Ranks+1);
 
 
-                    l_hashedAddress.setRankId(l_rankId);
-                    l_hashedAddress.setBankId(l_bankId);
+                         l_hashedAddress.setRankId(l_rankId);
+                         l_hashedAddress.setBankId(l_bankId);
 
-                    helper_txn->setHashedAddress(l_hashedAddress);
-                    helper_txn->setHelperFlag(true);
-                    newTxn->setHelper(helper_txn);
-                    newTxn->donotRespond();
-                    m_ResQ.push_back(helper_txn);
-                    newTxn->print(output, "newtxn\n", 0);
-                    helper_txn->print(output, "helper\n", 0);
-                }
-            }
-            else
-                s_SingleRankAccess->addData(1);
+                         helper_txn->setHashedAddress(l_hashedAddress);
+                         helper_txn->setHelperFlag(true);
+                         newTxn->setHelper(helper_txn);
+                         newTxn->donotRespond();
+                         m_ResQ.push_back(helper_txn);
+                         newTxn->print(output, "newtxn\n", 0);
+                         helper_txn->print(output, "helper\n", 0);
+                     }
+                 } else
+                     s_SingleRankAccess->addData(1);
+             }
+
+             if (m_MReqQ.size() > 0) {
+                 for (std::deque<c_Transaction *>::iterator l_mreq = m_MReqQ.begin(); l_mreq != m_MReqQ.end();) {
+                     if (m_txnScheduler->push(*l_mreq)) {
+                         l_mreq = m_MReqQ.erase(l_mreq);
+                     } else
+                         break;
+                 }
+             }
          }
-
         //insert new transaction into a transaction queue
         if(m_txnScheduler->push(newTxn)) {
             //With fast write response mode, controller sends a response for a write request as soon as it push the request to a transaction queue.
@@ -544,7 +822,7 @@ bool c_ControllerPCA::clockTic(SST::Cycle_t clock) {
                 m_ResQ.push_back(l_txnRes);
             }
 
-
+            newTxn->m_time_inserted_TxnQ=m_simCycle;
             l_it = m_ReqQ.erase(l_it);
 
 
@@ -554,13 +832,6 @@ bool c_ControllerPCA::clockTic(SST::Cycle_t clock) {
         }
         else
             break;
-    }
-
-    if(m_MReqQ.size()>0) {
-        for (auto &metadata_req: m_MReqQ) {
-            m_ReqQ.push_back(metadata_req);
-        }
-        m_MReqQ.clear();
     }
 
     // 3. run transaction Scheduler
@@ -588,36 +859,90 @@ c_ControllerPCA::~c_ControllerPCA(){
 
 
 
-void c_ControllerPCA::handleContentEvent(SST::Event *ev)
+//void c_ControllerPCA::handleContentEvent(SST::Event *ev)
+void c_ControllerPCA::storeContent()
 {
-    SST::MemHierarchy::MemEvent* req=dynamic_cast<SST::MemHierarchy::MemEvent*>(ev);
-    if(req->getCmd()!=MemHierarchy::Command::NULLCMD) {
-        uint64_t cacheline_addr = (req->getAddr() >> 6) << 6;
-        uint64_t *mem_ptr_64;
+    for(auto &link: m_laneLinks)
+    {
+        SST::Event* ev = 0;
+        while(ev=link->recv())
+        {
+            SST::MemHierarchy::MemEvent* req=dynamic_cast<SST::MemHierarchy::MemEvent*>(ev);
+            uint64_t req_addr=req->getAddr();
+            if(req->getCmd()==MemHierarchy::Command::Put) {
+                uint64_t cacheline_addr = (req_addr >> 6) << 6;
 
-        //assert(cacheline_addr < m_backing_size);
-        int size=req->getSize();
-        c_Cacheline* new_cacheline=new c_Cacheline(req->getPayload());
+                if(compression_en) {
 
-        if(compression_en) {
-            int compressed_size = m_compEngine->getCompressedSize(new_cacheline->getData(), COMP_ALG::BDI);
-            int normalized_size = (int) ((double) compressed_size / (double) 512 * 100);
+                    uint64_t *mem_ptr_64;
+                    int size=req->getSize();
+                    c_Cacheline* new_cacheline=new c_Cacheline(req->getPayload());
 
-            backing_[cacheline_addr] = normalized_size;
-        }
+                    int compressed_size = m_compEngine->getCompressedSize(new_cacheline->getData(), COMP_ALG::BDI);
+                    int normalized_size = (int) ((double) compressed_size / (double) 512 * 100);
 
-        if(verbosity>2) {
-            uint64_t cacheline_vaddr = (req->getVirtualAddress() >> 6) << 6;
-            uint32_t offset = 0;
-            for (int j = 0; j < 8; j++) {
-                mem_ptr_64 = (uint64_t *) new_cacheline->getData();
-                output->verbose(CALL_INFO, 10, 0, "paddr: %llx vaddr: %llx data: %llx \n", cacheline_addr + j * 8,
-                                cacheline_vaddr + j * 8, *mem_ptr_64);
+                    backing_[cacheline_addr] = normalized_size;
+
+                    if(verbosity>2) {
+                        uint64_t cacheline_vaddr = (req->getVirtualAddress() >> 6) << 6;
+                        uint32_t offset = 0;
+                        for (int j = 0; j < 8; j++) {
+                            mem_ptr_64 = (uint64_t *) new_cacheline->getData();
+                            output->verbose(CALL_INFO, 4, 0, "paddr: %llx vaddr: %llx data: %llx \n", cacheline_addr + j * 8,
+                                            cacheline_vaddr + j * 8, *mem_ptr_64);
+                        }
+                   }
+                    delete new_cacheline;
+                }
+                else
+                {
+                    std::vector<uint8_t> recv_data=req->getPayload();
+                    uint64_t compressed_size=0;
+                    for(int i=0;i<8;i++)
+                    {
+                        uint64_t tmp=recv_data[i];
+                        compressed_size+=(tmp<<8*i);
+                    }
+                   // printf("recv, address:%llx compressed_size:%d\n",req_addr,compressed_size);
+                    int normalized_size = (int) ((double) compressed_size / (double) 512 * 100);
+
+                    backing_[cacheline_addr] = normalized_size;
+
+                }
+
             }
+            else if(req->getCmd()==MemHierarchy::Command::Get) //handle requests for physical page number
+            {
+                std::vector<uint8_t> resp_data;
+                uint64_t next_page_num=getPageAddress();
+                for(int i=0;i<8;i++)
+                {
+                    uint8_t tmp=(uint8_t)(next_page_num>>8*i);
+                    resp_data.push_back(tmp);
+                }
+
+                SST::MemHierarchy::MemEvent* res=new SST::MemHierarchy::MemEvent(this, req_addr,req_addr,MemHierarchy::Command::GetSResp, resp_data);
+                link->send(res);
+            } else
+            {
+                fprintf(stderr,"[c_ControllerPCA] cpu command error!\n");
+                exit(1);
+            }
+
+            delete req;
         }
-
-        delete new_cacheline;
-
     }
-    delete ev;
+}
+
+uint32_t c_ControllerPCA::getPageAddress(){
+    uint64_t l_nextPageAddress=m_nextPageAddress;
+
+    if(m_nextPageAddress+m_osPageSize>m_memsize)
+    {
+        fprintf(stderr,"[c_ControllerPCA] Out of Address Range!!\n");
+    }
+
+    m_nextPageAddress=(m_nextPageAddress+m_osPageSize)%m_memsize;
+
+    return l_nextPageAddress;
 }

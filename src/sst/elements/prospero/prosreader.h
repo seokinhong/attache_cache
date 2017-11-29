@@ -38,10 +38,12 @@ public:
 		const uint64_t eCyc,
 		const uint64_t eAddr,
 		const uint32_t eLen,
+                const uint64_t eData,
 		const ProsperoTraceEntryOperation eOp,
 		const uint32_t eAtom) :
-		cycles(eCyc), address(eAddr), length(eLen), op(eOp), atomic(eAtom) {
-
+		cycles(eCyc), address(eAddr), length(eLen), data(eData), op(eOp), atomic(eAtom) {
+                    
+ //                   printf("address: 0x%x data: 0x%x\n",eAddr,eData);
 		}
 
 	bool isRead() const { return op == READ;  }
@@ -49,6 +51,7 @@ public:
 	bool isAtomic() const { return atomic != NON_ATOMIC; }
 	uint64_t getAddress() const { return address; }
 	uint32_t getLength() const { return length; }
+	uint32_t getData() const { return data; }
 	uint64_t getIssueAtCycle() const { return cycles; }
 	uint64_t getAtomic() const { return atomic; }
 	ProsperoTraceEntryOperation getOperationType() const { return op; }
@@ -56,8 +59,10 @@ private:
 	const uint64_t cycles;
 	const uint64_t address;
 	const uint32_t length;
+        const uint64_t data;
 	const uint32_t atomic;
 	const ProsperoTraceEntryOperation op;
+
 };
 
 class ProsperoTraceReader : public SubComponent {
@@ -67,6 +72,7 @@ public:
 	~ProsperoTraceReader() { };
 	virtual ProsperoTraceEntry* readNextEntry() { return NULL; };
 	void setOutput(Output* out) { output = out; }
+	virtual void resetTrace(){};
 
 protected:
 	Output* output;

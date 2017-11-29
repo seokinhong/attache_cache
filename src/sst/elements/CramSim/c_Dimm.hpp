@@ -128,6 +128,18 @@ private:
 	Statistic<uint64_t>* s_preCmdsRecvd;
 	Statistic<uint64_t>* s_refCmdsRecvd;
 
+	Statistic<uint64_t>* s_actCmdsRecvdMetadata;
+	Statistic<uint64_t>* s_readCmdsRecvdMetadata;
+	Statistic<uint64_t>* s_writeCmdsRecvdMetadata;
+	Statistic<uint64_t>* s_preCmdsRecvdMetadata;
+
+	Statistic<double>* s_actPower;
+	Statistic<double>* s_readPower;
+	Statistic<double>* s_writePower;
+	Statistic<double>* s_prechPower;
+	Statistic<double>* s_refPower;
+	Statistic<double>* s_totalPower;
+	Statistic<double>* s_totalEnergy;
 
 	std::vector<uint64_t> m_actCmdsRecvd;
 	std::vector<uint64_t> m_readCmdsRecvd;

@@ -164,6 +164,7 @@ void c_TxnScheduler::run(){
                 l_nextTxn=getNextTxn(*l_queue, l_channelID);
         }
 
+
         //2. send the selected transaction to transaction converter
         if(l_nextTxn!=nullptr) {
             if(m_cmdScheduler->getToken(l_nextTxn->getHashedAddress())>=3) {
@@ -179,9 +180,12 @@ void c_TxnScheduler::run(){
                 // send the selected transaction
                 m_txnConverter->push(l_nextTxn);
 
-                #ifdef __SST_DEBUG_OUTPUT__
+				if(!l_nextTxn->isHelper() && !l_nextTxn->isMetaDataTxn())
+					l_nextTxn->m_time_inserted_CmdQ = m_controller->getSimCycle();
+
+//   #ifdef __SST_DEBUG_OUTPUT__
                 l_nextTxn->print(output, "[c_TxnScheduler]",m_controller->getSimCycle());
-                #endif
+//                #endif
 
                 // pop it from inputQ
                 popTxn(*l_queue, l_nextTxn);
@@ -199,6 +203,8 @@ c_Transaction* c_TxnScheduler::getNextTxn(TxnQueue& x_queue, int x_ch)
 
 	//get the next transaction
 	c_Transaction* l_nxtTxn = nullptr;
+    if(x_queue.size()>0)
+        l_nxtTxn=x_queue.front();
 
 	//FCFS
 	if(k_txnSchedulingPolicy == e_txnSchedulingPolicy::FCFS) {
@@ -208,17 +214,24 @@ c_Transaction* c_TxnScheduler::getNextTxn(TxnQueue& x_queue, int x_ch)
 		}
 	}//FRFCFS
 	else if(k_txnSchedulingPolicy == e_txnSchedulingPolicy::FRFCFS) {
+		c_Transaction* l_nxtTxn_tmp= nullptr;
+
 		for (auto &l_txn: x_queue) {
 			if (m_cmdScheduler->getToken(l_txn->getHashedAddress()) >= 3) {
-				if(hasDependancy(l_txn, x_ch)==false)
-					l_nxtTxn = l_txn;
-				else
-					continue;
+				//if(hasDependancy(l_txn, x_ch)==false)
+				l_nxtTxn_tmp = l_txn;
+				//else
+			//		continue;
+				if(m_txnConverter->getBankPolicy()==1) {
+					c_BankInfo *l_bankInfo = m_txnConverter->getBankInfo(l_txn->getHashedAddress().getBankId());
 
-				c_BankInfo *l_bankInfo = m_txnConverter->getBankInfo(l_txn->getHashedAddress().getBankId());
-
-				if (l_bankInfo->isRowOpen()
+					if (l_bankInfo->isRowOpen()
 						&& l_bankInfo->getOpenRowNum() == l_txn->getHashedAddress().getRow()) {
+						l_nxtTxn = l_nxtTxn_tmp;
+						break;
+					}
+				} else {
+					l_nxtTxn = l_nxtTxn_tmp;
 					break;
 				}
 			}

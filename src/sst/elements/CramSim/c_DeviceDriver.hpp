@@ -115,6 +115,7 @@ private:
 	SimTime_t m_lastDataCmdIssueCycle;
 	e_BankCommandType m_lastDataCmdType;
 	unsigned m_lastChannel;
+	unsigned m_lastRank;
 	unsigned m_lastPseudoChannel;
 	std::vector<std::list<unsigned>> m_cmdACTFAWtrackers; // FIXME: change this to a circular buffer for speed. Could also implement as shift register.
 	std::vector<bool> m_isACTIssued;
@@ -141,6 +142,7 @@ private:
 	std::vector<c_Channel*> m_channel;
     std::map<std::string, unsigned> m_bankParams;
 
+	bool pca_mode;
 
 	int m_numChannels;
 	int m_numPseudoChannels;

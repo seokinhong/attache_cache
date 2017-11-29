@@ -17,6 +17,7 @@
 #include "sst_config.h"
 #include <sst/core/unitAlgebra.h>
 
+#include <sst/elements/memHierarchy/memEvent.h>
 #include "proscpu.h"
 
 #include <algorithm>
@@ -62,16 +63,27 @@ ProsperoComponent::ProsperoComponent(ComponentId_t id, Params& params) :
 		maxIssuePerCycle = (uint32_t) params.find<uint32_t>("max_issue_per_cycle", 2);
 		output->verbose(CALL_INFO, 1, 0, "Configured maximum transaction issue per cycle %" PRIu32 "\n", (uint32_t) maxIssuePerCycle);
 
-		// tell the simulator not to end without us
-		registerAsPrimaryComponent();
-		primaryComponentDoNotEndSim();
+		bool l_found=false;
+		cpuid = (uint32_t) params.find<uint32_t>("cpuid", 0, l_found);
+		if(l_found==false)
+		{
+			fprintf(stderr,"[Prospero] cpuid is not specified\n");
+			exit(-1);
+		}
 
-	output->verbose(CALL_INFO, 1, 0, "Configuring Prospero cache connection...\n");
-	cache_link = dynamic_cast<SimpleMem*>(loadSubComponent("memHierarchy.memInterface", this, params));
-  	cache_link->initialize("cache_link", new SimpleMem::Handler<ProsperoComponent>(this,
-		&ProsperoComponent::handleResponse) );
-	output->verbose(CALL_INFO, 1, 0, "Configuration of memory interface completed.\n");
+		if(cpuid==0)
+		{
+			// tell the simulator not to end without us
+			registerAsPrimaryComponent();
+			primaryComponentDoNotEndSim();
+		}
 
+
+		output->verbose(CALL_INFO, 1, 0, "Configuring Prospero cache connection...\n");
+		cache_link = dynamic_cast<SimpleMem*>(loadModuleWithComponent("memHierarchy.memInterface", this, params));
+		cache_link->initialize("cache_link", new SimpleMem::Handler<ProsperoComponent>(this, &ProsperoComponent::handleResponse) );
+
+		output->verbose(CALL_INFO, 1, 0, "Configuration of memory interface completed.\n");
 
 		output->verbose(CALL_INFO, 1, 0, "Reading first entry from the trace reader...\n");
 		currentEntry = reader->readNextEntry();
@@ -122,6 +134,7 @@ ProsperoComponent::ProsperoComponent(ComponentId_t id, Params& params) :
 		// We start by telling the system to continue to process as long as the first entry
 		// is not NULL
 		traceEnded = currentEntry == NULL;
+		baseCycle=0;
 
 		readsIssued = 0;
 		writesIssued = 0;
@@ -176,7 +189,67 @@ ProsperoComponent::ProsperoComponent(ComponentId_t id, Params& params) :
 		statA_Atomify = this->registerStatistic<uint64_t>("a_atomify", subID);
 
 		output->verbose(CALL_INFO, 1, 0, "Prospero configuration completed successfully.\n");
+
+
+	 bool content_link_en = (bool)params.find<bool>("memcontent_link_en",false);
+    if (content_link_en){
+        cpu_to_mem_link = configureLink("linkMemContent", new Event::Handler<ProsperoComponent>(this, &ProsperoComponent::handlePageAllocResponse) );
+
+
+
+    } else
+        cpu_to_mem_link = 0;
+
+	isPageRequestSent=false;
+}
+
+
+void ProsperoComponent::sendMemContent(uint64_t addr, uint64_t vaddr, uint32_t size, uint64_t data) {
+
+	std::vector<uint8_t> data_tmp;
+	for(int i=0;i<8;i++) {
+		uint8_t tmp=(uint8_t)(data>>8*i);
+		data_tmp.push_back(tmp);
 	}
+    SST::MemHierarchy::MemEvent *req = new SST::MemHierarchy::MemEvent(this,addr,vaddr,SST::MemHierarchy::Command::Put,data_tmp);
+	//printf("sender [%s], addr:%llx size:%d\n",this->getName().c_str(),addr,data);
+	req->setVirtualAddress(vaddr);
+    req->setDst("MemController0");
+	cpu_to_mem_link->send(req);
+}
+
+
+void ProsperoComponent::sendPageAllocRequest(uint64_t addr) {
+	if(isPageRequestSent==false) {
+		SST::MemHierarchy::MemEvent *req = new SST::MemHierarchy::MemEvent(this, addr, addr,
+																		   SST::MemHierarchy::Command::Get);
+		req->setDst("MemController0");
+		cpu_to_mem_link->send(req);
+		isPageRequestSent = true;
+	}
+}
+
+
+void ProsperoComponent::handlePageAllocResponse(Event *ev) {
+
+	SST::MemHierarchy::MemEvent* res=dynamic_cast<SST::MemHierarchy::MemEvent*>(ev);
+	SST::MemHierarchy::Command cmd = res->getCmd();
+	assert(cmd==SST::MemHierarchy::Command::GetSResp);
+	uint64_t nextPageNum=0;
+	std::vector<uint8_t> recv_data=res->getPayload();
+
+	for(int i=0;i<8;i++)
+	{
+		uint64_t tmp=(uint64_t)recv_data[i];
+		nextPageNum+=(tmp<<8*i);
+	}
+	//printf("test next page start address: %llx\n",nextPageNum);
+	memMgr->pushNextPageNum(nextPageNum);
+
+	delete ev;
+	isPageRequestSent=false;
+}
+
 
 ProsperoComponent::~ProsperoComponent() {
 	delete memMgr;
@@ -184,8 +257,9 @@ ProsperoComponent::~ProsperoComponent() {
 }
 
 void ProsperoComponent::init(unsigned int phase) {
-    cache_link->init(phase);
-}
+	    cache_link->init(phase);
+	}
+
 
 void ProsperoComponent::finish() {
 	const uint64_t nanoSeconds = getCurrentSimTimeNano();
@@ -259,6 +333,8 @@ void ProsperoComponent::handleResponse(SimpleMem::Request *ev) {
 	delete ev;
 }
 
+
+
 bool ProsperoComponent::tick(SST::Cycle_t currentCycle) {
 	if(NULL == currentEntry) {
 		output->verbose(CALL_INFO, 16, 0, "Prospero execute on cycle %" PRIu64 ", current entry is NULL, outstanding=%" PRIu32 ", outstandingUC=%" PRIu32 ", maxOut=%" PRIu32 "\n", (uint64_t) currentCycle, currentOutstanding, currentOutstandingUC, maxOutstanding);
@@ -269,17 +345,27 @@ bool ProsperoComponent::tick(SST::Cycle_t currentCycle) {
 	// If we have finished reading the trace we need to let the events in flight
 	// drain and the system come to a rest
 	if(traceEnded) {
+		if(cpuid==0) {
+			statCycles->addData(1);
+			cyclesNoInstr++;
+			statCyclesNoInstr->addData(1);
 
-		statCycles->addData(1);
-		cyclesNoInstr++;
-		statCyclesNoInstr->addData(1);
-
-		if(0 == currentOutstanding && currentOutstandingUC == 0) {
-			primaryComponentOKToEndSim();
-			return true;
+			if (0 == currentOutstanding && currentOutstandingUC == 0) {
+				primaryComponentOKToEndSim();
+				return true;
+			}
+			return false;
 		}
-		return false;
+		else  //run again until the first core finish reading the trace
+		{
+			reader->resetTrace();
+			currentEntry = reader->readNextEntry();
+			traceEnded=false;
+			baseCycle=currentCycle;
+		}
 	}
+
+	uint64_t currentEntryCycle=currentEntry->getIssueAtCycle()+baseCycle;
 
 	const uint64_t outstandingBeforeIssue = currentOutstanding;
 	const uint64_t outstandingBeforeIssueUC = currentOutstandingUC;
@@ -290,6 +376,12 @@ bool ProsperoComponent::tick(SST::Cycle_t currentCycle) {
 	// Wait to see if the current operation can be issued, if yes then
 	// go ahead and issue it, otherwise we will stall
 	for(uint32_t i = 0; i < maxIssuePerCycle; ++i) {
+		if(memMgr->getNumAllocatedPage()<2)
+		{
+			sendPageAllocRequest(0);
+			break;
+		}
+
 		if (waitForCycle == 0){
 			if(currentOutstanding < maxOutstanding) {
 				// Issue the pending request into the memory subsystem
@@ -311,7 +403,7 @@ bool ProsperoComponent::tick(SST::Cycle_t currentCycle) {
 			}
 		}
 		else{
-			if(currentCycle >= currentEntry->getIssueAtCycle()) {
+			if(currentCycle >= currentEntryCycle) {
 				if(currentOutstanding < maxOutstanding) {
 					// Issue the pending request into the memory subsystem
 					issueRequest(currentEntry);
@@ -372,6 +464,7 @@ void ProsperoComponent::issueRequest(const ProsperoTraceEntry* entry) {
 	bool isAtomic		= entry->isAtomic();
 	const uint32_t atomicClass	= entry->getAtomic();
 
+
 	if(lineOffset + entryLength > cacheLineSize) {
 		// Perform a split cache line load
 		const uint64_t lowerLength = cacheLineSize - lineOffset;
@@ -393,6 +486,9 @@ void ProsperoComponent::issueRequest(const ProsperoTraceEntry* entry) {
 		SimpleMem::Request* reqUpper = new SimpleMem::Request(isRead ? SimpleMem::Request::Read : SimpleMem::Request::Write, upperAddress, upperLength);
 		reqUpper->setVirtualAddress((entryAddress - (entryAddress % cacheLineSize)) + cacheLineSize);
 
+
+		if(cpu_to_mem_link)
+			sendMemContent(lowerAddress,entryAddress,64, entry->getData());
 
 		if (pimSupport == 0 || !isAtomic){
 			//Treat atomics as regular ops
@@ -511,6 +607,10 @@ void ProsperoComponent::issueRequest(const ProsperoTraceEntry* entry) {
 	       	request->setVirtualAddress(entryAddress);
 
 		output->verbose(CALL_INFO, 8, 0, "Issuing request id: %" PRIu64 ", cacheable %" PRIu32" \n", request->id, isAtomic);
+
+		if(cpu_to_mem_link)
+			sendMemContent(addr,entryAddress,64, entry->getData());
+
 
 		if (pimSupport == 0 || !isAtomic){
 			//Treat atomics as regular ops

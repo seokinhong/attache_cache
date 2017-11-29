@@ -564,11 +564,15 @@ bool c_DeviceDriver::isCmdAllowed(c_BankCommand* x_bankCommandPtr)
 	//	!= m_inflightWrites.end()) {
 	//	return false;
 	//}
-	if(!isCommandBusAvailable(x_bankCommandPtr))
-		return false;
 
     //check timing constraints
 	if (!m_banks.at(l_bankId)->isCommandAllowed(x_bankCommandPtr, l_time))
+		return false;
+
+	//if(pca_mode && x_bankCommandPtr->isHelper())
+//		return true;
+	//else if(!isCommandBusAvailable(x_bankCommandPtr))
+	if(!isCommandBusAvailable(x_bankCommandPtr))
 		return false;
 
 	return true;
@@ -768,6 +772,8 @@ bool c_DeviceDriver::isCommandBusAvailable(c_BankCommand *l_cmdPtr) {
 	uint32_t l_ChannelNum = l_cmdPtr->getHashedAddress()->getChannel();
 	bool l_isColCmd = l_cmdPtr->isColCommand();
 
+	if(l_cmdPtr->isHelper())
+		return true;
 
 	if(l_isColCmd)
 		return (m_blockColCmd.at(l_ChannelNum)==0);
@@ -970,6 +976,7 @@ bool c_DeviceDriver::push(c_BankCommand* x_cmd) {
 	if(m_inputQ.size()<32)
 	{
 		m_inputQ.push_back(x_cmd);
+
 		occupyCommandBus(x_cmd);
 		return true;
 	} else

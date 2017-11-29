@@ -113,10 +113,13 @@ namespace SST {
             c_ControllerPCA(SST::ComponentId_t id, SST::Params &params);
             void finish();
             void init(unsigned int phase);
+            std::vector<SST::Link*> m_laneLinks;
             ~c_ControllerPCA();
+            bool isMemzipMode(){return memzip_mode;}
 
 
         private:
+
             //uint8_t*       backing_;
             class c_Cacheline{
             public:
@@ -136,6 +139,7 @@ namespace SST {
 
                 uint8_t* getData()
                 {
+
                     return data;
                 }
 
@@ -146,21 +150,32 @@ namespace SST {
             class c_MetaCache{
 
             public:
-                c_MetaCache(int _row_size, int num_entry, Output* output, double _hit_rate)   //row size(unit):
+                c_MetaCache(int _row_size, int num_row, int num_way, Output* output, double _hit_rate)   //row size(unit):
                 {
                     m_output=output;
                     m_hit_rate=_hit_rate;
+                    m_num_way=num_way;
 
-                    index_size=log2(num_entry);
+                    index_size=log2(num_row);
                     page_offset_size=log2(_row_size);
-                    page_mask=pow((double)2,(double)index_size)-1;
+                    index_mask=pow((double)2,(double)index_size)-1;
                     m_hit_cnt=0;
                     m_miss_cnt=0;
 
-                    printf("[Memzip meta cache] row_size: %d num_entry: %d index_size: %d page_offset_size: %d page_mask:%x metacache_hitrate:%d\n",
-                           _row_size, num_entry, index_size, page_offset_size, page_mask,m_hit_rate);
+                    printf("[Memzip meta cache] memory row size: %d # of metacache row: %d # of way: %d, index_size: %d page_offset_size: %d page_mask:%x metacache_hitrate:%d\n",
+                           _row_size, num_row, num_way, index_size, page_offset_size, index_mask,m_hit_rate);
 
-                    tagarray.resize(num_entry);
+                    for(int i=0; i<num_row;i++)
+                    {
+                        std::deque<uint64_t> *tag_entry=new std::deque<uint64_t>();
+
+                        for(int i=0;i<num_way;i++)
+                        {
+                            tag_entry->push_back(-1);
+                        }
+
+                        tagarray.push_back(tag_entry);
+                    }
                 }
 
                 bool isHit(uint64_t addr)  //row address is used for index
@@ -168,6 +183,8 @@ namespace SST {
                     int randvalue = rand()%100;
                     bool hit=false;
 
+
+                    //constant hit rate
                     if(m_hit_rate>0) {
 
                         if(randvalue <= m_hit_rate)
@@ -175,63 +192,129 @@ namespace SST {
                         else
                             hit= false;
 
-                    } else {
-                        uint64_t tag = addr >> (index_size + page_offset_size);
-                        uint64_t index = (addr >> page_offset_size) & page_mask;
+                    }
+                    //actual cache model
+                    else {
+                        uint64_t tag = getTag(addr);
+                        uint64_t index =  getIndex(addr);
 
-                        m_output->verbose(CALL_INFO, 2, 0, "[Memzip meta cache] addr: %llx tag: %x index: %d\n", addr,
-                                          tag, index);
-                        if ((tagarray[index] == tag)) {
+                      //  m_output->verbose(CALL_INFO, 2, 0, "[Memzip meta cache] addr: %llx tag: %x index: %d\n", addr,
+                        //                  tag, index);
+
+                        //tag matching
+                        std::deque<uint64_t> *tag_entry=tagarray[index];
+
+                    /*    printf("\n");
+                        printf("[before access addr:%llx index:%llx tag:%llx\t]",addr, index,tag);
+                        for(auto &it:*tag_entry)
+                        {
+                            printf("tag:%lld\t",it);
+                        }
+                        printf("\n");*/
+
+                        for(std::deque<uint64_t>::iterator tag_it=tag_entry->begin();tag_it!=tag_entry->end();tag_it++)
+                        {
+                            //hit
+                            uint64_t l_tag=*tag_it;
+                            if ((l_tag == tag)) {
+                                hit = true;
+                                tag_entry->erase(tag_it);
+                                tag_entry->push_front(tag);
+                                break;
+                            }//miss
+                            else {
+                                hit = false;
+                            }
+                        }
+
+                        assert(tag_entry->size()==m_num_way);
+                        if (hit) {
                             m_output->verbose(CALL_INFO, 2, 0, "[Memzip meta cache hit] addr: %llx tag: %x index: %d\n",
                                               addr, tag, index);
-                            hit = true;
-                        } else {
+                            m_hit_cnt++;
+
+
+                           /* printf("[after hit index:%lld tag:%llx\t]",index, tag);
+                           for(auto &it:*tag_entry)
+                             {
+                              printf("tag:%lld\t",it);
+                                 }
+                            printf("\n");*/
+
+                        }
+                        else {
                             m_output->verbose(CALL_INFO, 2, 0,
                                               "[Memzip meta cache miss] addr: %llx tag: %x index: %d\n", addr, tag,
                                               index);
-                            hit = false;
-                        }
-                        if (hit)
-                            m_hit_cnt++;
-                        else
                             m_miss_cnt++;
+                        }
                     }
-
                     return hit;
                 }
 
+                uint64_t getTag(uint64_t addr) {
+                    uint64_t tag = addr >> (index_size + page_offset_size);
+                    return tag;
+                }
+                uint64_t getIndex(uint64_t addr){
+                    uint64_t index = (addr >> page_offset_size) & index_mask;
+                    return index;
+                }
 
                 uint64_t fill(uint64_t addr)
                 {
-                    uint64_t tag=addr>>(index_size+page_offset_size);
-                    uint64_t index=(addr>>page_offset_size)&page_mask;
-                    uint64_t evict_addr=(tagarray[index]<<index_size+index)<<page_offset_size;
+                    uint64_t tag=getTag(addr);
+                    uint64_t index=getIndex(addr);
+                    uint64_t evict_tag = tagarray[index]->back();
+                    uint64_t evict_addr = (evict_tag<<index_size+index)<<page_offset_size;  //assume that meta data is stored in the first column of each row
 
-                    tagarray[index]=tag;
+                    tagarray[index]->push_front(tag);
+                    tagarray[index]->pop_back();
 
                     m_output->verbose(CALL_INFO,2,0,"[Memzip meta chache fill] addr: %llx tag: %llx index:%d evict_addr: %llx\n",
                            addr,tag,index,evict_addr);
+
+
+                    assert(tagarray[index]->size()==m_num_way);
+                /*   printf("[after fill, addr:%llx index:%llx tag:%llx\t]",addr,index, tag);
+                    for(auto &it:*tagarray[index])
+                    {
+                        printf("tag:%lld\t",it);
+                    }
+                    printf("\n");
+*/
+
                     return evict_addr;
                 }
 
-                uint64_t getMetaDataAddress(uint64_t addr)
+                uint64_t getMetaDataAddress(uint64_t addr, bool is_write)
                 {
-                    uint64_t metaArraySize=32*1024*1024;
-                    uint64_t mask = ~(metaArraySize-1);
-                    return addr;
-                    return rand()& mask;
+                    uint64_t metadata_address=0;
+                    uint64_t mask = memsize-1;
+
+                    if(is_write)
+                        metadata_address=rand() & mask;
+                    else
+                        metadata_address=addr & mask;
+
+                   // return addr;
+                    return metadata_address;
                 }
+
                 uint64_t getHitCnt(){return m_hit_cnt;}
                 uint64_t getMissCnt(){return m_miss_cnt;}
             private:
                 int m_hit_rate;
                 int index_size;
                 int page_offset_size;
-                int page_mask;
-                std::vector<uint64_t> tagarray;
+                int index_mask;
+
+                std::vector<std::deque<uint64_t>*> tagarray;
                 uint64_t m_hit_cnt;
                 uint64_t m_miss_cnt;
                 Output *m_output;
+                uint64_t memsize;
+                int m_num_way;
             };
 
             class c_2LvPredictor{
@@ -307,18 +390,7 @@ namespace SST {
                     uint64_t pre_success=m_predSucess_cnt;
                     uint64_t pre_fail=m_predFail_cnt;
 
-                        if(actual_size<=50) {
-                            if (predict_size <= 50)
-                                m_predSucess_cnt++;
-                            else
-                                m_predFail_cnt++;
-                        }
-                        else {
-                            if(predict_size > 50)
-                                m_predSucess_cnt++;
-                            else
-                                m_predFail_cnt++;
-                            }
+
                   /*  if(pre_success<m_predSucess_cnt)
                         printf("[Success]predsuccess_cnt: %lld predfail_cnt: %lld actual_size:%d pred_size:%d hit:%lld miss:%lld\n",m_predSucess_cnt,m_predFail_cnt,actual_size,predict_size,m_hit_cnt,m_miss_cnt);
                     else
@@ -459,25 +531,35 @@ namespace SST {
             bool compression_en;
             bool pca_mode;
             bool oracle_mode;
+            bool m_isFixedCompressionMode;
             int verbosity;
+            uint64_t m_nextPageAddress;
+            uint64_t m_osPageSize;
 
-            int m_total_num_banks= m_deviceDriver->getTotalNumBank();
-            int m_chnum=m_deviceDriver->getNumChannel();
-            int m_ranknum=m_deviceDriver->getNumRanksPerChannel();
-            int m_bgnum=m_deviceDriver->getNumBankGroupsPerRank();
-            int m_banknum=m_deviceDriver->getNumBanksPerBankGroup();
-            int m_rownum=m_deviceDriver->getNumRowsPerBank();
-            int m_colnum=m_deviceDriver->getNumColPerBank();
+
+
+            uint64_t m_total_num_banks;
+            uint64_t m_chnum;
+            uint64_t m_ranknum;
+            uint64_t m_bgnum;
+            uint64_t m_banknum;
+            uint64_t m_rownum;
+            uint64_t m_colnum;
+            uint64_t m_memsize;
 
             c_CompressEngine* m_compEngine;
             SST::Link *m_contentLink;
             int metadata_predictor;
+            bool no_metadata;
+            bool memzip_mode;
 
             // Statistics
             std::map<int, uint64_t> m_normalized_size;
             //std::vector<std::vector<c_RowStat*>> m_row_stat;
             std::map<uint32_t, std::map<uint32_t, c_RowStat*>> m_row_stat;
             void handleContentEvent(SST::Event *ev);
+            void storeContent();
+            uint32_t getPageAddress();
 
             Statistic<double>* s_CompRatio;
             Statistic<uint64_t>* s_RowSize0;
@@ -492,6 +574,12 @@ namespace SST {
             Statistic<uint64_t>* s_SingleRankAccess;
             Statistic<uint64_t>* s_MemzipMetaCacheHit;
             Statistic<uint64_t>* s_MemzipMetaCacheMiss;
+            Statistic<uint64_t>* s_predicted_fail_below50;
+            Statistic<uint64_t>* s_predicted_success_above50;
+            Statistic<uint64_t>* s_predicted_success_below50;
+            Statistic<uint64_t>* s_predicted_fail_above50;
+
+
 
 
 

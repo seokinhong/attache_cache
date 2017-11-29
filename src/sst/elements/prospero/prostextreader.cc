@@ -47,14 +47,15 @@ ProsperoTraceEntry* ProsperoTextTraceReader::readNextEntry() {
 	uint64_t reqCycles  = 0;
 	char reqType = 'R';
 	uint32_t reqLength  = 0;
-	uint32_t reqAtomic = NON_ATOMIC;
+	uint64_t reqData = 0;
+        uint32_t reqAtomic = NON_ATOMIC;
 	uint64_t atomifyStart = 0;
 	uint64_t atomifyBefore = 0;
 	int64_t atomifyRange = 0;
 
 
-	if(EOF == fscanf(traceInput, "%" PRIu64 " %c %" PRIu64 " %" PRIu32 " %" PRIu32"",
-				&reqCycles, &reqType, &reqAddress, &reqLength, &reqAtomic) ) {
+	if(EOF == fscanf(traceInput, "%" PRIu64 " %c %" PRIu64 " %" PRIu32 " %" PRIu64 " %" PRIu32"",
+				&reqCycles, &reqType, &reqAddress, &reqLength, &reqData, &reqAtomic) ) {
 		return NULL;
 	} else {
 		if (pimSupport > 1){	
@@ -98,7 +99,7 @@ ProsperoTraceEntry* ProsperoTextTraceReader::readNextEntry() {
 		}
 		
 		return new ProsperoTraceEntry(reqCycles, reqAddress,
-				reqLength,
+				reqLength, reqData,
 				(reqType == 'R' || reqType == 'r') ? READ : WRITE, reqAtomic);
 	}
 }

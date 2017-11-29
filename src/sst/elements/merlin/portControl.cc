@@ -418,6 +418,7 @@ PortControl::init(unsigned int phase) {
         init_ev = new RtrInitEvent();
         init_ev->command = RtrInitEvent::REPORT_BW;
         init_ev->ua_value = link_bw;
+
         port_link->sendInitData(init_ev);
         
         // If this is a host port, send the endpoint ID to the LinkControl

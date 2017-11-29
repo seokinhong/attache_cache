@@ -30,6 +30,7 @@ ArielCore::ArielCore(ArielTunnel *tunnel, SimpleMem* coreToCacheLink,
 	output(out), tunnel(tunnel), perform_checks(perform_address_checks),
 	verbosity(static_cast<uint32_t>(out->getVerboseLevel()))
 {
+
 	output->verbose(CALL_INFO, 2, 0, "Creating core with ID %" PRIu32 ", maximum queue length=%" PRIu32 ", max issue is: %" PRIu32 "\n", thisCoreID, maxQLen, maxIssuePerCyc);
 	inst_count = 0;
 	cacheLink = coreToCacheLink;
@@ -177,7 +178,7 @@ void ArielCore::commitWriteEvent(uint64_t address,
 		if(multiprogsim_en)
 		{
 			uint64_t new_address=address+(cpuid<<phyaddr_width);
-			output->verbose(CALL_INFO,1,0, "cpuid:%d origin_paddr:%llx new_paddr:%llx virt_addr:%llx\n",cpuid,address,new_address,virtAddress);
+			output->verbose(CALL_INFO,1,0, "cpuid:%d origin_paddr:%llx new_paddr:%llx virt_addr:%llx cache_address:%llx\n",cpuid,address,new_address,virtAddress,(new_address>>6)<<6);
 			address=new_address;
 		}
 		SimpleMem::Request *req = new SimpleMem::Request(SimpleMem::Request::Write, address, length);
@@ -265,7 +266,7 @@ void ArielCore::createReadEvent(uint64_t address, uint32_t length, uint64_t* dat
 	ArielReadEvent* ev = new ArielReadEvent(address, length, data);
 	coreQ->push(ev);
 
-	ARIEL_CORE_VERBOSE(4, output->verbose(CALL_INFO, 4, 0, "Generated a READ event, addr=%" PRIu64 ", length=%" PRIu32 ", data=%" PRIu64"\n", address, length, data));
+	ARIEL_CORE_VERBOSE(4, output->verbose(CALL_INFO, 4, 0, "Generated a READ event, addr=%llx, length=%" PRIu32 ", data=%" PRIu64"\n", address, length, data));
 }
 
 
@@ -296,7 +297,7 @@ void ArielCore::createWriteEvent(uint64_t address, uint32_t length, uint64_t *da
 	ArielWriteEvent* ev = new ArielWriteEvent(address, length, data);
 	coreQ->push(ev);
 
-	ARIEL_CORE_VERBOSE(4, output->verbose(CALL_INFO, 4, 0, "Generated a WRITE event, addr=%" PRIu64 ", length=%" PRIu32 ", data=%" PRIu64 "\n", address, length, data));
+	ARIEL_CORE_VERBOSE(4, output->verbose(CALL_INFO, 4, 0, "Generated a WRITE event, addr=%llx, length=%" PRIu32 ", data=%" PRIu64 "\n", address, length, data));
 }
 
 void ArielCore::createExitEvent() {
