@@ -382,7 +382,12 @@ static const ElementInfoPort c_Controller_ports[] = {
 		{NULL, NULL, NULL}
 };
 
-
+static const ElementInfoStatistic c_Controller_stats[] = {
+		{"totalQueueingDelay","","",1},
+		{"cmdQueueingDelay","","",1},
+		{"txnQueueingDelay","","",1},
+		{NULL,NULL,NULL,1}
+};
 
 /*----SETUP ControllerPCA Component STRUCTURES----*/
 static const ElementInfoPort c_ControllerPCA_ports[] = {
@@ -1804,7 +1809,7 @@ static const ElementInfoComponent CramSimComponents[] = {
 					c_Controller_params, 						// Parameters
 					c_Controller_ports, 						// Ports
 					COMPONENT_CATEGORY_UNCATEGORIZED, 			// Category
-					NULL 										// Statistics
+					c_Controller_stats 										// Statistics
 		},
 		{ "c_TxnDispatcher",			 						// Name
 			"Transaction dispatcher",				 				// Description

@@ -140,10 +140,10 @@ bool SimpleDRAM::issueRequest( ReqId reqId, Addr addr, bool isWrite, unsigned nu
     int bank = (addr >> lineOffset) & bankMask;
     int row = addr >> rowOffset;
 
-#ifdef __SST_DEBUG_OUTPUT__
-    output->debug(_L10_, "SimpleDRAM (%s) received request for address %" PRIx64 " which maps to bank: %d, row: %d. Bank status: %s, open row is %d\n", 
+//#ifdef __SST_DEBUG_OUTPUT__
+    printf("SimpleDRAM (%s) received request for address %" PRIx64 " which maps to bank: %d, row: %d. Bank status: %s, open row is %d\n",
            parent->getName().c_str(), addr, bank, row, (busy[bank] ? "busy" : "idle"), openRow[bank]);
-#endif
+//#endif
     
     // If bank is busy -> return false;
     if (busy[bank]) return false;

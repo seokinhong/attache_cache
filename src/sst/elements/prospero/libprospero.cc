@@ -55,6 +55,7 @@ static const ElementInfoStatistic prospero_statistics[] = {
 	{ "split_write_requests", "Stat split_write_requests", "requests", 1},
 	{ "cycles_issue", "Stat cycles with an issued memory request", "requests", 1},
 	{ "cycles_no_issue", "Stat cycles without an issued memory request due to LS queue being full", "requests", 1},
+	{ "cycles_tlb_misses", "Stat cycles without an issued memory request due to TLB misses", "requests", 1},
 	{ "cycles_no_instr", "Stat cycles without an issued memory request due to instruction being far ahead in time", "requests", 1},
 	{ "cycles",       "Stat simulation cycles", "requests", 1},
 	{ "bytes_read",       "Stat bytes read", "requests", 1},
@@ -121,6 +122,7 @@ static const ElementInfoParam prosperoCompressedBinaryReader_params[] = {
 static const ElementInfoPort prospero_ports[] = {
 	{ "cache_link", "Link to the memHierarchy cache", NULL },
 	{"linkMemContent", "cores' link to send memory content to a memory model", NULL},
+	{"pageLink", "cores' link to send the page allocation request", NULL},
 	{ NULL, NULL, NULL }
 };
 

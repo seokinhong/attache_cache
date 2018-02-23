@@ -121,6 +121,7 @@ c_ControllerPCA::c_ControllerPCA(ComponentId_t id, Params &x_params) :
         cmpSize_predictor = new c_2LvPredictor(m_rownum*m_total_num_banks,metacache_entry_num,metacache_entry_colnum,output);
     }
 
+    isMultiThreadMode=x_params.find<bool>("multiThreadMode",false);
     /*---- CONFIGURE LINKS ----*/
 
    // m_contentLink = configureLink( "contentLink",new Event::Handler<c_ControllerPCA>(this,&c_ControllerPCA::handleContentEvent) );
@@ -351,21 +352,31 @@ bool c_ControllerPCA::clockTic(SST::Cycle_t clock) {
         }
 
         //If new transaction hits in the transaction queue, send a response immediately and do not access memory
-        if(k_enableQuickResponse && m_txnScheduler->isHit(newTxn))
+ /*       if(k_enableQuickResponse && m_txnScheduler->isHit(newTxn))
         {
             newTxn->setResponseReady();
+            sendResponse(newTxn);
             //delete the new transaction from request queue
             l_it=m_ReqQ.erase(l_it);
+            //delete the new transaction from response queue
+            for (std::deque<c_Transaction*>::iterator l_itRes = m_ResQ.begin();
+                 l_itRes != m_ResQ.end();)  {
+                if((*l_itRes)==newTxn)
+                {
+                    m_ResQ.erase(l_itRes);
+                    break;
+                }
+            }
 
 #ifdef __SST_DEBUG_OUTPUT__
             newTxn->print(output,"[TxnQueue hit]",m_simCycle);
 #endif
             continue;
-        }
+        }*/
 
         uint64_t addr = (newTxn->getAddress() >> 6) << 6;
         //calculate the compressed size of cacheline
-        if(compression_en&&newTxn->getCompressedSize()<0) {
+        if(backing_.size()>0&&newTxn->getCompressedSize()<0) {
 
                 if(!m_isFixedCompressionMode &&(backing_.find(addr)==backing_.end())) {
                     printf("Error!! cacheline is not found, %llx\n",addr);
@@ -406,14 +417,15 @@ bool c_ControllerPCA::clockTic(SST::Cycle_t clock) {
         if(loopback_en==true) {
             newTxn->setResponseReady();
 
-            if (metacache->isHit(addr)){
+            /*if (metacache->isHit(addr)){
             }
             else
             {
                 metacache->fill(addr);
-            }
+            }*/
 
             l_it=m_ReqQ.erase(l_it);
+            sendResponse(newTxn);
 
             if ((m_ResQ.size() > 0)) {
                 c_Transaction* l_txnRes = nullptr;
@@ -819,7 +831,8 @@ bool c_ControllerPCA::clockTic(SST::Cycle_t clock) {
                 //create a response and push it to the response queue.
                 c_Transaction* l_txnRes = new c_Transaction(newTxn->getSeqNum(),newTxn->getTransactionMnemonic(),newTxn->getAddress(),newTxn->getDataWidth());
                 l_txnRes->setResponseReady();
-                m_ResQ.push_back(l_txnRes);
+                sendResponse(l_txnRes);
+                //m_ResQ.push_back(l_txnRes);
             }
 
             newTxn->m_time_inserted_TxnQ=m_simCycle;
@@ -903,26 +916,13 @@ void c_ControllerPCA::storeContent()
                         uint64_t tmp=recv_data[i];
                         compressed_size+=(tmp<<8*i);
                     }
-                   // printf("recv, address:%llx compressed_size:%d\n",req_addr,compressed_size);
+                  //  printf("recv, address:%llx compressed_size:%d\n",req_addr,compressed_size);
                     int normalized_size = (int) ((double) compressed_size / (double) 512 * 100);
 
                     backing_[cacheline_addr] = normalized_size;
 
                 }
 
-            }
-            else if(req->getCmd()==MemHierarchy::Command::Get) //handle requests for physical page number
-            {
-                std::vector<uint8_t> resp_data;
-                uint64_t next_page_num=getPageAddress();
-                for(int i=0;i<8;i++)
-                {
-                    uint8_t tmp=(uint8_t)(next_page_num>>8*i);
-                    resp_data.push_back(tmp);
-                }
-
-                SST::MemHierarchy::MemEvent* res=new SST::MemHierarchy::MemEvent(this, req_addr,req_addr,MemHierarchy::Command::GetSResp, resp_data);
-                link->send(res);
             } else
             {
                 fprintf(stderr,"[c_ControllerPCA] cpu command error!\n");
@@ -932,17 +932,4 @@ void c_ControllerPCA::storeContent()
             delete req;
         }
     }
-}
-
-uint32_t c_ControllerPCA::getPageAddress(){
-    uint64_t l_nextPageAddress=m_nextPageAddress;
-
-    if(m_nextPageAddress+m_osPageSize>m_memsize)
-    {
-        fprintf(stderr,"[c_ControllerPCA] Out of Address Range!!\n");
-    }
-
-    m_nextPageAddress=(m_nextPageAddress+m_osPageSize)%m_memsize;
-
-    return l_nextPageAddress;
 }

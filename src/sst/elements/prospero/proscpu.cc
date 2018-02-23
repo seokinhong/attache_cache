@@ -48,6 +48,9 @@ ProsperoComponent::ProsperoComponent(ComponentId_t id, Params& params) :
 		pageSize = (uint64_t) params.find<uint64_t>("pagesize", 4096);
 		output->verbose(CALL_INFO, 1, 0, "Configured Prospero page size for %" PRIu64 " bytes.\n", pageSize);
 
+		int pageCnt = (uint64_t) params.find<uint64_t>("pageCount", 1000000);
+		output->verbose(CALL_INFO, 1, 0, "Configured Prospero page count\n", pageCnt);
+
 		cacheLineSize = (uint64_t) params.find<uint64_t>("cache_line_size", 64);
 		output->verbose(CALL_INFO, 1, 0, "Configured Prospero cache line size for %" PRIu64 " bytes.\n", cacheLineSize);
 
@@ -62,6 +65,8 @@ ProsperoComponent::ProsperoComponent(ComponentId_t id, Params& params) :
 
 		maxIssuePerCycle = (uint32_t) params.find<uint32_t>("max_issue_per_cycle", 2);
 		output->verbose(CALL_INFO, 1, 0, "Configured maximum transaction issue per cycle %" PRIu32 "\n", (uint32_t) maxIssuePerCycle);
+
+		skip_cycle = (uint64_t) params.find<uint64_t>("skip_cycle", 0);
 
 		bool l_found=false;
 		cpuid = (uint32_t) params.find<uint32_t>("cpuid", 0, l_found);
@@ -90,7 +95,7 @@ ProsperoComponent::ProsperoComponent(ComponentId_t id, Params& params) :
 		output->verbose(CALL_INFO, 1, 0, "Read of first entry complete.\n");
 
 		output->verbose(CALL_INFO, 1, 0, "Creating memory manager with page size %" PRIu64 "...\n", pageSize);
-		memMgr = new ProsperoMemoryManager(pageSize, output);
+		memMgr = new ProsperoMemoryManager(pageSize, pageCnt, output,cpuid);
 		output->verbose(CALL_INFO, 1, 0, "Created memory manager successfully.\n");
 
 		// atomic instructions support
@@ -161,6 +166,7 @@ ProsperoComponent::ProsperoComponent(ComponentId_t id, Params& params) :
 		statSplitWriteRequests = this->registerStatistic<uint64_t>( "split_write_requests", subID );
 		statCyclesIssue = this->registerStatistic<uint64_t>( "cycles_issue", subID );
 		statCyclesNoIssue = this->registerStatistic<uint64_t>( "cycles_no_issue", subID );
+		statCyclesTlbMiss = this->registerStatistic<uint64_t>( "cycles_tlb_misses", subID );
 		statCyclesNoInstr = this->registerStatistic<uint64_t>( "cycles_no_instr", subID );
 		statCycles = this->registerStatistic<uint64_t>( "cycles", subID );
 		statBytesRead  = this->registerStatistic<uint64_t>( "bytes_read", subID );
@@ -191,16 +197,23 @@ ProsperoComponent::ProsperoComponent(ComponentId_t id, Params& params) :
 		output->verbose(CALL_INFO, 1, 0, "Prospero configuration completed successfully.\n");
 
 
-	 bool content_link_en = (bool)params.find<bool>("memcontent_link_en",false);
+	bool pagelink_en = (bool)params.find<bool>("pagelink_en",false);
+	if (pagelink_en)
+		page_link = configureLink("pageLink", new Event::Handler<ProsperoComponent>(this, &ProsperoComponent::handlePageAllocResponse) );
+	else
+		page_link=0;
+
+    bool content_link_en = (bool)params.find<bool>("memcontent_link_en",false);
     if (content_link_en){
-        cpu_to_mem_link = configureLink("linkMemContent", new Event::Handler<ProsperoComponent>(this, &ProsperoComponent::handlePageAllocResponse) );
-
-
+        cpu_to_mem_link = configureLink("linkMemContent");
 
     } else
         cpu_to_mem_link = 0;
 
+
 	isPageRequestSent=false;
+	m_inst=0;
+    sim_started=false;
 }
 
 
@@ -212,7 +225,7 @@ void ProsperoComponent::sendMemContent(uint64_t addr, uint64_t vaddr, uint32_t s
 		data_tmp.push_back(tmp);
 	}
     SST::MemHierarchy::MemEvent *req = new SST::MemHierarchy::MemEvent(this,addr,vaddr,SST::MemHierarchy::Command::Put,data_tmp);
-	//printf("sender [%s], addr:%llx size:%d\n",this->getName().c_str(),addr,data);
+	//printf("sender [%s], addr:%llx cline addr: %llx size:%d\n",this->getName().c_str(),addr,(addr>>6)<<6,data);
 	req->setVirtualAddress(vaddr);
     req->setDst("MemController0");
 	cpu_to_mem_link->send(req);
@@ -223,8 +236,7 @@ void ProsperoComponent::sendPageAllocRequest(uint64_t addr) {
 	if(isPageRequestSent==false) {
 		SST::MemHierarchy::MemEvent *req = new SST::MemHierarchy::MemEvent(this, addr, addr,
 																		   SST::MemHierarchy::Command::Get);
-		req->setDst("MemController0");
-		cpu_to_mem_link->send(req);
+		page_link->send(req);
 		isPageRequestSent = true;
 	}
 }
@@ -236,7 +248,7 @@ void ProsperoComponent::handlePageAllocResponse(Event *ev) {
 	SST::MemHierarchy::Command cmd = res->getCmd();
 	assert(cmd==SST::MemHierarchy::Command::GetSResp);
 	uint64_t nextPageNum=0;
-	std::vector<uint8_t> recv_data=res->getPayload();
+	std::vector<uint8_t> recv_data=(std::vector<uint8_t>)res->getPayload();
 
 	for(int i=0;i<8;i++)
 	{
@@ -244,7 +256,7 @@ void ProsperoComponent::handlePageAllocResponse(Event *ev) {
 		nextPageNum+=(tmp<<8*i);
 	}
 	//printf("test next page start address: %llx\n",nextPageNum);
-	memMgr->pushNextPageNum(nextPageNum);
+	memMgr->fillPageTable(res->getAddr(), nextPageNum);
 
 	delete ev;
 	isPageRequestSent=false;
@@ -272,6 +284,7 @@ void ProsperoComponent::finish() {
 	output->output("- Cycles with ops issued:                %" PRIu64 " cycles\n", cyclesWithIssue);
 	output->output("- Cycles with no ops issued (LS full):   %" PRIu64 " cycles\n", cyclesWithNoIssue);
 	output->output("- Cycles with no ops issued (No Instr):  %" PRIu64 " cycles\n", cyclesNoInstr);
+	output->output("- Cycles with no ops issued (TLB Miss):  %" PRIu64 " cycles\n", cyclesTLBmiss);
 	output->output("- Total Cycles:  			 %" PRIu64 " cycles\n", cyclesNoInstr+cyclesWithNoIssue+cyclesWithIssue);
 
 
@@ -364,47 +377,47 @@ bool ProsperoComponent::tick(SST::Cycle_t currentCycle) {
 			baseCycle=currentCycle;
 		}
 	}
+	if(sim_started==false)
+	{
+		skip_cycle=currentEntry->getIssueAtCycle();
+		sim_started=true;
+                printf("[Prospero] Simulation is started for core %d\n",cpuid);
+                fflush(0);
+	}
 
 	uint64_t currentEntryCycle=currentEntry->getIssueAtCycle()+baseCycle;
+	uint64_t l_currentCycle=currentCycle+skip_cycle;
 
 	const uint64_t outstandingBeforeIssue = currentOutstanding;
 	const uint64_t outstandingBeforeIssueUC = currentOutstandingUC;
 	const uint64_t issuedAtomicBefore = issuedAtomic;
 	bool ls_full = false;
+	bool ls_tlb_miss=false;
 
 		
 	// Wait to see if the current operation can be issued, if yes then
 	// go ahead and issue it, otherwise we will stall
 	for(uint32_t i = 0; i < maxIssuePerCycle; ++i) {
-		if(memMgr->getNumAllocatedPage()<2)
-		{
-			sendPageAllocRequest(0);
-			break;
-		}
 
-		if (waitForCycle == 0){
-			if(currentOutstanding < maxOutstanding) {
-				// Issue the pending request into the memory subsystem
-				issueRequest(currentEntry);
-
-				// Obtain the next newest request
-				currentEntry = reader->readNextEntry();
-
-				// Trace reader has read all entries, time to begin draining
-				// the system, caches etc
-				if(NULL == currentEntry) {
-					traceEnded = true;
+		if(currentOutstanding < maxOutstanding) {
+			if (page_link) {
+				if (isPageRequestSent == true) {
+					ls_tlb_miss=true;
 					break;
 				}
-			} else {
-				// Cannot issue any more items this cycle, load/stores are full
-				ls_full = true;
-				break;
+				else if (memMgr->isPageAllocated(currentEntry->getAddress()) == false) {
+					sendPageAllocRequest(currentEntry->getAddress());
+					ls_tlb_miss=true;
+					break;
+				}
 			}
-		}
-		else{
-			if(currentCycle >= currentEntryCycle) {
-				if(currentOutstanding < maxOutstanding) {
+
+			if (waitForCycle == 0) {
+					m_inst++;
+					if (m_inst % 1000000 == 0) {
+						printf("# of issued inst: %lld\n", m_inst);
+						fflush(0);
+					}
 					// Issue the pending request into the memory subsystem
 					issueRequest(currentEntry);
 
@@ -413,21 +426,44 @@ bool ProsperoComponent::tick(SST::Cycle_t currentCycle) {
 
 					// Trace reader has read all entries, time to begin draining
 					// the system, caches etc
-					if(NULL == currentEntry) {
+					if (NULL == currentEntry) {
 						traceEnded = true;
 						break;
 					}
+			} else {
+				if (l_currentCycle >= currentEntryCycle) {
+						m_inst++;
+						if (m_inst % 1000000 == 0) {
+							printf("# of issued inst: %lld\n", m_inst);
+							fflush(0);
+						}
+
+						// Issue the pending request into the memory subsystem
+						issueRequest(currentEntry);
+
+						// Obtain the next newest request
+						currentEntry = reader->readNextEntry();
+
+						// Trace reader has read all entries, time to begin draining
+						// the system, caches etc
+						if (NULL == currentEntry) {
+							traceEnded = true;
+							break;
+						}
+
 				} else {
-					// Cannot issue any more items this cycle, load/stores are full
-					ls_full = true;
+					output->verbose(CALL_INFO, 8, 0,
+									"Not issuing on cycle %" PRIu64 ", waiting for cycle: %" PRIu64 "\n",
+									(uint64_t) currentCycle, currentEntry->getIssueAtCycle());
+					// Have reached a point in the trace which is too far ahead in time
+					// so stall until we find that point
 					break;
 				}
-			} else {
-				output->verbose(CALL_INFO, 8, 0, "Not issuing on cycle %" PRIu64 ", waiting for cycle: %" PRIu64 "\n", (uint64_t) currentCycle, currentEntry->getIssueAtCycle());
-				// Have reached a point in the trace which is too far ahead in time
-				// so stall until we find that point
-				break;
 			}
+		} else{
+			// Cannot issue any more items this cycle, load/stores are full
+			ls_full = true;
+			break;
 		}
 	}
 
@@ -439,6 +475,11 @@ bool ProsperoComponent::tick(SST::Cycle_t currentCycle) {
 		if (ls_full){
 			cyclesWithNoIssue++;
 			statCyclesNoIssue->addData(1);
+		}
+		else if(ls_tlb_miss)
+		{
+			cyclesTLBmiss++;
+			statCyclesTlbMiss->addData(1);
 		}
 		else{
 			cyclesNoInstr++;
@@ -478,7 +519,8 @@ void ProsperoComponent::issueRequest(const ProsperoTraceEntry* entry) {
 		// Start split requests at the original requested address and then
 		// also the the next cache line along
 		const uint64_t lowerAddress = memMgr->translate(entryAddress);
-		const uint64_t upperAddress = memMgr->translate((lowerAddress - (lowerAddress % cacheLineSize)) + cacheLineSize);
+		const uint64_t entryAddress_upper=((lowerAddress - (lowerAddress % cacheLineSize)) + cacheLineSize);
+		const uint64_t upperAddress = memMgr->translate(entryAddress_upper);
 
 		SimpleMem::Request* reqLower = new SimpleMem::Request( isRead ? SimpleMem::Request::Read : SimpleMem::Request::Write, lowerAddress, lowerLength);
 		reqLower->setVirtualAddress(entryAddress);
@@ -487,8 +529,10 @@ void ProsperoComponent::issueRequest(const ProsperoTraceEntry* entry) {
 		reqUpper->setVirtualAddress((entryAddress - (entryAddress % cacheLineSize)) + cacheLineSize);
 
 
-		if(cpu_to_mem_link)
-			sendMemContent(lowerAddress,entryAddress,64, entry->getData());
+		if(cpu_to_mem_link) {
+			sendMemContent(lowerAddress, entryAddress, 64, entry->getData());
+			sendMemContent(upperAddress, entryAddress_upper, 64, entry->getData());
+		}
 
 		if (pimSupport == 0 || !isAtomic){
 			//Treat atomics as regular ops

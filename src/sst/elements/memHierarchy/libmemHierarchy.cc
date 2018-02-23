@@ -906,6 +906,7 @@ static const ElementInfoPort memctrl_ports[] = {
     {"direct_link",     "Directly connect to another component (like a Directory Controller).", memEvent_port_events},
     {"cube_link",       "Link to VaultSim.", NULL}, /* TODO:  Make this generic */
     {"network",         "Network link to another component", net_port_events},
+    { "pageLink_%(links)d", "link to/from links", NULL},
     {NULL, NULL, NULL}
 };
 

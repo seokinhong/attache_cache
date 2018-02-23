@@ -159,9 +159,19 @@ bool c_Controller::clockTic(SST::Cycle_t clock) {
         if(k_enableQuickResponse && m_txnScheduler->isHit(newTxn))
         {
             newTxn->setResponseReady();
+            sendResponse(newTxn);
             //delete the new transaction from request queue
             l_it=m_ReqQ.erase(l_it);
 
+            //delete the new transaction from response queue
+            for (std::deque<c_Transaction*>::iterator l_itRes = m_ResQ.begin();
+                 l_itRes != m_ResQ.end();)  {
+                if((*l_itRes)==newTxn)
+                {
+                    m_ResQ.erase(l_itRes);
+                    break;
+                }
+            }
             #ifdef __SST_DEBUG_OUTPUT__
                 newTxn->print(output,"[TxnQueue hit]",m_simCycle);
             #endif
@@ -175,7 +185,8 @@ bool c_Controller::clockTic(SST::Cycle_t clock) {
                 //create a response and push it to the response queue.
                c_Transaction* l_txnRes = new c_Transaction(newTxn->getSeqNum(),newTxn->getTransactionMnemonic(),newTxn->getAddress(),newTxn->getDataWidth());
                l_txnRes->setResponseReady();
-                m_ResQ.push_back(l_txnRes);
+                sendResponse(l_txnRes);
+                //m_ResQ.push_back(l_txnRes);
             }
           
 
@@ -250,6 +261,7 @@ void c_Controller::sendResponse(c_Transaction* x_txnRes) {
     // - m_ResQ.size() > 0
     // - m_ResQ has an element which is response-ready
 
+
     c_TxnResEvent* l_txnResEvPtr = new c_TxnResEvent();
     l_txnResEvPtr->m_payload = x_txnRes;
 
@@ -301,7 +313,6 @@ void c_Controller::handleInDeviceResPtrEvent(SST::Event *ev){
             l_cmdResEventPtr->m_payload->print(m_simCycle);
             l_cmdResEventPtr->m_payload->getTransaction()->print();
 
-
             exit(-1);
         }
         else
@@ -316,17 +327,18 @@ void c_Controller::handleInDeviceResPtrEvent(SST::Event *ev){
 
             // With quick response mode, controller sends a response to a requester for a write request as soon as the request is pushed to a transaction queue
             // So, we don't need to send another response at this time. Just erase the request in the response queue.
-            if ( k_enableQuickResponse && !l_txnRes->isRead()) {
-                delete l_txnRes;
+            if ( k_enableQuickResponse && l_txnRes->isWrite()) {
                 m_ResQ.erase(l_txIter);
+                delete l_txnRes;
             }
-
-            if(!l_txnRes->isResponseRequired()) {
-                delete l_txnRes;
-                m_ResQ.erase(l_txIter);
-            } else {
-                sendResponse(l_txnRes);
-                m_ResQ.erase(l_txIter);
+            else {
+                if (!l_txnRes->isResponseRequired()) {
+                    m_ResQ.erase(l_txIter);
+                    delete l_txnRes;
+                } else {
+                    sendResponse(l_txnRes);
+                    m_ResQ.erase(l_txIter);
+                }
             }
         }
 

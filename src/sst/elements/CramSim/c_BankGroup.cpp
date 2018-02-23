@@ -88,7 +88,7 @@ void c_BankGroup::updateOtherBanksNextCommandCycles(c_BankInfo* x_initBankPtr,
 
 //	std::cout << "Entered " << __PRETTY_FUNCTION__ << std::endl;
 //TODO SEOKIN
-
+	//memzip
 	int l_bl = m_bankParams->at("nBL");
 
 	if(x_cmdPtr->m_memzip_mode)

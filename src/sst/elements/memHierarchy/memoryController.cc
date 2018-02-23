@@ -17,6 +17,7 @@
 #include <sst/core/element.h>
 #include <sst/core/params.h>
 #include <sst/core/simulation.h>
+#include <map>
 
 #include "memoryController.h"
 #include "util.h"
@@ -180,7 +181,108 @@ MemController::MemController(ComponentId_t id, Params &params) : Component(id), 
     clockOn_ = true;
 
     registerTimeBase("1 ns", true);
+
+
+
+    isPageAllocLink      = params.find<bool>("isPageAllocLink", false);
+    corenum = params.find<int>("corenum", false);
+    isMultiThreadMode      = params.find<bool>("isMultiThreadMode", false);
+    m_osPageSize      = params.find<uint64_t>("pagesize", false);
+    m_nextPageAddress = 0;
+
+    if(isPageAllocLink=true) {
+        for (int i = 0; i < corenum; i++) {
+            string l_linkName = "pageLink_" + to_string(i);
+            Link *l_link = configureLink(l_linkName,
+                                         new Event::Handler<MemController>(this,
+                                                                           &MemController::handlePageAllocation));
+
+            if (l_link) {
+                m_pageLinks.push_back(l_link);
+                cout << l_linkName << " is connected" << endl;
+            } else {
+                cout << l_linkName << " is not found.. exit" << endl;
+                exit(-1);
+            }
+        }
+    }
 }
+
+
+void MemController::handlePageAllocation(SST::Event* event)
+{
+    SST::MemHierarchy::MemEvent* req=dynamic_cast<SST::MemHierarchy::MemEvent*>(event);
+    uint64_t req_addr=req->getAddr();
+
+    if(req->getCmd()==MemHierarchy::Command::Get) //handle requests for physical page number
+    {
+        std::vector<uint8_t> resp_data;
+        uint64_t next_page_num=0;
+
+        uint64_t virtAddr = req_addr;
+
+        next_page_num=getPageAddress(virtAddr);
+
+
+        //send physical address
+        for(int i=0;i<8;i++)
+        {
+            uint8_t tmp=(uint8_t)(next_page_num>>8*i);
+            resp_data.push_back(tmp);
+        }
+
+        SST::MemHierarchy::MemEvent* res=new SST::MemHierarchy::MemEvent(this, req_addr,req_addr,MemHierarchy::Command::GetSResp, resp_data);
+        event->getDeliveryLink()->send(res);
+    } else
+    {
+        fprintf(stderr,"[memory controller] paga allocation command error!\n");
+        exit(1);
+    }
+
+    delete req;
+}
+
+
+
+Addr MemController::getPageAddress(Addr virtAddr){
+
+    uint64_t l_nextPageAddress = m_nextPageAddress;
+    if(isMultiThreadMode==true) {
+
+        //get physical address
+        const uint64_t pageOffset = virtAddr % m_osPageSize;
+        const uint64_t virtPageStart = virtAddr - pageOffset;
+
+        std::map<uint64_t, uint64_t>::iterator findEntry = pageTable.find(virtPageStart);
+
+        if (findEntry != pageTable.end()) {
+            l_nextPageAddress = findEntry->second;
+        }
+        else {
+            l_nextPageAddress = m_nextPageAddress;
+            pageTable[virtPageStart]=l_nextPageAddress;
+
+            if (m_nextPageAddress + m_osPageSize > memSize_) {
+                fprintf(stderr, "[memController] Out of Address Range!!\n");
+            }
+
+            m_nextPageAddress = (m_nextPageAddress + m_osPageSize) % memSize_;
+        }
+    }
+    else {
+        l_nextPageAddress = m_nextPageAddress;
+
+        if (m_nextPageAddress + m_osPageSize > memSize_) {
+            fprintf(stderr, "[memController] Out of Address Range!!, nextPageAddress:%lld pageSize:%lld memsize:%lld\n", m_nextPageAddress,m_osPageSize,memSize_);
+        }
+
+        m_nextPageAddress = (m_nextPageAddress + m_osPageSize) % memSize_;
+    }
+
+    return l_nextPageAddress;
+}
+
+
 
 void MemController::handleEvent(SST::Event* event) {
     if (!clockOn_) {

@@ -77,7 +77,9 @@ namespace SST {
 				bool wait;
                 uint64_t baseCycle;
 				SST::Link *cpu_to_mem_link;
+				SST::Link *page_link;
                 uint32_t cpuid;
+				uint64_t m_inst;
 #ifdef HAVE_LIBZ
 				gzFile traceFileZ;
 #endif
@@ -93,6 +95,8 @@ namespace SST {
 				uint64_t currentOutstandingUC;
 				uint64_t maxIssuePerCycle;
 				uint64_t issuedAtomic;
+				uint64_t skip_cycle;
+				bool sim_started;
 
 				uint64_t readsIssued;
 				uint64_t writesIssued;
@@ -103,6 +107,7 @@ namespace SST {
 				uint64_t cyclesWithIssue;
 				uint64_t cyclesWithNoIssue;
 				uint64_t cyclesNoInstr;
+				uint64_t cyclesTLBmiss;
 				uint64_t cyclesDrift;
 
 				Statistic<uint64_t>* statReadRequests;
@@ -115,6 +120,8 @@ namespace SST {
 				Statistic<uint64_t>* statCyclesNoIssue;
 				Statistic<uint64_t>* statCyclesNoInstr;
 				Statistic<uint64_t>* statCycles;
+
+				Statistic<uint64_t>* statCyclesTlbMiss;
 				Statistic<uint64_t>* statBytesRead;
 				Statistic<uint64_t>* statBytesWritten;
 

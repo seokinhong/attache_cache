@@ -535,7 +535,7 @@ void Cache::configureLinks(Params &params) {
     }
 
     // Configure self link for prefetch/listener events
-    prefetchLink_ = configureSelfLink("Self", "50ps", new Event::Handler<Cache>(this, &Cache::processPrefetchEvent));
+    prefetchLink_ = configureSelfLink("Self", new Event::Handler<Cache>(this, &Cache::processPrefetchEvent));
 }
 
 

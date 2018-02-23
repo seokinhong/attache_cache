@@ -156,7 +156,7 @@ void Bus::configureLinks() {
     std::string linkprefix = "high_network_";
     std::string linkname = linkprefix + "0";
     while (isPortConnected(linkname)) {
-        link = configureLink(linkname, "50 ps", new Event::Handler<Bus>(this, &Bus::processIncomingEvent));
+        link = configureLink(linkname, new Event::Handler<Bus>(this, &Bus::processIncomingEvent));
         highNetPorts_.push_back(link);
         linkIdMap_[highNetPorts_[numHighNetPorts_]->getId()] = highNetPorts_[numHighNetPorts_];
         dbg_.output(CALL_INFO, "Port %d = Link %d\n", numHighNetPorts_, highNetPorts_[numHighNetPorts_]->getId());
@@ -167,7 +167,7 @@ void Bus::configureLinks() {
     linkprefix = "low_network_";
     linkname = linkprefix + "0";
     while (isPortConnected(linkname)) {
-        link = configureLink(linkname, "50 ps", new Event::Handler<Bus>(this, &Bus::processIncomingEvent));
+        link = configureLink(linkname, new Event::Handler<Bus>(this, &Bus::processIncomingEvent));
         lowNetPorts_.push_back(link);
         linkIdMap_[lowNetPorts_[numLowNetPorts_]->getId()] = lowNetPorts_[numLowNetPorts_];
         dbg_.output(CALL_INFO, "Port %d = Link %d\n", numLowNetPorts_, lowNetPorts_[numLowNetPorts_]->getId());

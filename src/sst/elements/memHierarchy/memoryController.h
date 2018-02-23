@@ -93,6 +93,22 @@ private:
     Addr privateMemOffset_; // If we reserve any memory locations for ourselves/directories/etc. and they are NOT part of the physical address space, shift regular addresses by this much
     Addr translateToLocal(Addr addr);
     Addr translateToGlobal(Addr addr);
+
+
+    bool isPageAllocLink;
+    bool isMultiThreadMode;
+    std::vector<SST::Link*> m_pageLinks;
+    int corenum;
+    Addr m_nextPageAddress;
+    std::map<uint64_t, uint64_t> pageTable;
+    uint64_t m_osPageSize;
+
+
+
+    void handlePageAllocation(SST::Event*);
+    Addr getPageAddress(Addr VirtAddr);
+
+
 };
 
 }}

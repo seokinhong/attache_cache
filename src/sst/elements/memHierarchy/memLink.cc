@@ -25,7 +25,7 @@ using namespace SST::MemHierarchy;
 MemLink::MemLink(Component * parent, Params &params) : MemLinkBase(parent, params) {
     
     // Configure link
-    std::string latency = params.find<std::string>("latency", "50ps");
+    std::string latency = params.find<std::string>("latency", "100ps");
     std::string port = params.find<std::string>("port", "");
 
     link = configureLink(port, latency, new Event::Handler<MemLink>(this, &MemLink::recvNotify));

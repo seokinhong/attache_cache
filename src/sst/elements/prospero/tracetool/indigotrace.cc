@@ -784,7 +784,54 @@ VOID IncrementInstructionCount(THREADID id) {
 	printf("Indigo: Increment Instruction Count Core[%d] : %lu \n", id, thread_instr_id[id].insCount);
 #endif
 		thread_instr_id[id].insCount++;
-        if(simpointInterval ==0)
+
+		if(id==0) {
+			if (simpointInterval == 0) {
+				for(int i=0;i<max_thread_count;i++)
+					thread_instr_id[i].flagRecord = true;
+
+			} else if (thread_instr_id[id].flagRecord == false) {
+				if (thread_instr_id[id].tmpInstCnt < simpointInterval) {
+						thread_instr_id[id].tmpInstCnt++;
+				}
+				else {
+					if (thread_instr_id[id].simpointCnt < numSimpoint) {
+						for(int i=0;i<max_thread_count;i++)
+							thread_instr_id[i].flagRecord = true;
+
+						thread_instr_id[id].tmpInstCnt = 0;
+						fprintf(stderr, "Indigo: Start recording.. InstCnt:%llu\n", thread_instr_id[id].insCount);
+						thread_instr_id[id].simpointCnt++;
+					}
+					else
+					{
+
+						/*thread_instr_id[id].done = true;
+						unsigned int done_cnt = 0;
+						for (unsigned int i = 0; i < max_thread_count; i++) {
+							if (thread_instr_id[i].done == true)
+								done_cnt++;
+						}
+						*/
+
+						//if (done_cnt == max_thread_count)
+							PIN_ExitApplication(1);
+					}
+				}
+			} else {
+				if (thread_instr_id[id].tmpInstCnt < numSimInst)
+					thread_instr_id[id].tmpInstCnt++;
+				else {
+
+					for(int i=0;i<max_thread_count;i++)
+						thread_instr_id[i].flagRecord = false;
+					thread_instr_id[id].tmpInstCnt = 0;
+					printf("Indigo: Pause recording... InstCnt:%llu\n", thread_instr_id[id].insCount);
+				}
+			}
+		}
+
+        /*if(simpointInterval ==0)
         {
 			thread_instr_id[id].flagRecord=true;
 		}
@@ -800,7 +847,7 @@ VOID IncrementInstructionCount(THREADID id) {
 				{
 					thread_instr_id[id].flagRecord=true;
 					thread_instr_id[id].tmpInstCnt=0;
-					printf("Indigo: Start recording.. InstCnt:%llu\n",thread_instr_id[id].insCount);
+					fprintf(stderr,"Indigo: Start recording.. InstCnt:%llu\n",thread_instr_id[id].insCount);
 					thread_instr_id[id].simpointCnt++;
 				}
 				else
@@ -829,7 +876,7 @@ VOID IncrementInstructionCount(THREADID id) {
 				thread_instr_id[id].tmpInstCnt=0;
 				printf("Indigo: Pause recording... InstCnt:%llu\n",thread_instr_id[id].insCount);
 			}
-		}
+		}*/
 		
 
 		if(thread_instr_id[id].insCount >= (nextFileTrip * thread_instr_id[id].currentFile)) {

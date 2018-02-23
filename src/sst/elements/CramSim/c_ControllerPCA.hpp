@@ -119,7 +119,8 @@ namespace SST {
 
 
         private:
-
+            uint64_t isMultiThreadMode;
+            std::map<uint64_t, uint64_t> pageTable;
             //uint8_t*       backing_;
             class c_Cacheline{
             public:

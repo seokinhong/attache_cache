@@ -26,20 +26,23 @@ namespace Prospero {
 
 class ProsperoMemoryManager {
 public:
-	ProsperoMemoryManager(const uint64_t pageSize, Output* output);
+	ProsperoMemoryManager(const uint64_t pageSize, const uint64_t pageCnt, Output* output, int cpuid);
 
 	~ProsperoMemoryManager();
 	uint64_t translate(const uint64_t virtAddr);
 	void pushNextPageNum(uint64_t nextPageNum);
-	uint64_t getNumAllocatedPage();
+	bool isPageAllocated(const uint64_t virtAddr);
+	void fillPageTable(uint64_t virtPageStart, uint64_t phyPageStart);
 
 private:
 
 	std::map<uint64_t, uint64_t> pageTable;
 	std::queue<uint64_t>nextPageList;
-//	uint64_t nextPageStart;
+	uint64_t m_nextPageStart;
 	uint64_t pageSize;
+	uint64_t pageCnt;
 	Output* output;
+	int m_cpuid;
 };
 
 }
