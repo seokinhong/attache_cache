@@ -35,6 +35,9 @@ private:
 	void copy(char* target, const char* source, const size_t buffOffset, const size_t len);
 	gzFile traceInput;
 	char* buffer;
+	bool hasContent;
+	bool hasCompRatio ;
+	bool hasAtomic ;
 	uint32_t recordLength;
 
 };

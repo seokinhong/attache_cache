@@ -58,7 +58,7 @@ AM_CPPFLAGS +=  $(PINTOOL_CPPFLAGS)
 if SST_COMPILE_OSX
 
 all-local: tracetool/sstmemtrace.cc
-	$(CXX) -O3 -shared \
+	$(CXX) -O3 -shared -std=c++11 \
 	$(CPPFLAGS) \
 	$(LIBZ_CPPFLAGS) \
 	-DBIGARRAY_MULTIPLIER=1 \
@@ -148,7 +148,7 @@ else
 #
 all-local: tracetool/indigotrace.cc
 	$(CXX) -shared -Wl,--hash-style=sysv -Wl,-Bsymbolic \
-	-fPIC -O3 \
+	-fPIC -O3 -std=c++11 \
 	-fomit-frame-pointer \
 	$(CPPFLAGS) \
 	$(LIBZ_CPPFLAGS) \

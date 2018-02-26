@@ -45,6 +45,7 @@
 #include <map>
 #include <vector>
 
+#define DEBUG 1
 //#define HAVE_LIBZ 1
 #ifdef HAVE_LIBZ
 #include <zlib.h>
@@ -70,6 +71,8 @@ uint64_t simpointInterval=0;		//the number of instructions between simulation po
 uint64_t numSimInst=0;		//the number of instructions executed in the simulation points
 uint64_t numSimpoint=0;		//the number of simulation points
 uint32_t compressionRecordEnabled=0;
+uint32_t contentRecordEnabled=0;
+uint32_t cacheline_size=8; // cacheline size (default:8*8B)
 uint64_t numcopyfail=0;
 uint32_t similarity_distance=0;
 uint64_t g_similarity_incomp_cnt=0;
@@ -135,8 +138,10 @@ KNOB<UINT64> KnobNumSimInst(KNOB_MODE_WRITEONCE, "pintool",
     "s", "1125899906842624", "The number of instructions executed in the simulation points, default=1125899906842624");
 KNOB<UINT64> KnobNumSimpoint(KNOB_MODE_WRITEONCE, "pintool",
     "n", "1125899906842624", "The number of the simulation points, default=1125899906842624");
-KNOB<UINT32> KnobContentRecord(KNOB_MODE_WRITEONCE, "pintool",
-    "c", "0", "Record the compression ratio of memory contents (0 = disabled, 1 = enabled), default=0");
+KNOB<UINT32> KnobCompressionRecord(KNOB_MODE_WRITEONCE, "pintool",
+    "x", "0", "Record the compression ratio of memory contents (0 = disabled, 1 = enabled), default=0");
+KNOB<UINT32> KnobContentRecord(KNOB_MODE_WRITEONCE, "pintool","c", "0", "Record memory contents(cacheline 64B) (0 = disabled, 1 = enabled), default=0");
+
 
 
 
@@ -551,6 +556,146 @@ VOID ReadCacheLine(uint64_t addr, uint64_t * data)
  * Print a memory read record
  */
 
+VOID RecordMem(VOID * addr, UINT32 size, THREADID thr, UINT32 atomicClass, const char OP)
+{
+#ifdef Indigo_DEBUG
+	printf("Indigo: Calling into RecordMemRead...\n");
+#endif
+
+	UINT64 ma_addr = (UINT64) addr;
+	UINT64 comp_ratio=0;
+	uint64_t *cl_data=NULL;
+
+	PerformInstrumentCountCheck(thr);
+
+	if(atomifyEnabled && atomicProfileLevel > 1){
+		// all non-atomics are "atomified"
+		if (atomicClass == NON_ATOMIC){
+			atomicClass = ATOMIC_ATOMIFY;
+		}
+	}
+
+	if(contentRecordEnabled) {
+		cl_data = (uint64_t *) malloc(sizeof(uint64_t) * 8);
+		ReadCacheLine(ma_addr, cl_data);
+
+	}
+
+	if(compressionRecordEnabled) {
+		uint64_t* tmp_data = (uint64_t *) malloc(sizeof(uint64_t) * 8);
+		ReadCacheLine(ma_addr, tmp_data);
+		comp_ratio=getCompressedSize((uint8_t*)tmp_data);
+		free(tmp_data);
+
+
+#ifdef COMP_DEBUG
+		for (int i = 0; i < 8; i++) {
+                fprintf(stderr,"[PINTOOL] [%d] read addr:%llx data:%llx\n", i, ma_addr, *(cl_data+i));
+            }
+            fprintf(stderr,"[PINTOOL] compressed size:%d\n",data);
+#endif
+
+		//	if(similarity_distance>0)
+		//		checkSimilarity((uint64_t*)ac.inst.data,ac.inst.addr);
+	}
+
+
+	if(0 == trace_format) {
+		if(atomicProfileLevel > 0) {
+			fprintf(trace[thr], "%llu %c %llu %u %llu %u\n",
+					(unsigned long long int) thread_instr_id[thr].insCount,
+					(char) OP,
+					(unsigned long long int) ma_addr,
+					(unsigned int) size,
+					(unsigned long long) comp_ratio,
+					(unsigned int) atomicClass);
+			is_atomic(atomicClass) ? thread_instr_id[thr].atomicCount++ : 0;
+		}
+		else{
+			fprintf(trace[thr], "%llu %c %llu %u %llu %u\n",
+					(unsigned long long int) thread_instr_id[thr].insCount,
+					(char) OP,
+					(unsigned long long int) ma_addr,
+					(unsigned int) size,
+					(unsigned long long) comp_ratio,
+					(unsigned int) NON_ATOMIC);
+		}
+	}
+	else if (1 == trace_format || 2 == trace_format) {
+		uint64_t accumulated_size=0;
+		copy(RECORD_BUFFER, &(thread_instr_id[thr].insCount), 0, sizeof(UINT64) );
+		accumulated_size+=sizeof(UINT64);
+		copy(RECORD_BUFFER, &OP, accumulated_size, sizeof(char) );
+		accumulated_size+=sizeof(char);
+		copy(RECORD_BUFFER, &ma_addr,accumulated_size, sizeof(UINT64) );
+		accumulated_size+=sizeof(UINT64);
+		copy(RECORD_BUFFER, &size,accumulated_size, sizeof(UINT32) );
+		accumulated_size+=sizeof(UINT32);
+
+		if(compressionRecordEnabled) {
+			copy(RECORD_BUFFER, &comp_ratio, accumulated_size, sizeof(UINT64));
+			accumulated_size+=sizeof(UINT64);
+		}
+
+		if(contentRecordEnabled) {
+			copy(RECORD_BUFFER, &cl_data, accumulated_size, sizeof(UINT64) * cacheline_size);
+			accumulated_size+=sizeof(UINT64)*cacheline_size;
+		}
+
+#ifdef DEBUG
+		printf("Indigo: Writing %c Instruction Count Core[%d] : %lu %llx ", OP, thr, thread_instr_id[thr].insCount,addr);
+		if(compressionRecordEnabled)
+		{
+			printf("%d ",comp_ratio);
+		}
+
+		if(contentRecordEnabled)
+		{
+			for(int i=0;i<cacheline_size;i++)
+			{
+				printf("%x ",cl_data[i]);
+			}
+		}
+		printf("\n");
+#endif
+#ifdef Indigo_DEBUG_IC
+		printf("Indigo: Writing %c Instruction Count Core[%d] : %lu \n", thr, OP, thread_instr_id[thr].insCount);
+#endif
+		if(atomicProfileLevel > 0) {
+			is_atomic(atomicClass) ? thread_instr_id[thr].atomicCount++ : 0;
+		}
+		else{
+			atomicClass=NON_ATOMIC;
+		}
+
+		copy(RECORD_BUFFER, &atomicClass, accumulated_size, sizeof(UINT32));
+		accumulated_size+=sizeof(UINT32);
+
+		if(1 == trace_format) {
+			fwrite(RECORD_BUFFER, accumulated_size, 1, trace[thr]);
+		}
+		else {
+#ifdef HAVE_LIBZ
+			gzwrite(traceZ[thr], RECORD_BUFFER, accumulated_size);
+#endif
+		}
+	}
+
+	if(OP==READ_OPERATION_CHAR)
+		thread_instr_id[thr].readCount++;
+	else
+		thread_instr_id[thr].writeCount++;
+
+	if(cl_data!=NULL)
+		free(cl_data);
+
+#ifdef Indigo_DEBUG
+	printf("Indigo: Completed into RecordMemRead...\n");
+#endif
+}
+
+
+
 VOID RecordMemRead(VOID * addr, UINT32 size, THREADID thr, UINT32 atomicClass)
 {
 	if( traceEnabled == 0 || thr >= max_thread_count){
@@ -559,106 +704,13 @@ VOID RecordMemRead(VOID * addr, UINT32 size, THREADID thr, UINT32 atomicClass)
 	
 	if(thread_instr_id[thr].flagRecord==true)
 	{
-#ifdef Indigo_DEBUG
-	printf("Indigo: Calling into RecordMemRead...\n");
-#endif
-	
-		UINT64 ma_addr = (UINT64) addr;
-        
-        UINT64 data=0;
-       
-        PerformInstrumentCountCheck(thr);
-
-        if(atomifyEnabled && atomicProfileLevel > 1){
-            // all non-atomics are "atomified"
-            if (atomicClass == NON_ATOMIC){
-                atomicClass = ATOMIC_ATOMIFY;
-            }
-        }
-
-		if(compressionRecordEnabled) {
-            uint64_t *cl_data = (uint64_t *) malloc(sizeof(uint64_t) * 8);
-            ReadCacheLine(ma_addr, cl_data);
-            data=getCompressedSize((uint8_t*)cl_data);
-
-
-    #ifdef COMP_DEBUG
-            for (int i = 0; i < 8; i++) {
-                fprintf(stderr,"[PINTOOL] [%d] read addr:%llx data:%llx\n", i, ma_addr, *(cl_data+i));
-            }
-            fprintf(stderr,"[PINTOOL] compressed size:%d\n",data);
-    #endif
-
-        //	if(similarity_distance>0)
-        //		checkSimilarity((uint64_t*)ac.inst.data,ac.inst.addr);
-            free(cl_data);
-		}
-
-
-
-	if(0 == trace_format) {
-		if(atomicProfileLevel > 0) {
-			fprintf(trace[thr], "%llu R %llu %u %llu %u\n",
-					(unsigned long long int) thread_instr_id[thr].insCount,
-					(unsigned long long int) ma_addr,
-					(unsigned int) size,
-                                        (unsigned long long) data,
-					(unsigned int) atomicClass);
-			is_atomic(atomicClass) ? thread_instr_id[thr].atomicCount++ : 0;
-		}
-		else{
-			fprintf(trace[thr], "%llu R %llu %u %llu %u\n",
-					(unsigned long long int) thread_instr_id[thr].insCount,
-					(unsigned long long int) ma_addr,
-					(unsigned int) size,
-                                        (unsigned long long) data,
-					(unsigned int) NON_ATOMIC);
-		}
-		thread_instr_id[thr].readCount++;
-	} 
-	else if (1 == trace_format || 2 == trace_format) {
-		copy(RECORD_BUFFER, &(thread_instr_id[thr].insCount), 0, sizeof(UINT64) );
-		copy(RECORD_BUFFER, &READ_OPERATION_CHAR, sizeof(UINT64), sizeof(char) );
-		copy(RECORD_BUFFER, &ma_addr, sizeof(UINT64) + sizeof(char), sizeof(UINT64) );
-		copy(RECORD_BUFFER, &size, sizeof(UINT64) + sizeof(char) + sizeof(UINT64), sizeof(UINT32) );
-		copy(RECORD_BUFFER, &data, sizeof(UINT64) + sizeof(char)+sizeof(UINT64)+sizeof(UINT32), sizeof(UINT64) );
-
-#ifdef Indigo_DEBUG_IC
-		printf("Indigo: Writing R Instruction Count Core[%d] : %lu \n", thr, thread_instr_id[thr].insCount);
-#endif
-		if(atomicProfileLevel > 0) {
-			is_atomic(atomicClass) ? thread_instr_id[thr].atomicCount++ : 0;
-		}
-		else{
-			atomicClass=NON_ATOMIC;
-		}
-		
-		copy(RECORD_BUFFER, &atomicClass, sizeof(UINT64) + sizeof(char) + sizeof(UINT64) + sizeof(UINT32)+sizeof(UINT64), sizeof(UINT32));
-
-		if(1 == trace_format) {
-			fwrite(RECORD_BUFFER, sizeof(UINT64) + sizeof(char) + sizeof(UINT64) + sizeof(UINT32)+ sizeof(UINT64) + sizeof(UINT32), 1, trace[thr]);
-		} 
-		else {
-#ifdef HAVE_LIBZ
-			gzwrite(traceZ[thr], RECORD_BUFFER, sizeof(UINT64) + sizeof(char) + sizeof(UINT64) + sizeof(UINT32)+sizeof(UINT64) + sizeof(UINT32));
-#endif
-		}
-		thread_instr_id[thr].readCount++;
+		RecordMem(addr,size,thr,atomicClass,READ_OPERATION_CHAR);
 	}
-
-#ifdef Indigo_DEBUG
-	printf("Indigo: Completed into RecordMemRead...\n");
-#endif
-	}
-
 }
 
 /** 
  * Print a memory write record
  */
-
-
-
 VOID RecordMemAddrSize(VOID* addr, UINT32 size, THREADID thr)
 {
     thread_instr_id[thr].maddr=(UINT64) addr;
@@ -674,106 +726,9 @@ VOID RecordMemWrite(THREADID thr,  UINT32 atomicClass)
 
 	if(thread_instr_id[thr].flagRecord==true)
 	{
-#ifdef Indigo_DEBUG
-	printf("Indigo: Calling into RecordMemWrite...\n");
-#endif
-
-		UINT64 ma_addr = thread_instr_id[thr].maddr;
-        UINT32 size = thread_instr_id[thr].msize;
-		UINT64 data = 0;
-
-
-		PerformInstrumentCountCheck(thr);
-
-		if(atomifyEnabled && atomicProfileLevel > 1){
-			// all non-atomics are "atomified"
-			if (atomicClass == NON_ATOMIC){
-				atomicClass = ATOMIC_ATOMIFY;
-			}
-		}
-
-		if(compressionRecordEnabled) {
-            uint64_t *cl_data = (uint64_t *) malloc(sizeof(uint64_t) * 8);
-            ReadCacheLine(ma_addr, cl_data);
-            data=getCompressedSize((uint8_t*)cl_data);
-
-
-    #ifdef COMP_DEBUG
-            for (int i = 0; i < 8; i++) {
-                fprintf(stderr,"[PINTOOL] [%d] read addr:%llx data:%llx\n", i, ma_addr, *(cl_data+i));
-            }
-            fprintf(stderr,"[PINTOOL] compressed size:%d\n",data);
-    #endif
-
-        //	if(similarity_distance>0)
-        //		checkSimilarity((uint64_t*)ac.inst.data,ac.inst.addr);
-            free(cl_data);
-		}
-
-
-
-	if(0 == trace_format) {
-		if(atomicProfileLevel > 0) {
-			fprintf(trace[thr], "%llu W %llu %u %llu %u\n",
-					(unsigned long long int) thread_instr_id[thr].insCount,
-					(unsigned long long int) ma_addr,
-					(unsigned int) size,
-                                        (unsigned long long int) data,
-					(unsigned int) atomicClass);
-			is_atomic(atomicClass) ? thread_instr_id[thr].atomicCount++ : 0;
-		}
-		else{
-			fprintf(trace[thr], "%llu W %llu %u %llu %u\n",
-					(unsigned long long int) thread_instr_id[thr].insCount,
-					(unsigned long long int) ma_addr,
-					(unsigned int) size,
-                                        (unsigned long long int) data,
-					(unsigned int) NON_ATOMIC);
-		}
-		thread_instr_id[thr].writeCount++;
-	} 
-	
-	else if (1 == trace_format || 2 == trace_format) {
-		copy(RECORD_BUFFER, &(thread_instr_id[thr].insCount), 0, sizeof(UINT64) );
-		copy(RECORD_BUFFER, &WRITE_OPERATION_CHAR, sizeof(UINT64), sizeof(char) );
-		copy(RECORD_BUFFER, &ma_addr, sizeof(UINT64) + sizeof(char), sizeof(UINT64) );
-		copy(RECORD_BUFFER, &size, sizeof(UINT64) + sizeof(char) + sizeof(UINT64), sizeof(UINT32) );
-		copy(RECORD_BUFFER, &data, sizeof(UINT64) + sizeof(char) + sizeof(UINT64)+sizeof(UINT32), sizeof(UINT64) );
-
-#ifdef Indigo_DEBUG_IC
-		printf("Indigo: Writing R Instruction Count Core[%d] : %lu \n", thr, thread_instr_id[thr].insCount);
-#endif
-		if(atomicProfileLevel > 0) {
-			is_atomic(atomicClass) ? thread_instr_id[thr].atomicCount++ : 0;
-		}
-		else{
-			atomicClass=NON_ATOMIC;
-		}
-	
-		copy(RECORD_BUFFER, &atomicClass, sizeof(UINT64) + sizeof(char) + sizeof(UINT64) + sizeof(UINT32)+sizeof(UINT64), sizeof(UINT32));
-
-		if(1 == trace_format) {
-                    if(thr < max_thread_count && (traceEnabled >0)){
-			    fwrite(RECORD_BUFFER, sizeof(UINT64) + sizeof(char) + sizeof(UINT64) + sizeof(UINT32) + sizeof(UINT64)+sizeof(UINT32), 1, trace[thr]);
-                            thread_instr_id[thr].writeCount++;
-                        }
-		}
-		else {
-#ifdef HAVE_LIBZ
-
-                    if(thr < max_thread_count && (traceEnabled >0)){
-			gzwrite(traceZ[thr], RECORD_BUFFER, sizeof(UINT64) + sizeof(char) + sizeof(UINT64) + sizeof(UINT32) + sizeof(UINT64)+sizeof(UINT32));
-                        thread_instr_id[thr].writeCount++;
-                        }
-#endif
-		}
-		
-		thread_instr_id[thr].writeCount++;
-	}
-
-#ifdef Indigo_DEBUG
-	printf("Indigo: Completed into RecordMemWrite...\n");
-#endif
+		UINT64 addr = thread_instr_id[thr].maddr;
+		UINT32 size = thread_instr_id[thr].msize;
+		RecordMem(&addr,size,thr,atomicClass,WRITE_OPERATION_CHAR);
 	}
 }
 
@@ -1200,8 +1155,12 @@ int main(int argc, char *argv[])
         printf("Indigo: The number of simulation point: %llu\n", numSimpoint);
 
 
-        compressionRecordEnabled = KnobContentRecord.Value();
+        compressionRecordEnabled = KnobCompressionRecord.Value();
         if(compressionRecordEnabled == 1)
+            printf("Indigo: compression ratio of memory content will be recored\n");
+
+        contentRecordEnabled = KnobContentRecord.Value();
+        if(contentRecordEnabled == 1)
             printf("Indigo: compression ratio of memory content will be recored\n");
 
 	// Thread zero is always started

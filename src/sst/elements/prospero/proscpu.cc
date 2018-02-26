@@ -431,8 +431,10 @@ bool ProsperoComponent::tick(SST::Cycle_t currentCycle) {
 						break;
 					}
 			} else {
+				//std::cout<<l_currentCycle<<" "<<currentEntryCycle<<std::endl;
 				if (l_currentCycle >= currentEntryCycle) {
 						m_inst++;
+						std::cout<<m_inst<<std::endl;
 						if (m_inst % 1000000 == 0) {
 							printf("# of issued inst: %lld\n", m_inst);
 							fflush(0);
@@ -504,6 +506,10 @@ void ProsperoComponent::issueRequest(const ProsperoTraceEntry* entry) {
 	bool  isRead                = entry->isRead();
 	bool isAtomic		= entry->isAtomic();
 	const uint32_t atomicClass	= entry->getAtomic();
+    std::vector<uint64_t> data_vector = entry->getDataVector();
+    for(auto& it:data_vector)
+        std::cout<< std::hex<<it<<"\t";
+    std::cout<<std::endl;
 
 
 	if(lineOffset + entryLength > cacheLineSize) {

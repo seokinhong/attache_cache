@@ -24,6 +24,9 @@ ProsperoCompressedBinaryTraceReader::ProsperoCompressedBinaryTraceReader( Compon
 
 	std::string traceFile = params.find<std::string>("file", "");
 	traceInput = gzopen(traceFile.c_str(), "rb");
+	hasContent = (bool)params.find<bool>("content", false);
+	hasCompRatio = (bool)params.find<bool>("compression", false);
+	hasAtomic = (bool)params.find<bool>("atomic",false);
 
 	if(Z_NULL == traceInput) {
 		fprintf(stderr, "Fatal: attempted to open: %s but zlib returns error condition.\n",
@@ -31,7 +34,16 @@ ProsperoCompressedBinaryTraceReader::ProsperoCompressedBinaryTraceReader( Compon
 		exit(-1);
 	}
 
-	recordLength = sizeof(uint64_t) + sizeof(char) + sizeof(uint64_t) + sizeof(uint32_t) + sizeof(uint64_t) + sizeof(uint32_t);
+	recordLength = sizeof(uint64_t) + sizeof(char) + sizeof(uint64_t) + sizeof(uint32_t);
+
+	if(hasContent)
+		recordLength+=sizeof(uint64_t)*8;
+	if(hasCompRatio)
+		recordLength+=sizeof(uint64_t);
+	if(hasAtomic)
+		recordLength+=sizeof(uint32_t);
+
+
 	buffer = (char*) malloc(sizeof(char) * recordLength);
 };
 
@@ -66,7 +78,8 @@ ProsperoTraceEntry* ProsperoCompressedBinaryTraceReader::readNextEntry() {
 	uint64_t reqCycles  = 0;
 	char reqType = 'R';
 	uint32_t reqLength  = 0;
-        uint64_t reqData = 0;
+	std::vector<uint64_t> reqData_vector;
+	uint64_t compRatio = 0;
 	uint32_t reqAtomic = NON_ATOMIC;
 
 	if(gzeof(traceInput)) {
@@ -75,18 +88,37 @@ ProsperoTraceEntry* ProsperoCompressedBinaryTraceReader::readNextEntry() {
 	}
 
 	unsigned int bytesRead = gzread(traceInput, buffer, (unsigned int) recordLength);
-
 	if(bytesRead == recordLength) {
+		uint64_t accumulate_length=0;
 		// We DID read an entry
 		copy((char*) &reqCycles,  buffer, (size_t) 0, sizeof(uint64_t));
+		std::cout<<reqCycles<<std::endl;
 		copy((char*) &reqType,    buffer, sizeof(uint64_t), sizeof(char));
 		copy((char*) &reqAddress, buffer, sizeof(uint64_t) + sizeof(char), sizeof(uint64_t));
 		copy((char*) &reqLength,  buffer, sizeof(uint64_t) + sizeof(char) + sizeof(uint64_t), sizeof(uint32_t));
-		copy((char*) &reqData,    buffer, sizeof(uint64_t) + sizeof(char) + sizeof(uint64_t)+sizeof(uint32_t), sizeof(uint64_t));
-		copy((char*) &reqAtomic,  buffer, sizeof(uint64_t) + sizeof(char) + sizeof(uint64_t) + sizeof(uint32_t)+sizeof(uint64_t), sizeof(uint32_t));
+		accumulate_length=sizeof(uint64_t) + sizeof(char) + sizeof(uint64_t)+sizeof(uint32_t);
+
+		if(hasContent) {
+			uint64_t reqData[8];
+			copy((char *) reqData, buffer, accumulate_length, sizeof(uint64_t)*8);
+			accumulate_length+=sizeof(uint64_t)*8;
+
+			for(int i=0;i<8;i++)
+			{
+				reqData_vector.push_back(reqData[i]);
+			}
+		}
+
+		if(hasCompRatio) {
+			copy((char *) &compRatio, buffer, accumulate_length, sizeof(uint64_t));
+			accumulate_length+=sizeof(uint64_t);
+		}
+
+		if(hasAtomic)
+			copy((char*) &reqAtomic,  buffer, accumulate_length, sizeof(uint32_t));
 
 		return new ProsperoTraceEntry(reqCycles, reqAddress,
-			reqLength,reqData,
+			reqLength,reqData_vector,compRatio,
 			(reqType == 'R' || reqType == 'r') ? READ : WRITE, reqAtomic);
 	} else {
 		output->verbose(CALL_INFO, 2, 0, "Did not read a full record from the compressed trace, returning empty request.\n");
