@@ -38,6 +38,7 @@ private:
 	bool hasContent;
 	bool hasCompRatio ;
 	bool hasAtomic ;
+	bool hasInstNum ;
 	uint32_t recordLength;
 
 };

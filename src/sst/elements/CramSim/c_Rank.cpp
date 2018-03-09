@@ -96,16 +96,6 @@ void c_Rank::updateOtherBanksNextCommandCycles(c_BankGroup* x_initBankGroupPtr,
 					       c_BankCommand* x_cmdPtr, SimTime_t x_cycle) {
 
 
-	int l_bl = m_bankParams->at("nBL");
-
-	if(x_cmdPtr->m_memzip_mode)
-        if(x_cmdPtr->getCommandMnemonic()==e_BankCommandType::READ || x_cmdPtr->getCommandMnemonic()==e_BankCommandType::WRITE)
-        {
-                    if (x_cmdPtr->getTransaction()->getCompressedSize() > 50)
-                        m_bankParams->at("nBL") *= 2;
-        }
-
-
 
   SimTime_t l_time = x_cycle;
   for (auto& l_bankGroupPtr : m_bankGroupPtrs) {
@@ -205,6 +195,5 @@ void c_Rank::updateOtherBanksNextCommandCycles(c_BankGroup* x_initBankGroupPtr,
 
     }
   }
-	m_bankParams->at("nBL")=l_bl;
   m_channelPtr->updateOtherBanksNextCommandCycles(this, x_cmdPtr, l_time);
 }

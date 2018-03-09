@@ -77,7 +77,7 @@ class ArielCore {
 		void createReadEvent(uint64_t addr, uint32_t size, uint64_t*);
 		void createWriteEvent(uint64_t addr, uint32_t size, uint64_t*);
 	    void createAllocateEvent(uint64_t vAddr, uint64_t length, uint32_t level, uint64_t ip);
-		void sendMemContent(uint64_t addr, uint64_t vaddr, uint32_t size, std::vector<uint8_t> &data);
+		void sendMemContent(uint64_t instnum, uint64_t addr, uint64_t vaddr, uint32_t size, std::vector<uint8_t> &data);
 		void createNoOpEvent();
 		void createFreeEvent(uint64_t vAddr);
 		void createExitEvent();
@@ -139,8 +139,8 @@ class ArielCore {
 
 
 		// This indicates the current number of executed instructions by this core
-		long long int inst_count;
-
+		long long int fetched_inst_count;
+		long long int retired_inst_cnt;
 		// This indicates the max number of instructions before halting the simulation
 		long long int max_insts;
 

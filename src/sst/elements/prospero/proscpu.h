@@ -96,6 +96,9 @@ namespace SST {
 				uint64_t maxIssuePerCycle;
 				uint64_t issuedAtomic;
 				uint64_t skip_cycle;
+
+				uint64_t max_inst;
+			    uint64_t committed_inst;
 				bool sim_started;
 
 				uint64_t readsIssued;

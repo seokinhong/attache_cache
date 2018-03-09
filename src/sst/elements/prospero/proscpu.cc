@@ -210,7 +210,8 @@ ProsperoComponent::ProsperoComponent(ComponentId_t id, Params& params) :
     } else
         cpu_to_mem_link = 0;
 
-
+	max_inst= (uint64_t)params.find<uint64_t>("max_inst",0);
+	committed_inst=0;
 	isPageRequestSent=false;
 	m_inst=0;
     sim_started=false;
@@ -344,6 +345,8 @@ void ProsperoComponent::handleResponse(SimpleMem::Request *ev) {
 	}
 	// Our responsibility to delete incoming event
 	delete ev;
+
+
 }
 
 
@@ -434,12 +437,16 @@ bool ProsperoComponent::tick(SST::Cycle_t currentCycle) {
 				//std::cout<<l_currentCycle<<" "<<currentEntryCycle<<std::endl;
 				if (l_currentCycle >= currentEntryCycle) {
 						m_inst++;
-						std::cout<<m_inst<<std::endl;
 						if (m_inst % 1000000 == 0) {
-							printf("# of issued inst: %lld\n", m_inst);
+							printf("[core%d] # of issued memory inst: %lld\n", cpuid, m_inst);
 							fflush(0);
 						}
 
+						uint64_t instNum=currentEntry->getInstNum();
+						if (instNum % 1000000 >0 && instNum%1000000 < 10) {
+							printf("[core%d] # of issued inst: %lld\n", cpuid,instNum);
+							fflush(0);
+						}
 						// Issue the pending request into the memory subsystem
 						issueRequest(currentEntry);
 
@@ -499,6 +506,7 @@ bool ProsperoComponent::tick(SST::Cycle_t currentCycle) {
 }
 
 void ProsperoComponent::issueRequest(const ProsperoTraceEntry* entry) {
+	const uint64_t entryInstNum = entry->getInstNum();
 	const uint64_t entryAddress = entry->getAddress();
 	const uint64_t entryLength  = (uint64_t) entry->getLength();
 
@@ -507,10 +515,21 @@ void ProsperoComponent::issueRequest(const ProsperoTraceEntry* entry) {
 	bool isAtomic		= entry->isAtomic();
 	const uint32_t atomicClass	= entry->getAtomic();
     std::vector<uint64_t> data_vector = entry->getDataVector();
-    for(auto& it:data_vector)
-        std::cout<< std::hex<<it<<"\t";
-    std::cout<<std::endl;
 
+/*	std::cout<<entry->getCycle()<<" ";
+    std::cout<<std::hex<<entryInstNum;
+	std::cout<<" "<<std::hex<<entryAddress;
+	std::cout<<" "<<isRead;
+
+	for(auto& it:data_vector)
+        std::cout<< " "<< std::hex<<it;
+    std::cout<<std::endl;
+*/
+
+	if(max_inst>0 && entryInstNum>max_inst)
+	{
+		traceEnded=true;
+	}
 
 	if(lineOffset + entryLength > cacheLineSize) {
 		// Perform a split cache line load

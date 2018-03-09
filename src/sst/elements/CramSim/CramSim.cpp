@@ -193,9 +193,9 @@ static const ElementInfoStatistic c_MemhBridgeContent_stats[] = {
   {"readTxnsLatency", "Average latency of read transactions", "cycles", 1},
   {"writeTxnsLatency", "Average latency of write transactions", "cycles", 1},
   {"txnsLatency", "Average latency of (read/write) transactions", "cycles", 1},
+  {"cycles","","cycles",1},
   {NULL, NULL, NULL, 0}
 };
-
 
 /*----SETUP c_TxnGenSeq STRUCTURES----*/
 static const ElementInfoParam c_TxnGenSeq_params[] = {

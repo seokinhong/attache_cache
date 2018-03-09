@@ -704,12 +704,14 @@ VOID WriteInstructionRead(UINT64 addr, UINT32 size, THREADID thr, ADDRINT ip,
 
         ArielCommand ac;
 
-        ac.command = ARIEL_PERFORM_READ;
-	ac.instPtr = (uint64_t) ip;
+
+		ac.command = ARIEL_PERFORM_READ;
+		ac.instPtr = (uint64_t) ip;
         ac.inst.addr = addr;
         ac.inst.size = size;
-	ac.inst.instClass = instClass;
-	ac.inst.simdElemCount = simdOpWidth;
+		ac.inst.instClass = instClass;
+		ac.inst.simdElemCount = simdOpWidth;
+
 
         //assume that cache line size is 64B
 
@@ -723,8 +725,8 @@ VOID WriteInstructionRead(UINT64 addr, UINT32 size, THREADID thr, ADDRINT ip,
 #endif
 
 			}
-			if(similarity_distance>0)
-				checkSimilarity((uint64_t*)ac.inst.data,ac.inst.addr);
+			//if(similarity_distance>0)
+			//	checkSimilarity((uint64_t*)ac.inst.data,ac.inst.addr);
 			free(data);
 		}
 
@@ -791,7 +793,7 @@ VOID WriteInstructionWrite(UINT64 addr, UINT32 size, THREADID thr, ADDRINT ip,
 
 			}
 
-			checkSimilarity(data, addr);
+			//checkSimilarity(data, addr);
 			free(data);
 		}
 

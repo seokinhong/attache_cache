@@ -69,6 +69,9 @@ public:
 	uint32_t getData() const { return data; }
 	uint64_t getIssueAtCycle() const { return cycles; }
 	uint64_t getAtomic() const { return atomic; }
+	uint64_t getInstNum() const {return instnum;}
+	uint64_t getCycle() const {return cycles;}
+	void setInstNum(uint64_t instnum_) {instnum=instnum_;}
 	ProsperoTraceEntryOperation getOperationType() const { return op; }
 	std::vector<uint64_t> getDataVector() const{return data_vector;}
 private:
@@ -79,6 +82,7 @@ private:
 	std::vector<uint64_t> data_vector;
 	const uint64_t compRatio;
 	const uint32_t atomic;
+	uint64_t instnum;
 	const ProsperoTraceEntryOperation op;
 
 };

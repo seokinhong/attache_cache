@@ -50,6 +50,7 @@ c_MemhBridge::c_MemhBridge(ComponentId_t x_id, Params& x_params) :
 
 	k_txnTraceFileName = (std::string) x_params.find<std::string>("strTxnTraceFile", "-", l_found);
 	//k_txnTraceFileName.pop_back(); // remove trailing newline (??)
+
 	if (k_printTxnTrace) {
 		if (k_txnTraceFileName.compare("-") == 0) {// set output to std::cout
 			std::cout << "Setting txn trace output to std::cout" << std::endl;
@@ -60,7 +61,7 @@ c_MemhBridge::c_MemhBridge(ComponentId_t x_id, Params& x_params) :
 			if (m_txnTraceOFStream) {
 				m_txnTraceStreamBuf = m_txnTraceOFStream.rdbuf();
 			} else {
-				std::cerr << "Failed to open txn trace output file " << k_txnTraceFileName << ", redirecting to stdout";
+				std::cerr << "Failed to open txn trace output file " << k_txnTraceFileName << ", redirecting to stdout"<<std::endl;
 				m_txnTraceStreamBuf = std::cout.rdbuf();
 			}
 		}
@@ -77,14 +78,14 @@ c_MemhBridge::c_MemhBridge(ComponentId_t x_id, Params& x_params) :
 }
 
 c_MemhBridge::~c_MemhBridge() {
-}
 
+}
 
 
 void c_MemhBridge::createTxn() {
    
     uint64_t l_cycle = m_simCycle;
-    
+
     SST::Event* e = 0;
     while((e = m_linkCPU->recv())) {
         MemReqEvent *event = dynamic_cast<MemReqEvent *>(e);
@@ -100,9 +101,11 @@ void c_MemhBridge::createTxn() {
         mTxn->setHostReqID(event->getReqId());
         std::pair<c_Transaction*, uint64_t > l_entry = std::make_pair(mTxn,l_cycle);
         m_txnReqQ.push_back(l_entry);
-     
+
         if(k_printTxnTrace)
             printTxn(event->getIsWrite(),addr);
+
+        delete event;
     }
 }
 

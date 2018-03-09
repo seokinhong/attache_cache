@@ -32,7 +32,7 @@ ArielCore::ArielCore(ArielTunnel *tunnel, SimpleMem* coreToCacheLink,
 {
 
 	output->verbose(CALL_INFO, 2, 0, "Creating core with ID %" PRIu32 ", maximum queue length=%" PRIu32 ", max issue is: %" PRIu32 "\n", thisCoreID, maxQLen, maxIssuePerCyc);
-	inst_count = 0;
+	retired_inst_cnt = 0;
 	cacheLink = coreToCacheLink;
 	allocLink = 0;
 	coreID = thisCoreID;
@@ -101,6 +101,7 @@ ArielCore::ArielCore(ArielTunnel *tunnel, SimpleMem* coreToCacheLink,
 	}
 
 	currentCycles = 0;
+	fetched_inst_count=0;
 }
 
 ArielCore::~ArielCore() {
@@ -167,7 +168,7 @@ void ArielCore::commitReadEvent(uint64_t address,
 		cacheLink->sendRequest(req);
 		// send memory contents to the memory model
 		if(memContentLink)
-			sendMemContent(address,virtAddress,64, data);
+			sendMemContent(fetched_inst_count, address,virtAddress,64, data);
 	}
 }
 
@@ -206,7 +207,7 @@ void ArielCore::commitWriteEvent(uint64_t address,
 		// Send memory contents to the memory model
 
 		if(memContentLink)
-			sendMemContent(address,virtAddress,64, data);
+			sendMemContent(fetched_inst_count, address,virtAddress,64, data);
 	}
 }
 
@@ -222,7 +223,7 @@ void ArielCore::handleEvent(SimpleMem::Request* event) {
 
 		pendingTransactions->erase(find_entry);
 		pending_transaction_count--;
-		inst_count++;
+		retired_inst_cnt++;
 	} else {
 		output->fatal(CALL_INFO, -4, "Memory event response to core: %" PRIu32 " was not found in pending list.\n", coreID);
 	}
@@ -270,10 +271,11 @@ void ArielCore::createReadEvent(uint64_t address, uint32_t length, uint64_t* dat
 }
 
 
-void ArielCore::sendMemContent(uint64_t addr, uint64_t vaddr, uint32_t size, std::vector<uint8_t> &data) {
+void ArielCore::sendMemContent(uint64_t instnum, uint64_t addr, uint64_t vaddr, uint32_t size, std::vector<uint8_t> &data) {
     SST::MemHierarchy::MemEvent *req = new SST::MemHierarchy::MemEvent(owner,addr,vaddr,SST::MemHierarchy::Command::Put,data);
 	req->setVirtualAddress(vaddr);
     req->setDst("MemController0");
+	req->setInstNum(instnum);
 	memContentLink->send(req);
 }
 
@@ -617,6 +619,13 @@ bool ArielCore::hasNextEvent(){
 		return false;
 }
 bool ArielCore::processNextEvent() {
+
+	if(fetched_inst_count>0 && fetched_inst_count%1000000==0)
+	{
+		printf("[thread:%d]fetched_inst_count:%lld retired_inst_count:%lld\n",coreID,fetched_inst_count,retired_inst_cnt);
+		fflush(stdout);
+	}
+
 	// Attempt to refill the queue
 	if(coreQ->empty()) {
 		bool addedItems = refillQueue();
@@ -641,12 +650,14 @@ bool ArielCore::processNextEvent() {
                     PRIu32
                     " next event is NOOP\n", coreID));
             statInstructionCount->addData(1);
-            inst_count++;
+            retired_inst_cnt++;
+			fetched_inst_count++;
             statNoopCount->addData(1);
             removeEvent = true;
             break;
 
         case READ_ADDRESS:
+
             ARIEL_CORE_VERBOSE(8, output->verbose(CALL_INFO, 8, 0, "Core %"
                     PRIu32
                     " next event is READ_ADDRESS\n", coreID));
@@ -656,9 +667,10 @@ bool ArielCore::processNextEvent() {
                 ARIEL_CORE_VERBOSE(16, output->verbose(CALL_INFO, 16, 0,
                                                        "Found a read event, fewer pending transactions than permitted so will process...\n"));
                 statInstructionCount->addData(1);
-                //inst_count++;
+                //retired_inst_cnt++;
                 removeEvent = true;
                 handleReadRequest(dynamic_cast<ArielReadEvent *>(nextEvent));
+				fetched_inst_count++;
             } else {
                 ARIEL_CORE_VERBOSE(16, output->verbose(CALL_INFO, 16, 0,
                                                        "Pending transaction queue is currently full for core %"
@@ -670,6 +682,7 @@ bool ArielCore::processNextEvent() {
             break;
 
         case WRITE_ADDRESS:
+
             ARIEL_CORE_VERBOSE(8, output->verbose(CALL_INFO, 8, 0, "Core %"
                     PRIu32
                     " next event is WRITE_ADDRESS\n", coreID));
@@ -679,9 +692,10 @@ bool ArielCore::processNextEvent() {
                 ARIEL_CORE_VERBOSE(16, output->verbose(CALL_INFO, 16, 0,
                                                        "Found a write event, fewer pending transactions than permitted so will process...\n"));
                 statInstructionCount->addData(1);
-                //inst_count++;
+                //retired_inst_cnt++;
                 removeEvent = true;
                 handleWriteRequest(dynamic_cast<ArielWriteEvent *>(nextEvent));
+				fetched_inst_count++;
             } else {
                 statLsqFullCount->addData(1);
                 ARIEL_CORE_VERBOSE(16, output->verbose(CALL_INFO, 16, 0,
@@ -786,14 +800,12 @@ bool ArielCore::processNextEvent() {
 			}
 		}
 
-		if(inst_count >= max_insts && (max_insts!=0) && (coreID==0)) {
+		if(retired_inst_cnt >= max_insts && (max_insts!=0) && (coreID==0)) {
             std::cout <<"inst_cout>=max_inst\n";
             isHalted = true;
         }
-		else if(inst_count>0)
+		else if(retired_inst_cnt>0)
 		{
-			if(inst_count%1000000==0)
-				std::cout <<"inst_count: "<<inst_count<<std::endl;
 
 			currentCycles++;
 			statCycles->addData(1);

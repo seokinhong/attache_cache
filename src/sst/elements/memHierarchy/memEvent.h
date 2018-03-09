@@ -104,6 +104,7 @@ public:
         return me;
     }
 
+
     void initialize() {
         addr_               = 0;
         baseAddr_           = 0;
@@ -156,7 +157,9 @@ public:
     uint32_t getSize(void) const { return size_; }
     /** Sets the size in bytes that this MemEvent represents */
     void setSize(uint32_t size) { size_ = size; }
-   
+
+    void setInstNum(uint64_t instnum) {  instnum_=instnum;}
+    uint64_t getInstNum(){return instnum_;}
     /** Increments the number of retries */
     void incrementRetries() { retries_++; }
     int getRetries() { return retries_; }
@@ -276,9 +279,10 @@ private:
     bool            blocked_;           // Whether this request blocked for another pending request (for profiling) TODO move to mshrs
     SimTime_t       initTime_;          // Timestamp when event was created, for detecting timeouts TODO move to mshrs
     bool            dirty_;             // For a replacement, whether the data is dirty or not
-    Addr	    instPtr_;           // Instruction pointer associated with the request
-    Addr 	    vAddr_;             // Virtual address associated with the request
+    Addr	        instPtr_;           // Instruction pointer associated with the request
+    Addr 	        vAddr_;             // Virtual address associated with the request
     bool            inProgress_;        // Whether this request is currently being handled, if in MSHR TODO move to mshrs
+    uint64_t        instnum_;          // Instruction number
 
     MemEvent() : MemEventBase() {} // For serialization only
 
@@ -299,6 +303,7 @@ public:
         ser & instPtr_;
         ser & vAddr_;
         ser & inProgress_;
+        ser & instnum_;
     }
      
     ImplementSerializable(SST::MemHierarchy::MemEvent);     

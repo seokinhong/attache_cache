@@ -87,17 +87,6 @@ void c_BankGroup::updateOtherBanksNextCommandCycles(c_BankInfo* x_initBankPtr,
 		c_BankCommand* x_cmdPtr, SimTime_t x_cycle) {
 
 //	std::cout << "Entered " << __PRETTY_FUNCTION__ << std::endl;
-//TODO SEOKIN
-	//memzip
-	int l_bl = m_bankParams->at("nBL");
-
-	if(x_cmdPtr->m_memzip_mode)
-        if(x_cmdPtr->getCommandMnemonic()==e_BankCommandType::READ || x_cmdPtr->getCommandMnemonic()==e_BankCommandType::WRITE)
-        {
-                    if (x_cmdPtr->getTransaction()->getCompressedSize() > 50)
-                        m_bankParams->at("nBL") *= 2;
-        }
-
 	SimTime_t l_time = x_cycle;
 	for (std::vector<c_BankInfo*>::iterator l_iter = m_bankPtrs.begin();
 			l_iter != m_bankPtrs.end(); ++l_iter) {
@@ -190,8 +179,6 @@ void c_BankGroup::updateOtherBanksNextCommandCycles(c_BankInfo* x_initBankPtr,
 		}
 
 	}
-//TODO
-	m_bankParams->at("nBL")=l_bl;
 
 	m_rankPtr->updateOtherBanksNextCommandCycles(this, x_cmdPtr, l_time);
 }

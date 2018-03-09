@@ -50,6 +50,8 @@ c_TxnGenBase::c_TxnGenBase(ComponentId_t x_id, Params& x_params) :
     m_seqNum = 0;
     m_resReadCount = 0;
     m_resWriteCount = 0;
+    m_reqReadCount=0;
+    m_reqWriteCount=0;
     m_numOutstandingReqs = 0;
     m_numTxns = 0;
     m_resTotalCount=0;
@@ -92,7 +94,8 @@ c_TxnGenBase::c_TxnGenBase(ComponentId_t x_id, Params& x_params) :
             new Event::Handler<c_TxnGenBase>(this, &c_TxnGenBase::handleResEvent));
 
     // get configured clock frequency
-    std::string l_controllerClockFreqStr = (std::string)x_params.find<std::string>("strControllerClockFrequency", "1GHz", l_found);
+    std::string l_controllerClockFreqStr = (std::string)x_params.find<std::string>("strControllerClockFreq", "1GHz", l_found);
+    std::cout<<"l_controllerClockFreqStr"<<l_controllerClockFreqStr<<std::endl;
 
     //set our clock
     registerClock(l_controllerClockFreqStr,
@@ -122,9 +125,9 @@ c_TxnGenBase::c_TxnGenBase() :
 void c_TxnGenBase::finish()
 {
     printf("\n======= CramSim Simulation Report [Transaction Generator] ============================\n");
-    printf("Total Read-Txns Requests sent: %llu\n", m_resReadCount);
-    printf("Total Write-Txns Requests sent: %llu\n", m_resWriteCount);
-    printf("Total Txns Sents: %llu\n", m_resReadCount + m_resWriteCount);
+    printf("Total Read-Txns Requests sent: %llu\n", m_reqReadCount);
+    printf("Total Write-Txns Requests sent: %llu\n", m_reqWriteCount);
+    printf("Total Txns Sents: %llu\n", m_reqReadCount + m_reqWriteCount);
 
     printf("Total Read-Txns Responses received: %llu\n", m_resReadCount);
     printf("Total Write-Txns Responses received: %llu\n", m_resWriteCount);

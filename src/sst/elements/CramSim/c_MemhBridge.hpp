@@ -37,6 +37,7 @@ class c_MemhBridge: public c_TxnGenBase {
 
 public:
 	c_MemhBridge(SST::ComponentId_t x_id, SST::Params& x_params);
+
 	~c_MemhBridge();
 
 
@@ -44,7 +45,7 @@ protected:
 	void createTxn();
 	void readResponse(); //read from res q to output
 
-        void printTxn(bool isWrite, uint64_t addr);
+	void printTxn(bool isWrite, uint64_t addr);
 	
         //Debug
 	Output *output;
@@ -60,6 +61,7 @@ protected:
 	std::streambuf *m_txnTraceStreamBuf;
 	std::ofstream m_txnTraceOFStream;
 	std::ostream *m_txnTraceStream;
+
 
 
 };
