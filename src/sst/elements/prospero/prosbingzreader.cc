@@ -124,16 +124,19 @@ ProsperoTraceEntry* ProsperoCompressedBinaryTraceReader::readNextEntry() {
 			accumulate_length+=sizeof(uint32_t);
 		}
 
-		if(hasInstNum) {
-			copy((char *) &instNum, buffer, accumulate_length, sizeof(uint64_t));
-			accumulate_length+=sizeof(uint64_t);
-		}
-
 		ProsperoTraceEntry *new_entry=new ProsperoTraceEntry(reqCycles, reqAddress,
 														 reqLength,reqData_vector,compRatio,
 														 (reqType == 'R' || reqType == 'r') ? READ : WRITE, reqAtomic);
 		//std::cout << reqCycles << " " << reqType<< " " <<std::hex<<reqAddress << " "<<reqLength << " "<< instNum <<std::endl;
-		new_entry->setInstNum(instNum);
+
+		if(hasInstNum) {
+			copy((char *) &instNum, buffer, accumulate_length, sizeof(uint64_t));
+			accumulate_length+=sizeof(uint64_t);
+			new_entry->setInstNum(instNum);
+		} else{
+			new_entry->setInstNum(reqCycles);
+		}
+
 		return new_entry;
 
 	} else {

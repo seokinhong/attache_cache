@@ -68,6 +68,14 @@ ProsperoComponent::ProsperoComponent(ComponentId_t id, Params& params) :
 
 		skip_cycle = (uint64_t) params.find<uint64_t>("skip_cycle", 0);
 
+		hasROB = (bool) params.find<bool>("hasROB",false);
+		sizeROB = (uint32_t) params.find<uint32_t>("sizeROB", 32);
+		maxCommitPerCycle =(uint32_t) params.find<uint32_t>("maxCommitPerCycle",4);
+
+		if(hasROB)
+		{
+			ROB.clear();
+		}
 		bool l_found=false;
 		cpuid = (uint32_t) params.find<uint32_t>("cpuid", 0, l_found);
 		if(l_found==false)
@@ -155,7 +163,9 @@ ProsperoComponent::ProsperoComponent(ComponentId_t id, Params& params) :
 		cyclesDrift = 0;
 		issuedAtomic = 0;
 		currentOutstandingUC = 0;
-
+		NonMemInstCnt=0;
+		cyclesLsqFull=0;
+		cyclesRobFull=0;
 
 		subID = (char*) malloc(sizeof(char) * 32);
 		sprintf(subID, "%" PRIu64, id);
@@ -172,6 +182,8 @@ ProsperoComponent::ProsperoComponent(ComponentId_t id, Params& params) :
 		statBytesRead  = this->registerStatistic<uint64_t>( "bytes_read", subID );
 		statBytesWritten  = this->registerStatistic<uint64_t>( "bytes_written", subID );
 		statInstructionCount = this->registerStatistic<uint64_t>( "instruction_count", subID );
+		statCyclesLsqFull= this->registerStatistic<uint64_t>( "cycles_lsq_full", subID );
+		statCyclesRobFull = this->registerStatistic<uint64_t>( "cycles_rob_full", subID );
 
 		// atomic instructions
 		statAtomicInstrCount = this->registerStatistic<uint64_t>( "atomic_instr_count", subID );
@@ -343,10 +355,20 @@ void ProsperoComponent::handleResponse(SimpleMem::Request *ev) {
 		output->verbose(CALL_INFO, 4, 0, "Received reponse from cacheable id %" PRIu64 ".\n", ev->id);
 		currentOutstanding--;
 	}
+
+	//set done flag in the corresponding entry of rob
+	if(hasROB) {
+		for (auto &it: ROB) {
+			if (it.isMemory && it.id == ev->addrs[0])
+#ifdef DEBUG_ROB
+				printf("mem inst is completed in rob, addr:%llx\n",it.id);
+#endif
+				it.done = true;
+		}
+	}
+
 	// Our responsibility to delete incoming event
 	delete ev;
-
-
 }
 
 
@@ -391,49 +413,160 @@ bool ProsperoComponent::tick(SST::Cycle_t currentCycle) {
 	uint64_t currentEntryCycle=currentEntry->getIssueAtCycle()+baseCycle;
 	uint64_t l_currentCycle=currentCycle+skip_cycle;
 
+
 	const uint64_t outstandingBeforeIssue = currentOutstanding;
 	const uint64_t outstandingBeforeIssueUC = currentOutstandingUC;
 	const uint64_t issuedAtomicBefore = issuedAtomic;
 	bool ls_full = false;
 	bool ls_tlb_miss=false;
+	bool rob_full = false;
 
-		
+	//commit instructions;
+    if(hasROB)
+    {
+
+		for(uint32_t i=0;i< maxCommitPerCycle&&!ROB.empty(); i++)
+		{
+            if (!ROB.front().isMemory) {
+                ROB.pop_front();
+#ifdef DEBUG_ROB
+                printf("[%lld]non inst committed\n", currentCycle);
+#endif
+            } else {
+                if (ROB.front().done) {
+#ifdef DEBUG_ROB
+                    printf("[%lld]mem inst committed, address:%llx\n", currentCycle, ROB.front().id);
+#endif
+                    ROB.pop_front();
+                }
+            }
+		}
+#ifdef DEBUG_ROB
+		printf("------------------------------------------------\n");
+		printf("[ROB status] cycle:%lld, num rob:%d\n",currentCycle,ROB.size());
+		printf("mem\tid\tdone\n");
+		for(auto &it: ROB)
+		{
+			printf("%s\t%llx\t%s\n",it.isMemory?"true":"false",it.id,it.done?"true":"false");
+		}
+#endif
+    }
 	// Wait to see if the current operation can be issued, if yes then
 	// go ahead and issue it, otherwise we will stall
 	for(uint32_t i = 0; i < maxIssuePerCycle; ++i) {
 
 		if(currentOutstanding < maxOutstanding) {
-			if (page_link) {
-				if (isPageRequestSent == true) {
-					ls_tlb_miss=true;
-					break;
-				}
-				else if (memMgr->isPageAllocated(currentEntry->getAddress()) == false) {
-					sendPageAllocRequest(currentEntry->getAddress());
-					ls_tlb_miss=true;
-					break;
-				}
-			}
 
 			if (waitForCycle == 0) {
 					m_inst++;
+
 					if (m_inst % 1000000 == 0) {
 						printf("# of issued inst: %lld\n", m_inst);
 						fflush(0);
 					}
-					// Issue the pending request into the memory subsystem
-					issueRequest(currentEntry);
 
-					// Obtain the next newest request
-					currentEntry = reader->readNextEntry();
+                    //insert non memory instruction to rob
+                    if(hasROB)
+					{
+						if(ROB.size()< sizeROB) {
+							if (NonMemInstCnt > 0) {
+#ifdef DEBUG_ROB
+								printf("[%lld]non mem inst issued\n",currentCycle);
+#endif
+								ROB_ENTRY entry;
+								entry.isMemory = false;
+								entry.done=true;
+								entry.id=0;
+								ROB.push_back(entry);
+								NonMemInstCnt--;
+								continue;
+							} else {
 
-					// Trace reader has read all entries, time to begin draining
-					// the system, caches etc
-					if (NULL == currentEntry) {
-						traceEnded = true;
-						break;
+								if (page_link) {
+									if (isPageRequestSent == true) {
+										ls_tlb_miss=true;
+										break;
+									}
+									else if (memMgr->isPageAllocated(currentEntry->getAddress()) == false) {
+										sendPageAllocRequest(currentEntry->getAddress());
+										ls_tlb_miss=true;
+										break;
+									}
+								}
+
+								uint64_t old_instnum = currentEntry->getInstNum();
+								ROB_ENTRY entry;
+								entry.id = currentEntry->getAddress();
+								entry.isMemory = true;
+								entry.done = false;
+								ROB.push_back(entry);
+
+								// Issue the pending request into the memory subsystem
+								issueRequest(currentEntry);
+
+								// Obtain the next newest request
+								currentEntry = reader->readNextEntry();
+
+								//update the number of non mem inst cnt
+								NonMemInstCnt = currentEntry->getInstNum() - old_instnum;
+#ifdef DEBUG_ROB
+								printf("[%lld]mem inst issued, address:%lx, dependent inst:%lld\n",currentCycle,entry.id,NonMemInstCnt);
+#endif
+
+								// Trace reader has read all entries, time to begin draining
+								// the system, caches etc
+								if (NULL == currentEntry) {
+									traceEnded = true;
+									break;
+								}
+							}
+						}
+						else //ROB is full
+						{
+							rob_full=true;
+							break;
+						}
+                    }
+					else
+					{
+						if (page_link) {
+							if (isPageRequestSent == true) {
+								ls_tlb_miss=true;
+								break;
+							}
+							else if (memMgr->isPageAllocated(currentEntry->getAddress()) == false) {
+								sendPageAllocRequest(currentEntry->getAddress());
+								ls_tlb_miss=true;
+								break;
+							}
+						}
+
+						// Issue the pending request into the memory subsystem
+						issueRequest(currentEntry);
+
+						// Obtain the next newest request
+						currentEntry = reader->readNextEntry();
+
+							// Trace reader has read all entries, time to begin draining
+						// the system, caches etc
+						if (NULL == currentEntry) {
+							traceEnded = true;
+							break;
+						}
 					}
 			} else {
+				if (page_link) {
+					if (isPageRequestSent == true) {
+						ls_tlb_miss=true;
+						break;
+					}
+					else if (memMgr->isPageAllocated(currentEntry->getAddress()) == false) {
+						sendPageAllocRequest(currentEntry->getAddress());
+						ls_tlb_miss=true;
+						break;
+					}
+				}
+
 				//std::cout<<l_currentCycle<<" "<<currentEntryCycle<<std::endl;
 				if (l_currentCycle >= currentEntryCycle) {
 						m_inst++;
@@ -481,7 +614,16 @@ bool ProsperoComponent::tick(SST::Cycle_t currentCycle) {
 	const uint64_t issuedThisCycle = outstandingAfterIssue - outstandingBeforeIssue + outstandingAfterIssueUC - outstandingBeforeIssueUC  + issuedAtomic - issuedAtomicBefore;
 
 	if(0 == issuedThisCycle) {
-		if (ls_full){
+		if (ls_full || rob_full){
+			if(ls_full) {
+				cyclesLsqFull++;
+				statCyclesLsqFull->addData(1);
+			}
+			else {
+				cyclesRobFull++;
+				statCyclesRobFull->addData(1);
+			}
+
 			cyclesWithNoIssue++;
 			statCyclesNoIssue->addData(1);
 		}

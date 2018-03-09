@@ -58,6 +58,8 @@ static const ElementInfoStatistic prospero_statistics[] = {
 	{ "cycles_tlb_misses", "Stat cycles without an issued memory request due to TLB misses", "requests", 1},
 	{ "cycles_no_instr", "Stat cycles without an issued memory request due to instruction being far ahead in time", "requests", 1},
 	{ "cycles",       "Stat simulation cycles", "requests", 1},
+	{ "cycles_lsq_full",       "Stat cycles for lsq full", "requests", 1},
+	{ "cycles_rob_full",       "Stat cycles for rob full", "requests", 1},
 	{ "bytes_read",       "Stat bytes read", "requests", 1},
 	{ "bytes_written",       "Stat bytes written", "requests", 1},
 	{ "instruction_count",    "Statistic for counting instructions", "instructions", 1 },

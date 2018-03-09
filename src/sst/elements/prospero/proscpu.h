@@ -25,6 +25,7 @@
 #include "sst/core/component.h"
 #include "sst/core/link.h"
 #include "sst/core/interfaces/simpleMem.h"
+#include <deque>
 
 #include "prosreader.h"
 #include "prosmemmgr.h"
@@ -52,6 +53,13 @@ namespace SST {
 				void finish();
 
 			private:
+				class ROB_ENTRY{
+				public:
+					uint64_t id;
+					bool isMemory;
+					bool done;
+				};
+
 				ProsperoComponent();                         // Serialization only
 				ProsperoComponent(const ProsperoComponent&); // Do not impl.
 				void operator=(const ProsperoComponent&);    // Do not impl.
@@ -69,8 +77,11 @@ namespace SST {
 				ProsperoTraceEntry* currentEntry;
 				ProsperoMemoryManager* memMgr;
 				SimpleMem* cache_link;
-				bool isPageRequestSent;
+				std::deque<ROB_ENTRY> ROB;
 
+
+
+				bool isPageRequestSent;
 				char* subID;
 				FILE* traceFile;
 				bool traceEnded;
@@ -87,6 +98,9 @@ namespace SST {
 				uint32_t pimSupport;
 				uint32_t profileAtomics;
 				uint32_t waitForCycle;
+				bool hasROB;
+				uint32_t sizeROB;
+				uint32_t maxCommitPerCycle;
 
 				uint64_t pageSize;
 				uint64_t cacheLineSize;
@@ -96,6 +110,7 @@ namespace SST {
 				uint64_t maxIssuePerCycle;
 				uint64_t issuedAtomic;
 				uint64_t skip_cycle;
+				uint64_t NonMemInstCnt;
 
 				uint64_t max_inst;
 			    uint64_t committed_inst;
@@ -111,6 +126,9 @@ namespace SST {
 				uint64_t cyclesWithNoIssue;
 				uint64_t cyclesNoInstr;
 				uint64_t cyclesTLBmiss;
+				uint64_t cyclesLsqFull;
+				uint64_t cyclesRobFull;
+
 				uint64_t cyclesDrift;
 
 				Statistic<uint64_t>* statReadRequests;
@@ -123,6 +141,9 @@ namespace SST {
 				Statistic<uint64_t>* statCyclesNoIssue;
 				Statistic<uint64_t>* statCyclesNoInstr;
 				Statistic<uint64_t>* statCycles;
+				Statistic<uint64_t>* statCyclesLsqFull;
+				Statistic<uint64_t>* statCyclesRobFull;
+
 
 				Statistic<uint64_t>* statCyclesTlbMiss;
 				Statistic<uint64_t>* statBytesRead;
