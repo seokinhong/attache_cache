@@ -35,6 +35,7 @@
 #include "c_MemhBridgeContent.hpp"
 #include "c_TraceFileReader.hpp"
 #include "c_ControllerPCA.hpp"
+#include "c_Cache.hpp"
 
 
 // namespaces
@@ -49,10 +50,16 @@ static Component*
 create_c_MemhBridge(SST::ComponentId_t id, SST::Params& params) {
 	return new c_MemhBridge(id, params);
 }
-// c_MemhBridge
+// c_MemhBridge with content
 static Component*
 create_c_MemhBridgeContent(SST::ComponentId_t id, SST::Params& params) {
 	return new c_MemhBridgeContent(id, params);
+}
+
+// c_TxnGen
+static Component*
+create_c_Cache(SST::ComponentId_t id, SST::Params& params) {
+	return new c_Cache(id, params);
 }
 
 // c_TxnGen
@@ -173,6 +180,28 @@ static const ElementInfoStatistic c_MemhBridge_stats[] = {
   {"txnsLatency", "Average latency of (read/write) transactions", "cycles", 1},
   {"cycles","","cycles",1},
   {NULL, NULL, NULL, 0}
+};
+
+/*----SETUP c_MemhBridge STRUCTURES----*/
+static const ElementInfoParam c_Cache_params[] = {
+		{"cache_size", "size of cache", NULL},
+		{"repl_policy", "size of cache", NULL},
+		{"associativity", "size of cache", NULL},
+		{ NULL, NULL, NULL } };
+
+static const char* c_Cache_Mem_port_events[] = { "c_TxnReqEvent", NULL };
+static const char* c_Cache_CPU_port_events[] = {"c_TxnResEvent", NULL};
+
+static const ElementInfoPort c_Cache_ports[] = {
+		{ "cpuLink", "link to/from CPU",c_Cache_CPU_port_events},
+		{ "memLink", "link to memory-side components (txn dispatcher or controller)", c_Cache_Mem_port_events },
+		{ NULL, NULL, NULL } };
+
+static const ElementInfoStatistic c_Cache_stats[] = {
+		{"accesses", "total number of cache accesses", "accesses", 1}, // Name, Desc, Units, Enable Level
+		{"hits", "Number of hits", "accesses", 1}, // Name, Desc, Units, Enable Level
+		{"misses", "Number of misses", "accesses", 1}, // Name, Desc, Units, Enable Level
+		{NULL, NULL, NULL, 0}
 };
 
 /*----SETUP c_MemhBridge STRUCTURES----*/
@@ -1748,6 +1777,15 @@ static const ElementInfoStatistic c_Dimm_stats[] = {
 
 
 static const ElementInfoComponent CramSimComponents[] = {
+		{ "c_Cache", 							// Name
+		"cache model",			// Description
+		NULL, 										// PrintHelp
+		create_c_Cache, 						// Allocator
+		c_Cache_params, 						// Parameters
+		c_Cache_ports, 							// Ports
+		COMPONENT_CATEGORY_UNCATEGORIZED, 			// Category
+		c_Cache_stats 										// Statistics
+		},
 		{ "c_TxnGen", 							// Name
 		"Test Txn Generator",			// Description
 		NULL, 										// PrintHelp

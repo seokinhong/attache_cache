@@ -210,7 +210,11 @@ void c_TxnGenBase::handleResEvent(SST::Event* ev) {
         
 
 
-        assert(m_outstandingReqs.find(l_seqnum)!=m_outstandingReqs.end());
+        if(m_outstandingReqs.find(l_seqnum)==m_outstandingReqs.end())
+        {
+            printf("error seqnum:%lld\n",l_seqnum);
+            fflush(stdout);
+        }
         SimTime_t l_latency=l_currentCycle-m_outstandingReqs[l_seqnum];
         
         if(l_txn->isRead())

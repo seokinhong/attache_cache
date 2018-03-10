@@ -454,16 +454,14 @@ bool ProsperoComponent::tick(SST::Cycle_t currentCycle) {
 	// Wait to see if the current operation can be issued, if yes then
 	// go ahead and issue it, otherwise we will stall
 	for(uint32_t i = 0; i < maxIssuePerCycle; ++i) {
-
+			if (m_inst % 10000 == 0) {
+						printf("# of issued inst: %lld\n", m_inst);
+						fflush(0);
+			}
 		if(currentOutstanding < maxOutstanding) {
 
 			if (waitForCycle == 0) {
 					m_inst++;
-
-					if (m_inst % 1000000 == 0) {
-						printf("# of issued inst: %lld\n", m_inst);
-						fflush(0);
-					}
 
                     //insert non memory instruction to rob
                     if(hasROB)
@@ -668,11 +666,15 @@ void ProsperoComponent::issueRequest(const ProsperoTraceEntry* entry) {
     std::cout<<std::endl;
 */
 
-	if(max_inst>0 && entryInstNum>max_inst)
+	if(max_inst>0 && m_inst>max_inst)
 	{
 		traceEnded=true;
 	}
-
+/*	if(max_inst>0 && entryInstNum>max_inst)
+	{
+		traceEnded=true;
+	}
+*/
 	if(lineOffset + entryLength > cacheLineSize) {
 		// Perform a split cache line load
 		const uint64_t lowerLength = cacheLineSize - lineOffset;
