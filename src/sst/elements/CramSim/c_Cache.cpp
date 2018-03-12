@@ -31,6 +31,7 @@
 #include "c_Cache.hpp"
 
 
+
 #include <bitset>
 
 
@@ -42,6 +43,7 @@
 using namespace std;
 using namespace SST;
 using namespace SST::n_Bank;
+using namespace SST::MemHierarchy;
 
 c_Cache::c_Cache(ComponentId_t x_id, Params &params):Component(x_id) {
     //*------ get parameters ----*//
@@ -54,7 +56,7 @@ c_Cache::c_Cache(ComponentId_t x_id, Params &params):Component(x_id) {
                              verbosity, 0, SST::Output::STDOUT);
 
     std::string l_clockFreqStr = (std::string)params.find<std::string>("ClockFreq", "1GHz", l_found);
-
+    enableAllHit = (bool)params.find<bool>("enableAllHit",false);
 
     //set our clock
     registerClock(l_clockFreqStr,
@@ -64,6 +66,12 @@ c_Cache::c_Cache(ComponentId_t x_id, Params &params):Component(x_id) {
     uint32_t assoc = params.find<uint32_t>("associativity",16);
     string replacement=params.find<string>("repl_policy","LRU");
     m_cacheLatency=params.find<uint32_t>("latency",20);
+
+    printf("[cramsim cache] cache_size(KB):%d\n", cache_size/1024);
+    printf("[cramsim cache] repl_policy:%s\n",replacement.c_str());
+    printf("[cramsim cache] latency:%d\n",m_cacheLatency);
+    printf("[cramsim cache] enableAllHit? %d\n", enableAllHit);
+
     uns repl = MCache_ReplPolicy_Enum::REPL_LRU;
     uns sets = cache_size/(assoc*64);
 
@@ -90,9 +98,24 @@ c_Cache::c_Cache(ComponentId_t x_id, Params &params):Component(x_id) {
     m_linkMem = configureLink("memLink",new Event::Handler<c_Cache>(this,&c_Cache::handleMemEvent));
     m_linkCPU = configureLink("cpuLink",new Event::Handler<c_Cache>(this,&c_Cache::handleCpuEvent));
 
+    m_seqnum = 0;
+
     s_accesses = registerStatistic<uint64_t>("accesses");
     s_hit = registerStatistic<uint64_t>("hits");
     s_miss = registerStatistic<uint64_t>("misses");
+    s_readRecv = registerStatistic<uint64_t>("reads");
+    s_writeRecv = registerStatistic<uint64_t>("writes");
+
+}
+void c_Cache::init(unsigned int phase) {
+
+        MemEventInit *ev = NULL;
+        while(ev=dynamic_cast<MemEventInit*>(m_linkCPU->recvInitData())) {
+            MemEventInit *res=new MemEventInit(this->getName(), MemHierarchy::MemEventInit::InitCommand::Region);
+            res->setDst(ev->getSrc());
+            m_linkCPU->sendInitData(res);
+            delete ev;
+        }
 
 }
 
@@ -107,69 +130,109 @@ c_Cache::c_Cache() :
 bool c_Cache::clockTic(Cycle_t clock)
 {
     m_simCycle++;
-
-    sendResponse();
-    sendRequest();
+    eventProcessing();
+//    sendResponse();
+ //   sendRequest();
 
     return false;
 }
 
 
 //request from cpu
-void c_Cache::handleCpuEvent(SST::Event *ev)
-{
-    //get a lane index
-    c_TxnReqEvent* l_newReq=dynamic_cast<c_TxnReqEvent*>(ev);
-    c_Transaction* l_newTxn=l_newReq->m_payload;
-    Addr l_req_addr= (l_newTxn->getAddress()>>3)<<3;
-    bool wb=l_newTxn->isWrite();
-    bool isHit=mcache_access(m_cache,l_req_addr,wb);
-    uint64_t issue_cycle = m_simCycle+m_cacheLatency;
+void c_Cache::handleCpuEvent(SST::Event *ev) {
 
-//#ifdef __SST_DEBUG_OUTPUT__
-    output->verbose(CALL_INFO,1,0,"[%lld] addr: %llx write:%d isHit:%d\n",m_simCycle,l_req_addr,wb,isHit);
-//#endif
-
-    s_accesses->addData(1);
-
-    // cache miss
-    if(!isHit)
-    {
-        s_miss->addData(1);
-        MCache_Entry victim = mcache_install(m_cache,l_req_addr,wb);
-
-        //if dirty, store the victim to the memory
-        if(victim.dirty) {
-            Addr l_victim_addr = victim.tag;
-            c_Transaction *wbTxn = new c_Transaction(l_newTxn->getSeqNum()<<8, e_TransactionType::WRITE, l_victim_addr, 1);
-            std::pair<uint64_t, c_Transaction*> newReq (issue_cycle,wbTxn);
-            m_memReqQ.push_back(newReq);
-
-            output->verbose(CALL_INFO,1,0,"[%lld] victim writeback addr: %llx seqnum:%lld dirty victim\n",m_simCycle,l_victim_addr,wbTxn->getSeqNum());
-        }
-
-        //queue the mem request to the memory request queue
-        c_Transaction* fillTxn = new c_Transaction(l_newTxn->getSeqNum(), e_TransactionType::READ, l_req_addr, 1);
-        std::pair<uint64_t, c_Transaction*> newReq (issue_cycle,fillTxn);
-        m_memReqQ.push_back(newReq);
-        output->verbose(CALL_INFO,1,0,"[%lld] req addr: %llx seqnum:%lld\n",m_simCycle,l_req_addr,fillTxn->getSeqNum());
-
-        delete l_newTxn;
-    }
-    else //cache hit
-    {
-        s_hit->addData(1);
-        //queue the mem request to the cpu response queue
-        std::pair<uint64_t, c_Transaction*> newRes (issue_cycle,l_newTxn);
-        output->verbose(CALL_INFO,1,0,"[%lld] hit req addr: %llx seqnum:%lld\n",m_simCycle,l_req_addr,l_newTxn->getSeqNum());
-        m_cpuResQ.push_back(newRes);
-    }
-
-    delete ev;
+    MemEvent *newReq = dynamic_cast<MemEvent *>(ev);
+    assert(newReq->getCmd()==Command::GetS || newReq->getCmd()==Command::GetX);
 
     #ifdef __SST_DEBUG_OUTPUT__
-    l_newReq->m_payload->verbose(&dbg,"[c_Cache.handleTxnGenEvent]",m_simCycle);
+    output->verbose(CALL_INFO,1,0,"[c_Cache] cycle: %lld paddr: %llx, vaddr:%llx, isWrite:%d\n",
+            m_simCycle,newReq->getAddr(), newReq->getBaseAddr(),newReq->getCmd());
     #endif
+
+    uint64_t issue_cycle = m_simCycle + m_cacheLatency;
+    std::pair<uint64_t, MemEvent *> req_entry(issue_cycle, newReq);
+    m_cpuReqQ.push_back(req_entry);
+}
+
+void c_Cache::eventProcessing()
+{
+    while(!m_cpuReqQ.empty()&& m_cpuReqQ.front().first<=m_simCycle) {
+        MemEvent* newReq=m_cpuReqQ.front().second;
+        m_cpuReqQ.pop_front();
+
+        Addr req_addr = (newReq->getAddr() >> 3) << 3;
+        bool isWrite = (newReq->getCmd() == Command::GetX);
+        bool isHit = mcache_access(m_cache, req_addr, isWrite);
+
+        if(enableAllHit)
+        {
+            isHit=true;
+        }
+
+        if (isWrite)
+            s_writeRecv->addData(1);
+        else
+            s_readRecv->addData(1);
+
+        s_accesses->addData(1);
+
+    //    bool isHit=false;
+
+        #ifdef __SST_DEBUG_OUTPUT__
+        output->verbose(CALL_INFO, 1, 0, "[%lld] addr: %llx write:%d isHit:%d\n", m_simCycle, req_addr, isWrite, isHit);
+        #endif
+        // cache miss
+        if (!isHit) {
+            s_miss->addData(1);
+            MCache_Entry victim = mcache_install(m_cache, req_addr, isWrite);
+
+            //if dirty, store the victim to the memory
+            if (victim.dirty) {
+                Addr l_victim_addr = victim.tag;
+                c_Transaction *wbTxn = new c_Transaction(m_seqnum++, e_TransactionType::WRITE, l_victim_addr, 1);
+                c_TxnReqEvent *wbev = new c_TxnReqEvent();
+                wbev->m_payload=wbTxn;
+                m_linkMem->send(wbev);
+
+                #ifdef __SST_DEBUG_OUTPUT__
+                output->verbose(CALL_INFO, 1, 0, "[%lld] victim writeback addr: %llx seqnum:%lld dirty victim\n", m_simCycle, l_victim_addr, wbTxn->getSeqNum());
+                #endif
+            }
+
+            //queue the mem request to the memory request queue
+            c_Transaction *fillTxn = new c_Transaction(m_seqnum, e_TransactionType::READ, req_addr, 1);
+            c_TxnReqEvent *fillev = new c_TxnReqEvent();
+            fillev->m_payload=fillTxn;
+            m_linkMem->send(fillev);
+
+            #ifdef __SST_DEBUG_OUTPUT__
+            output->verbose(CALL_INFO, 1, 0, "[%lld] req addr: %llx seqnum:%lld\n", m_simCycle, req_addr,
+                            fillTxn->getSeqNum());
+            #endif
+
+            MemEvent *res = new MemEvent(this, req_addr, newReq->getVirtualAddress(), isWrite ? Command::GetX : Command::GetS);
+            res->setResponse(newReq);
+            m_cpuResQ[m_seqnum]=res;
+
+            m_seqnum++;
+        } else //cache hit
+        {
+            s_hit->addData(1);
+            //queue the response to the cpu response queue
+            MemEvent *res = new MemEvent(this, req_addr, newReq->getVirtualAddress(),
+                                         isWrite ? Command::GetX : Command::GetS);
+
+            res->setResponse(newReq);
+            m_linkCPU->send(res);
+
+            #ifdef __SST_DEBUG_OUTPUT__
+            output->verbose(CALL_INFO, 1, 0, "[%lld] hit req addr: %llx\n", m_simCycle, req_addr);
+            #endif
+        }
+
+        delete newReq;
+
+    }
 }
 
 //response from memory
@@ -177,14 +240,19 @@ void c_Cache::handleMemEvent(SST::Event *ev) {
     c_TxnResEvent* l_newRes=dynamic_cast<c_TxnResEvent*>(ev);
     c_Transaction* newTxn=l_newRes->m_payload;
 
-    if(newTxn->isWrite())
-        delete newTxn;
-    else {
-        //push the response to cpu response queue
-        std::pair<uint64_t, c_Transaction *> newRes(m_simCycle + 1, newTxn);
-        m_cpuResQ.push_back(newRes);
-    }
+    #ifdef __SST_DEBUG_OUTPUT__
+    output->verbose(CALL_INFO,1,0,"[%lld] res from memory addr: %llx seqnum:%lld, isWrite:%d\n",m_simCycle,newTxn->getAddress(),newTxn->getSeqNum(),newTxn->isWrite());
+    #endif
 
+    if(!newTxn->isWrite())
+    {
+        assert(m_cpuResQ.find(newTxn->getSeqNum())!=m_cpuResQ.end());
+
+        MemEvent* newRes=m_cpuResQ[newTxn->getSeqNum()];
+        m_linkCPU->send(newRes);
+        m_cpuResQ.erase(newTxn->getSeqNum());
+    }
+    delete newTxn;
     delete ev;
 }
 
@@ -192,30 +260,14 @@ void c_Cache::handleMemEvent(SST::Event *ev) {
 //send request to memory
 void c_Cache::sendRequest()
 {
-    while(!m_memReqQ.empty()&& m_memReqQ.front().first<=m_simCycle)
-    {
-            c_TxnReqEvent* l_txnReqEvPtr = new c_TxnReqEvent();
-            l_txnReqEvPtr->m_payload = m_memReqQ.front().second;
-            m_linkMem->send(l_txnReqEvPtr);
-
-            output->verbose(CALL_INFO,1,0,"[%lld] send req to mem addr: %llx\n",m_simCycle,l_txnReqEvPtr->m_payload->getAddress());
-            m_memReqQ.pop_front();
-    }
+  ;
 }
 
 
 //send response to cpu
 void c_Cache::sendResponse()
 {
-    while(!m_cpuResQ.empty()&& m_cpuResQ.front().first<=m_simCycle)
-    {
-            c_TxnResEvent* l_txnResEvPtr = new c_TxnResEvent();
-            l_txnResEvPtr->m_payload = m_cpuResQ.front().second;
-            m_linkCPU->send(l_txnResEvPtr);
-
-            output->verbose(CALL_INFO,1,0,"[%lld] send req to cpu addr: %llx seqnum:%lld\n",m_simCycle,l_txnResEvPtr->m_payload->getAddress(),l_txnResEvPtr->m_payload->getSeqNum());
-            m_cpuResQ.pop_front();
-    }
+;
 }
 
 
@@ -416,6 +468,7 @@ MCache_Entry c_Cache::mcache_install(MCache *c, Addr addr, Flag dirty)
         entry = &c->entries[ii];
         if(entry->valid && (entry->tag == tag)){
             printf("Installed entry already with addr:%llx present in set:%u\n", addr, set);
+            fflush(stdout);
             exit(-1);
         }
     }

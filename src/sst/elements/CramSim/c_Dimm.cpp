@@ -248,7 +248,7 @@ c_Dimm::c_Dimm(SST::ComponentId_t x_id, SST::Params& x_params) :
 	}
 
 	// get configured clock frequency
-	std::string l_clockFreqStr = (std::string)x_params.find<std::string>("strControllerClockFrequency", "1GHz", l_found);
+	std::string l_clockFreqStr = (std::string)x_params.find<std::string>("strControllerClockFreq", "1GHz", l_found);
     
 	//set our clock
 	m_clockHandler=new Clock::Handler<c_Dimm>(this, &c_Dimm::clockTic);

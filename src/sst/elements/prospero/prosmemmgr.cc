@@ -73,12 +73,12 @@ uint64_t ProsperoMemoryManager::translate(const uint64_t virtAddr) {
 
 	std::map<uint64_t, uint64_t>::iterator findEntry = pageTable.find(virtPageStart);
 	if(findEntry == pageTable.end()) {
-		uint64_t nextPageStart=0;
+		//uint64_t nextPageStart=0;
 
-		output->verbose(CALL_INFO, 4, 0, "[CORE ID:%d] Translation requires new page, creating at physical: %" PRIu64 "\n", nextPageStart);
+		output->verbose(CALL_INFO, 4, 0, "[CORE ID:%d] Translation requires new page, creating at physical: %" PRIu64 "\n", m_cpuid,m_nextPageStart);
 
-		resolvedPhysPageStart = nextPageStart;
-		pageTable.insert( std::pair<uint64_t, uint64_t>(virtPageStart, nextPageStart) );
+		resolvedPhysPageStart = m_nextPageStart;
+		pageTable.insert( std::pair<uint64_t, uint64_t>(virtPageStart, m_nextPageStart) );
 		m_nextPageStart+=pageSize;
 
 	} else {

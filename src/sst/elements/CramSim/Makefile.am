@@ -80,7 +80,9 @@ libCramSim_la_SOURCES = \
     c_ControllerPCA.cpp \
     c_ControllerPCA.hpp \
     c_Cache.cpp \
-    c_Cache.hpp
+    c_Cache.hpp \
+    c_PageAllocator.cpp \
+    c_PageAllocator.hpp
 
 
 EXTRA_DIST = \

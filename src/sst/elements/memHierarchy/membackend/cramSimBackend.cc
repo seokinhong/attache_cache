@@ -47,6 +47,7 @@ bool CramSimMemory::issueRequest(ReqId reqId, Addr addr, bool isWrite, unsigned 
     if (memReqs.find(reqId) != memReqs.end())
         output->fatal(CALL_INFO, -1, "Assertion failed");
 
+    //printf("cramsimbackend addr:%llx isWrite:%d\n",addr,isWrite);
     memReqs.insert( reqId );
     cramsim_link->send( new CramSim::MemReqEvent(reqId,addr,isWrite,numBytes,0) );
     return true;

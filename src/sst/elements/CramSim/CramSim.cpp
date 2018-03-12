@@ -36,6 +36,7 @@
 #include "c_TraceFileReader.hpp"
 #include "c_ControllerPCA.hpp"
 #include "c_Cache.hpp"
+#include "c_PageAllocator.hpp"
 
 
 // namespaces
@@ -56,11 +57,18 @@ create_c_MemhBridgeContent(SST::ComponentId_t id, SST::Params& params) {
 	return new c_MemhBridgeContent(id, params);
 }
 
-// c_TxnGen
+// c_Cache
 static Component*
 create_c_Cache(SST::ComponentId_t id, SST::Params& params) {
 	return new c_Cache(id, params);
 }
+
+// c_PageAllocator
+static Component*
+create_c_PageAllocator(SST::ComponentId_t id, SST::Params& params) {
+	return new c_PageAllocator(id, params);
+}
+
 
 // c_TxnGen
 static Component*
@@ -201,8 +209,21 @@ static const ElementInfoStatistic c_Cache_stats[] = {
 		{"accesses", "total number of cache accesses", "accesses", 1}, // Name, Desc, Units, Enable Level
 		{"hits", "Number of hits", "accesses", 1}, // Name, Desc, Units, Enable Level
 		{"misses", "Number of misses", "accesses", 1}, // Name, Desc, Units, Enable Level
+		{"reads", "Number of reads", "accesses", 1}, // Name, Desc, Units, Enable Level
+		{"writes", "Number of writes", "accesses", 1}, // Name, Desc, Units, Enable Level
 		{NULL, NULL, NULL, 0}
 };
+
+/*----SETUP c_MemhBridge STRUCTURES----*/
+static const ElementInfoPort c_PageAllocator_ports[] = {
+		{ "pageLink_%(links)d", "link to/from links", NULL},
+		{ NULL, NULL, NULL } };
+
+static const ElementInfoStatistic c_PageAloocator_stats[]={
+		{"numAllocPages", "Number of allocated pages", "pages", 1}, // Name, Desc, Units, Enable Level
+		{NULL, NULL, NULL, 0}
+};
+
 
 /*----SETUP c_MemhBridge STRUCTURES----*/
 static const char* c_MemhBridgeContent_Content_events[] = {"c_ContentEvent", NULL};
@@ -1785,6 +1806,15 @@ static const ElementInfoComponent CramSimComponents[] = {
 		c_Cache_ports, 							// Ports
 		COMPONENT_CATEGORY_UNCATEGORIZED, 			// Category
 		c_Cache_stats 										// Statistics
+		},
+		{ "c_PageAllocator", 							// Name
+		"Page Allocator",			// Description
+		NULL, 										// PrintHelp
+		create_c_PageAllocator, 						// Allocator
+		NULL, 						// Parameters
+		c_PageAllocator_ports, 							// Ports
+		COMPONENT_CATEGORY_UNCATEGORIZED, 			// Category
+		c_PageAloocator_stats 										// Statistics
 		},
 		{ "c_TxnGen", 							// Name
 		"Test Txn Generator",			// Description

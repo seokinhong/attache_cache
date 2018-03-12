@@ -35,6 +35,7 @@
 #include "c_Transaction.hpp"
 #include "c_TxnReqEvent.hpp"
 #include "c_TxnResEvent.hpp"
+#include <sst/elements/memHierarchy/memEvent.h>
 
 #define FALSE 0
 #define TRUE  1
@@ -69,13 +70,14 @@ typedef int		    Generic_Enum;
 
 
 /* Conventions */
-typedef uns64		    Addr;
+//typedef uns64		    Addr;
 typedef uns32		    Binary;
 typedef uns8		    Flag;
 
 typedef uns64               Counter;
 typedef int64               SCounter;
 
+using namespace SST::MemHierarchy;
 
 namespace SST{
     namespace n_Bank{
@@ -127,6 +129,7 @@ namespace SST{
          public:
              c_Cache( ComponentId_t id, Params& params);
              ~c_Cache();
+             void init(unsigned int phase);
 
             MCache *mcache_new(uns sets, uns assocs, uns repl );
             Flag    mcache_access (MCache *c, Addr addr, Flag dirty);
@@ -139,6 +142,7 @@ namespace SST{
              virtual bool clockTic(Cycle_t);
              void handleCpuEvent(SST::Event *ev);
              void handleMemEvent(SST::Event *ev);
+             void eventProcessing();
              void sendRequest();
              void sendResponse();
 
@@ -162,21 +166,44 @@ namespace SST{
             MCache* m_cache;
             SimTime_t m_simCycle;
             uint32_t m_cacheLatency;
+             bool enableAllHit;
+             uint32_t m_seqnum;
 
              //link to/from Memory
              SST::Link *m_linkMem;
              //link to/from CPU
-             SST::Link *m_linkCPU;
+             SST::Link* m_linkCPU;
 
-             std::deque<std::pair<uint64_t,c_Transaction*>> m_memReqQ;
-             std::deque<std::pair<uint64_t,c_Transaction*>> m_cpuResQ;
+             class MEM_REQ{
+             public:
+                 MEM_REQ(uint64_t t, c_Transaction* x_txn){time=t;txn=x_txn;}
+                 uint64_t time;
+                 c_Transaction* txn;
+             };
+
+             class CPU_RES{
+             public:
+                 CPU_RES(uint64_t t_, MemEvent* ev_,string dst_, bool ready_)
+                 : time(t_),ev(ev_),dst(dst_),ready(ready_) {}
+                 uint64_t time;
+                 MemEvent* ev;
+                 string dst;
+                 bool ready;
+             };
+
+             std::deque<MEM_REQ*> m_memReqQ;
+             std::map<uint64_t,MemEvent*> m_cpuResQ;
+             std::deque<std::pair<uint64_t,MemEvent*>> m_cpuReqQ;
+             std::map<uint64_t,MEM_REQ*> m_outstandingMemReqQ;
 
              // Debug Output
              Output* output;
 
-            Statistic<uint64_t>* s_accesses;
-            Statistic<uint64_t>* s_hit;
-            Statistic<uint64_t>* s_miss;
+             Statistic<uint64_t>* s_accesses;
+             Statistic<uint64_t>* s_hit;
+             Statistic<uint64_t>* s_miss;
+             Statistic<uint64_t>* s_readRecv;
+             Statistic<uint64_t>* s_writeRecv;
         };
     }
 }

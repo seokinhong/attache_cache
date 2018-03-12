@@ -64,6 +64,7 @@ static const ElementInfoStatistic prospero_statistics[] = {
 	{ "bytes_written",       "Stat bytes written", "requests", 1},
 	{ "instruction_count",    "Statistic for counting instructions", "instructions", 1 },
 	{ "no_ops",               "Stat no_ops", "instructions", 1},
+	{ "effective_mem_lat" , "Stat effective memory access latency", "cycles",1},
 	// atomic instructions
 	{ "atomic_instr_count",   "Statistic for counting atomic instructions", "instructions", 1 },
 	{ "a_add",   							"Statistic for counting atomic add instructions", "instructions", 1 },
@@ -123,6 +124,7 @@ static const ElementInfoParam prosperoCompressedBinaryReader_params[] = {
 
 static const ElementInfoPort prospero_ports[] = {
 	{ "cache_link", "Link to the memHierarchy cache", NULL },
+	{ "cramsim_cache_link", "Link to the cramsim cache", NULL },
 	{"linkMemContent", "cores' link to send memory content to a memory model", NULL},
 	{"pageLink", "cores' link to send the page allocation request", NULL},
 	{ NULL, NULL, NULL }

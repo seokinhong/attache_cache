@@ -97,7 +97,7 @@ c_Controller::c_Controller(ComponentId_t id, Params &params) :
     }
 
     // get configured clock frequency
-    k_controllerClockFreqStr = (std::string)params.find<std::string>("strControllerClockFrequency", "1GHz", l_found);
+    k_controllerClockFreqStr = (std::string)params.find<std::string>("strControllerClockFreq", "1GHz", l_found);
     
     //configure SST link
     configure_link();
@@ -317,7 +317,7 @@ void c_Controller::handleInDeviceResPtrEvent(SST::Event *ev){
         }
         else
         {
-            output->verbose(CALL_INFO,1,0, "txn is found, txnNum:%lld cmdSeq:%lld, helper:%d\n",l_resSeqNum,l_txnRes->getSeqNum(),l_txnRes->isHelper());
+            output->verbose(CALL_INFO,1,0, "Cycle: %lld, txn is found, txnNum:%lld cmdSeq:%lld, addr:%lld, helper:%d\n",m_simCycle,l_txnRes->getSeqNum(),l_txnRes->getAddress(), l_txnRes->isHelper());
         }
 
         const unsigned l_cmdsLeft = l_txnRes->getWaitingCommands() - 1;

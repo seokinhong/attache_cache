@@ -55,10 +55,13 @@ namespace SST {
 			private:
 				class ROB_ENTRY{
 				public:
-					uint64_t id;
+					Event::id_type id;
 					bool isMemory;
 					bool done;
+					uint64_t issueCycle;
 				};
+
+
 
 				ProsperoComponent();                         // Serialization only
 				ProsperoComponent(const ProsperoComponent&); // Do not impl.
@@ -71,6 +74,8 @@ namespace SST {
 				void sendMemContent(uint64_t addr, uint64_t vaddr, uint32_t size, uint64_t data);
 				void sendPageAllocRequest(uint64_t addr);
 				void handlePageAllocResponse(Event* ev);
+				void handlerDirectCacheResponse(Event* ev);
+				void pushROB(bool isMemInst, Event::id_type);
 
 				Output* output;
 				ProsperoTraceReader* reader;
@@ -78,6 +83,8 @@ namespace SST {
 				ProsperoMemoryManager* memMgr;
 				SimpleMem* cache_link;
 				std::deque<ROB_ENTRY> ROB;
+				uint64_t m_simCycle;
+				uint64_t m_instID;
 
 
 
@@ -89,6 +96,8 @@ namespace SST {
                 uint64_t baseCycle;
 				SST::Link *cpu_to_mem_link;
 				SST::Link *page_link;
+				SST::Link *cramsim_cache_link;
+				std::string dst_cache_name;
                 uint32_t cpuid;
 				uint64_t m_inst;
 #ifdef HAVE_LIBZ
@@ -101,6 +110,7 @@ namespace SST {
 				bool hasROB;
 				uint32_t sizeROB;
 				uint32_t maxCommitPerCycle;
+				bool noncacheable;
 
 				uint64_t pageSize;
 				uint64_t cacheLineSize;
@@ -145,9 +155,11 @@ namespace SST {
 				Statistic<uint64_t>* statCyclesRobFull;
 
 
+
 				Statistic<uint64_t>* statCyclesTlbMiss;
 				Statistic<uint64_t>* statBytesRead;
 				Statistic<uint64_t>* statBytesWritten;
+				Statistic<uint64_t>* statMemLatency;
 
 				// atomic instructions
 				Statistic<uint64_t>* statAtomicInstrCount;
