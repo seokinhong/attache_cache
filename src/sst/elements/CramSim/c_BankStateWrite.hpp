@@ -47,7 +47,7 @@ class c_BankStateWrite: public c_BankState {
 
 public:
 
-	c_BankStateWrite(std::map<std::string, unsigned>* x_bankParams);
+	c_BankStateWrite(std::map<enum e_BankTiming, unsigned>* x_bankParams);
 	~c_BankStateWrite();
 
 	virtual void handleCommand(c_BankInfo* x_bank, c_BankCommand* x_bankCommandPtr, SimTime_t x_cycle);

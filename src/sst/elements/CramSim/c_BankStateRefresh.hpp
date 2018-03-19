@@ -48,7 +48,7 @@ class c_BankStateRefresh: public c_BankState {
 
 public:
 
-	c_BankStateRefresh(std::map<std::string, unsigned>* x_bankParams);
+	c_BankStateRefresh(std::map<e_BankTiming , unsigned>* x_bankParams);
 	~c_BankStateRefresh();
 
 	virtual void handleCommand(c_BankInfo* x_bank, c_BankCommand* x_bankCommandPtr, SimTime_t x_cycle);

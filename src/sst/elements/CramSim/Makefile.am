@@ -82,7 +82,8 @@ libCramSim_la_SOURCES = \
     c_Cache.cpp \
     c_Cache.hpp \
     c_PageAllocator.cpp \
-    c_PageAllocator.hpp
+    c_PageAllocator.hpp \
+    Types.hpp
 
 
 EXTRA_DIST = \

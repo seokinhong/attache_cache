@@ -65,6 +65,7 @@ static const ElementInfoStatistic prospero_statistics[] = {
 	{ "instruction_count",    "Statistic for counting instructions", "instructions", 1 },
 	{ "no_ops",               "Stat no_ops", "instructions", 1},
 	{ "effective_mem_lat" , "Stat effective memory access latency", "cycles",1},
+	{ "OoOMemAccess" , "Stat out of order memory access", "requests",1},
 	// atomic instructions
 	{ "atomic_instr_count",   "Statistic for counting atomic instructions", "instructions", 1 },
 	{ "a_add",   							"Statistic for counting atomic add instructions", "instructions", 1 },

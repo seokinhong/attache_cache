@@ -39,6 +39,7 @@
 // CramSim includes
 //#include "c_BankCommand.hpp"
 //#include "c_BankInfo.hpp"
+#include "Types.hpp"
 
 namespace SST {
 namespace n_Bank {
@@ -46,7 +47,7 @@ namespace n_Bank {
 class c_BankInfo;
 class c_BankCommand;
 enum class e_BankCommandType;
-  
+
 // Bankstates
 enum class e_BankState {
 	NONE, IDLE, ACTNG, ACTIVE, READ, READA, WRITE, WRITEA, PRE, REF
@@ -78,7 +79,7 @@ public:
 
 //private:
 protected:
-	std::map<std::string, unsigned>* m_bankParams;
+	std::map<e_BankTiming, unsigned>* m_bankParams;
         
 	e_BankState m_currentState;
 

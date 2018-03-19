@@ -37,6 +37,7 @@
 #include "c_BankState.hpp"
 #include "c_BankCommand.hpp"
 #include "c_BankInfo.hpp"
+#include "Types.hpp"
 
 namespace SST {
 namespace n_Bank {
@@ -47,7 +48,7 @@ class c_BankStatePrecharge: public c_BankState {
 
 public:
 
-	c_BankStatePrecharge(std::map<std::string, unsigned>* x_bankParams);
+	c_BankStatePrecharge(std::map<e_BankTiming, unsigned>* x_bankParams);
 	~c_BankStatePrecharge();
 
 	virtual void handleCommand(c_BankInfo* x_bank, c_BankCommand* x_bankCommandPtr, SimTime_t x_cycle);

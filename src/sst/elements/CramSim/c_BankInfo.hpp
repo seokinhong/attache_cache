@@ -35,6 +35,7 @@
 #include <map>
 
 // CramSim includes
+#include "Types.hpp"
 #include "c_BankState.hpp"
 
 namespace SST {
@@ -48,7 +49,7 @@ class c_BankInfo {
 public:
 
 	c_BankInfo();
-	c_BankInfo(std::map<std::string, unsigned>* x_bankParams,
+	c_BankInfo(std::map<e_BankTiming, unsigned>* x_bankParams,
 			unsigned x_bankId);
 
 	virtual ~c_BankInfo();
@@ -120,7 +121,7 @@ private:
 	c_BankState* m_bankState;
 	c_BankGroup* m_bankGroupPtr;
 
-	std::map<std::string, unsigned>* m_bankParams;
+	std::map<e_BankTiming, unsigned>* m_bankParams;
 	std::map<e_BankCommandType, SimTime_t> m_lastCommandCycleMap;
 	std::map<e_BankCommandType, SimTime_t> m_nextCommandCycleMap;
 

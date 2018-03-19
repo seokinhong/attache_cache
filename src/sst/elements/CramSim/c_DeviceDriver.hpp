@@ -41,12 +41,12 @@
 #include <sst/core/link.h>
 
 // local includes
+#include "Types.hpp"
 #include "c_BankInfo.hpp"
 #include "c_BankGroup.hpp"
 #include "c_Channel.hpp"
 #include "c_Rank.hpp"
 #include "c_BankCommand.hpp"
-#include "c_DeviceDriver.hpp"
 #include "c_Controller.hpp"
 
 
@@ -57,7 +57,8 @@ namespace n_Bank{
 
 	class c_Controller;
 	enum class e_BankCommandType;
-  
+
+
 class c_DeviceDriver: public SubComponent{
 public:
 	c_DeviceDriver(Component *comp, Params& x_params);
@@ -140,7 +141,7 @@ private:
 	std::vector<c_BankGroup*> m_bankGroups;
 	std::vector<c_Rank*> m_ranks;
 	std::vector<c_Channel*> m_channel;
-    std::map<std::string, unsigned> m_bankParams;
+    std::map<e_BankTiming, unsigned> m_bankParams;
 
 	bool pca_mode;
 

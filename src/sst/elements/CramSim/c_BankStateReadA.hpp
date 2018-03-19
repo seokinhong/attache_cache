@@ -46,7 +46,7 @@ class c_BankStateReadA: public c_BankState {
 
 public:
 
-	c_BankStateReadA(std::map<std::string, unsigned>* x_bankParams);
+	c_BankStateReadA(std::map<enum e_BankTiming, unsigned>* x_bankParams);
 	~c_BankStateReadA();
 
 	virtual void handleCommand(c_BankInfo* x_bank, c_BankCommand* x_bankCommandPtr, SimTime_t x_cycle);

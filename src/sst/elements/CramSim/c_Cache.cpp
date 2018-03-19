@@ -146,9 +146,8 @@ void c_Cache::handleCpuEvent(SST::Event *ev) {
 
     #ifdef __SST_DEBUG_OUTPUT__
     output->verbose(CALL_INFO,1,0,"[c_Cache] cycle: %lld paddr: %llx, vaddr:%llx, isWrite:%d\n",
-            m_simCycle,newReq->getAddr(), newReq->getBaseAddr(),newReq->getCmd());
+            m_simCycle,newReq->getAddr(), newReq->getBaseAddr(),newReq->getCmd()==Command::GetX);
     #endif
-
     uint64_t issue_cycle = m_simCycle + m_cacheLatency;
     std::pair<uint64_t, MemEvent *> req_entry(issue_cycle, newReq);
     m_cpuReqQ.push_back(req_entry);
@@ -161,7 +160,7 @@ void c_Cache::eventProcessing()
         m_cpuReqQ.pop_front();
 
         Addr req_addr = (newReq->getAddr() >> 3) << 3;
-        bool isWrite = (newReq->getCmd() == Command::GetX);
+        bool isWrite = (newReq->getCmd()==Command::GetX);
         bool isHit = mcache_access(m_cache, req_addr, isWrite);
 
         if(enableAllHit)
@@ -179,7 +178,7 @@ void c_Cache::eventProcessing()
     //    bool isHit=false;
 
         #ifdef __SST_DEBUG_OUTPUT__
-        output->verbose(CALL_INFO, 1, 0, "[%lld] addr: %llx write:%d isHit:%d\n", m_simCycle, req_addr, isWrite, isHit);
+        output->verbose(CALL_INFO, 1, 0, "[%lld] addr: %llx write:%d isHit:%d accesses:%lld\n", m_simCycle, req_addr, isWrite, isHit,s_accesses->getCollectionCount());
         #endif
         // cache miss
         if (!isHit) {

@@ -41,11 +41,12 @@
 #include "c_BankStateActivating.hpp"
 #include "c_BankStateRefresh.hpp"
 #include "c_BankStatePrecharge.hpp"
+#include "c_DeviceDriver.hpp"
 
 using namespace SST;
 using namespace SST::n_Bank;
 
-c_BankStateIdle::c_BankStateIdle(std::map<std::string, unsigned>* x_bankParams) :
+c_BankStateIdle::c_BankStateIdle(std::map<enum e_BankTiming, unsigned>* x_bankParams) :
 		m_receivedCommandPtr(nullptr), m_timer(0) {
 	//std::cout << "Entered " << __PRETTY_FUNCTION__ << std::endl;
 	m_bankParams = x_bankParams;

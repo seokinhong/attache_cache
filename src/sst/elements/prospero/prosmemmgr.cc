@@ -42,8 +42,8 @@ void ProsperoMemoryManager::fillPageTable(uint64_t virtAddr, uint64_t phyPageSta
 
 	//assert(nextPageList.size()>0);
 
-	output->verbose(CALL_INFO, 4, 0, "[CORE ID:%d] insert a page to table table for virtual address %" PRIu64 ", page offset=%" PRIu64 ", start virt=%" PRIu64 "\n",
-					m_cpuid,virtAddr, pageOffset, virtPageStart);
+	output->verbose(CALL_INFO, 4, 0, "[CORE ID:%d] insert a page to table table for virtual address %" PRIu64 ", page offset=%" PRIu64 ", virtPageStart=% " PRIu64 " phyPageStart=% " PRIu64 " \n",
+					m_cpuid,virtAddr, pageOffset, virtPageStart, phyPageStart);
 
 	pageTable.insert( std::pair<uint64_t, uint64_t>(virtPageStart, phyPageStart));
 }
@@ -73,7 +73,6 @@ uint64_t ProsperoMemoryManager::translate(const uint64_t virtAddr) {
 
 	std::map<uint64_t, uint64_t>::iterator findEntry = pageTable.find(virtPageStart);
 	if(findEntry == pageTable.end()) {
-		//uint64_t nextPageStart=0;
 
 		output->verbose(CALL_INFO, 4, 0, "[CORE ID:%d] Translation requires new page, creating at physical: %" PRIu64 "\n", m_cpuid,m_nextPageStart);
 

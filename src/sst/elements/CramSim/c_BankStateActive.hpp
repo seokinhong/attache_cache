@@ -33,7 +33,7 @@
 #include <list>
 
 #include "c_BankState.hpp"
-#include "c_BankCommand.hpp"
+#include "Types.hpp"
 
 namespace SST {
 namespace n_Bank {
@@ -47,7 +47,7 @@ class c_BankStateActive: public c_BankState {
 
 public:
 
-	c_BankStateActive(std::map<std::string, unsigned>* x_bankParams);
+	c_BankStateActive(std::map<e_BankTiming, unsigned>* x_bankParams);
 	~c_BankStateActive();
 
 	virtual void handleCommand(c_BankInfo* x_bank, c_BankCommand* x_bankCommandPtr, SimTime_t x_simCycle);

@@ -43,6 +43,7 @@
 #include "c_BankInfo.hpp"
 //#include "c_BankCommand.hpp"
 #include "c_Channel.hpp"
+#include "Types.hpp"
 
 namespace SST {
 namespace n_Bank {
@@ -50,6 +51,7 @@ namespace n_Bank {
 class c_Channel;
 class c_BankGroup;
 class c_BankCommand;
+
 
   class c_Rank {
   public:
@@ -64,7 +66,7 @@ class c_BankCommand;
       return (x_stream);
     }
 
-    c_Rank(std::map<std::string, unsigned>* x_bankParams);
+    c_Rank(std::map<SST::n_Bank::e_BankTiming, unsigned>* x_bankParams);
     virtual ~c_Rank();
 
     void acceptBankGroup(c_BankGroup* x_bankGroupPtr);
@@ -84,7 +86,7 @@ class c_BankCommand;
     c_Channel* m_channelPtr;
     std::vector<c_BankGroup*> m_bankGroupPtrs;
       std::vector<c_BankInfo*> m_allBankPtrs;
-    std::map<std::string, unsigned>* m_bankParams;
+    std::map<e_BankTiming , unsigned>* m_bankParams;
 
   };
 

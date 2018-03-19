@@ -37,6 +37,7 @@
 // #include "c_Bank.hpp"
 #include "c_BankCommand.hpp"
 #include "c_BankInfo.hpp"
+#include "c_DeviceDriver.hpp"
 
 namespace SST {
 namespace n_Bank {
@@ -48,7 +49,7 @@ class c_BankStateIdle: public c_BankState {
 
 public:
 
-	c_BankStateIdle(std::map<std::string, unsigned>* x_bankParams);
+	c_BankStateIdle(std::map<enum e_BankTiming, unsigned>* x_bankParams);
 	~c_BankStateIdle();
 
 	virtual void handleCommand(c_BankInfo* x_bank, c_BankCommand* x_bankCommandPtr, SimTime_t x_cycle);

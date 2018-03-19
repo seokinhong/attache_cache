@@ -75,12 +75,13 @@ namespace SST {
             c_MemhBridgeContent(SST::ComponentId_t x_id, SST::Params& x_params);
             ~c_MemhBridgeContent();
             std::vector<SST::Link*> m_laneLinks;
+            void init(unsigned int phase);
 
 
         private:
 
             bool loopback_en;
-            uint64_t m_inst_num;   //global instruction count
+            std::map<uint32_t, uint64_t> m_inst_num;   //global instruction count
 
             c_CompressEngine* m_compEngine;
 
@@ -90,7 +91,7 @@ namespace SST {
             void storeContent(SST::Event *ev);
 
             void printTxn(uint64_t x_thread_id, bool x_isWrite, uint64_t x_addr,uint64_t x_inst_num,uint32_t compratio_bdi);
-            void printTxn(uint64_t x_cycle, uint64_t x_thread_id, bool x_isWrite, uint64_t x_addr,uint64_t x_inst_num,uint8_t *data);
+            void printTxn(uint64_t x_cycle, uint64_t x_thread_id, bool x_isWrite, uint64_t x_addr,uint64_t x_inst_num);
 
             SST::Link *m_contentLink;
 
@@ -98,13 +99,16 @@ namespace SST {
             std::map<uint64_t, uint32_t> compratio_bdi;
             std::map<uint64_t, uint32_t> compratio_fpc;
             std::map<uint64_t, uint32_t> compratio_fvc;
-            bool compression_en;
 
             int verbosity;
 
             int m_numThread;
             bool k_traceDebug;			//enable to print a text-mode trace file
             bool k_loopback_mode;			//enable the loopback mode
+            bool boolStoreContent;
+            bool boolStoreCompRate;
+            std::map<COMP_ALG, uint64_t> m_sumCompRate;
+            uint64_t m_cntReqs;
             std::vector<gzFile> traceZ;
 
 

@@ -32,6 +32,7 @@
 #include "sst_config.h"
 
 //local includes
+#include "Types.hpp"
 #include "c_BankInfo.hpp"
 #include "c_BankState.hpp"
 #include "c_BankStateIdle.hpp"
@@ -48,7 +49,7 @@ c_BankInfo::c_BankInfo() :
 	m_bankState->enter(this, nullptr, nullptr,0);
 }
 
-c_BankInfo::c_BankInfo(std::map<std::string, unsigned>* x_bankParams,
+c_BankInfo::c_BankInfo(std::map<e_BankTiming , unsigned>* x_bankParams,
 		unsigned x_bankId) :
 		m_bankParams(x_bankParams), m_bankId(x_bankId), m_bankState(
 				new c_BankStateIdle(x_bankParams)),

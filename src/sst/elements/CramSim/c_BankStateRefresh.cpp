@@ -44,7 +44,7 @@ using namespace SST;
 using namespace SST::n_Bank;
 
 c_BankStateRefresh::c_BankStateRefresh(
-		std::map<std::string, unsigned>* x_bankParams) :
+		std::map<e_BankTiming , unsigned>* x_bankParams) :
 		m_receivedCommandPtr(nullptr), m_timer(0) {
 	// std::cout << "Entered " << __PRETTY_FUNCTION__ << std::endl;
 	m_bankParams = x_bankParams;
@@ -96,7 +96,7 @@ void c_BankStateRefresh::enter(c_BankInfo* x_bank, c_BankState* x_prevState,
 	// Therefore it is forwarded to BankStateIdle
 	m_prevCommandPtr = x_cmdPtr;
 	m_receivedCommandPtr = nullptr;
-	m_timer = m_bankParams->at("nRFC")-2;
+	m_timer = m_bankParams->at(e_BankTiming::nRFC)-2;
 
 	m_allowedCommands.clear();
 	// this state should not have any allowed bank commands
@@ -105,8 +105,8 @@ void c_BankStateRefresh::enter(c_BankInfo* x_bank, c_BankState* x_prevState,
 	x_bank->setNextCommandCycle(e_BankCommandType::REF,
 			std::max(
 					x_bank->getNextCommandCycle(e_BankCommandType::REF)
-							+ m_bankParams->at("nREFI")-1,
-					l_time + m_bankParams->at("nREFI"))-1);
+							+ m_bankParams->at(e_BankTiming::nREFI)-1,
+					l_time + m_bankParams->at(e_BankTiming::nREFI))-1);
 
 	x_bank->changeState(this);
 	if (nullptr != x_prevState)

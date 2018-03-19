@@ -62,8 +62,8 @@ public:
 		return x_stream;
 	}
 
-	c_Channel(std::map<std::string, unsigned>* x_bankParams);
-	c_Channel(std::map<std::string, unsigned>* x_bankParams, unsigned x_chId);
+	c_Channel(std::map<e_BankTiming , unsigned>* x_bankParams);
+	c_Channel(std::map<e_BankTiming, unsigned>* x_bankParams, unsigned x_chId);
 
 	virtual ~c_Channel();
 
@@ -80,7 +80,7 @@ public:
 
 private:
 	std::vector<c_Rank*> m_rankPtrs;
-	std::map<std::string, unsigned>* m_bankParams;
+	std::map<e_BankTiming, unsigned>* m_bankParams;
 	unsigned m_chId;
 
 };

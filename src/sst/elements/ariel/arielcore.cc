@@ -164,6 +164,8 @@ void ArielCore::commitReadEvent(uint64_t address,
 				output->verbose(CALL_INFO, 0, 1, "addr: %llx vaddr: %llx length:%d data:%x\n", address + i, virtAddress + i, length, data[i]);
 			}
 		}
+		req->setInstructionPointer(fetched_inst_count);
+		req->setVirtualAddress(coreID);
 		// Actually send the event to the cache
 		cacheLink->sendRequest(req);
 		// send memory contents to the memory model
@@ -201,6 +203,8 @@ void ArielCore::commitWriteEvent(uint64_t address,
 			}
 		}
 
+		req->setVirtualAddress(coreID);
+		req->setInstructionPointer(fetched_inst_count);
 		// Actually send the event to the cache
 		cacheLink->sendRequest(req);
 

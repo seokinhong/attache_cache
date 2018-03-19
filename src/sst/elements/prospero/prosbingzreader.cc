@@ -40,7 +40,7 @@ ProsperoCompressedBinaryTraceReader::ProsperoCompressedBinaryTraceReader( Compon
 	if(hasContent)
 		recordLength+=sizeof(uint64_t)*8;
 	if(hasCompRatio)
-		recordLength+=sizeof(uint64_t);
+		recordLength+=sizeof(uint8_t);
 	if(hasAtomic)
 		recordLength+=sizeof(uint32_t);
 	if(hasInstNum)
@@ -49,6 +49,7 @@ ProsperoCompressedBinaryTraceReader::ProsperoCompressedBinaryTraceReader( Compon
 
 
 	buffer = (char*) malloc(sizeof(char) * recordLength);
+	std::cout<<recordLength<<std::endl;
 };
 
 ProsperoCompressedBinaryTraceReader::~ProsperoCompressedBinaryTraceReader() {
@@ -84,7 +85,7 @@ ProsperoTraceEntry* ProsperoCompressedBinaryTraceReader::readNextEntry() {
 	char reqType = 'R';
 	uint32_t reqLength  = 0;
 	std::vector<uint64_t> reqData_vector;
-	uint64_t compRatio = 0;
+	std::vector<uint8_t> compRatio_vector;
 	uint32_t reqAtomic = NON_ATOMIC;
 	uint64_t instNum = 0;
 
@@ -96,12 +97,24 @@ ProsperoTraceEntry* ProsperoCompressedBinaryTraceReader::readNextEntry() {
 	unsigned int bytesRead = gzread(traceInput, buffer, (unsigned int) recordLength);
 	if(bytesRead == recordLength) {
 		uint64_t accumulate_length=0;
+
 		// We DID read an entry
 		copy((char*) &reqCycles,  buffer, (size_t) 0, sizeof(uint64_t));
-		copy((char*) &reqType,    buffer, sizeof(uint64_t), sizeof(char));
-		copy((char*) &reqAddress, buffer, sizeof(uint64_t) + sizeof(char), sizeof(uint64_t));
-		copy((char*) &reqLength,  buffer, sizeof(uint64_t) + sizeof(char) + sizeof(uint64_t), sizeof(uint32_t));
-		accumulate_length=sizeof(uint64_t) + sizeof(char) + sizeof(uint64_t)+sizeof(uint32_t);
+		accumulate_length=sizeof(uint64_t);
+		if(hasInstNum) {
+			copy((char *) &instNum, buffer, accumulate_length, sizeof(uint64_t));
+			accumulate_length+=sizeof(uint64_t);
+		} else{
+			instNum=reqCycles;
+		}
+
+		copy((char*) &reqType,    buffer, accumulate_length, sizeof(char));
+		accumulate_length+= sizeof(char);
+		copy((char*) &reqAddress, buffer, accumulate_length, sizeof(uint64_t));
+		accumulate_length+=  sizeof(uint64_t);
+		copy((char*) &reqLength,  buffer, accumulate_length,sizeof(uint32_t));
+		accumulate_length+= sizeof(uint32_t);
+
 
 		if(hasContent) {
 			uint64_t reqData[8];
@@ -115,9 +128,12 @@ ProsperoTraceEntry* ProsperoCompressedBinaryTraceReader::readNextEntry() {
 		}
 
 		if(hasCompRatio) {
-			copy((char *) &compRatio, buffer, accumulate_length, sizeof(uint64_t));
-			accumulate_length+=sizeof(uint64_t);
+			uint8_t compRatio;
+			copy((char *) &compRatio, buffer, accumulate_length, sizeof(uint8_t));
+			compRatio_vector.push_back(compRatio);
+			accumulate_length+=sizeof(uint8_t);
 		}
+
 
 		if(hasAtomic) {
 			copy((char *) &reqAtomic, buffer, accumulate_length, sizeof(uint32_t));
@@ -125,18 +141,18 @@ ProsperoTraceEntry* ProsperoCompressedBinaryTraceReader::readNextEntry() {
 		}
 
 		ProsperoTraceEntry *new_entry=new ProsperoTraceEntry(reqCycles, reqAddress,
-														 reqLength,reqData_vector,compRatio,
+														 reqLength,reqData_vector,compRatio_vector,
 														 (reqType == 'R' || reqType == 'r') ? READ : WRITE, reqAtomic);
-		//std::cout << reqCycles << " " << reqType<< " " <<std::hex<<reqAddress << " "<<reqLength << " "<< instNum <<std::endl;
 
-		if(hasInstNum) {
-			copy((char *) &instNum, buffer, accumulate_length, sizeof(uint64_t));
-			accumulate_length+=sizeof(uint64_t);
-			new_entry->setInstNum(instNum);
-		} else{
-			new_entry->setInstNum(reqCycles);
-		}
+		new_entry->setInstNum(instNum);
 
+/*
+		std::cout << std::dec<<reqCycles
+				  << " " << instNum
+				  << " "<< reqType
+				  << " " <<std::hex<<reqAddress
+				  << " "<<std::dec <<(int)compRatio<< std::endl;
+*/
 		return new_entry;
 
 	} else {

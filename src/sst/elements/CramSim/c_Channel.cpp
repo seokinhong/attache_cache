@@ -36,17 +36,18 @@
 #include "c_Channel.hpp"
 #include "c_BankCommand.hpp"
 #include "c_Rank.hpp"
+#include "c_DeviceDriver.hpp"
 
 #include "c_Transaction.hpp"
 using namespace SST;
 using namespace SST::n_Bank;
 
-c_Channel::c_Channel(std::map<std::string, unsigned>* x_bankParams) {
+c_Channel::c_Channel(std::map<e_BankTiming , unsigned>* x_bankParams) {
 	m_bankParams = x_bankParams;
 	m_rankPtrs.clear();
 }
 
-c_Channel::c_Channel(std::map<std::string, unsigned>* x_bankParams, unsigned x_chId) : c_Channel(x_bankParams) {
+c_Channel::c_Channel(std::map<e_BankTiming , unsigned>* x_bankParams, unsigned x_chId) : c_Channel(x_bankParams) {
 		m_chId = x_chId;
 }
 
@@ -94,13 +95,13 @@ void c_Channel::updateOtherBanksNextCommandCycles(c_Rank* x_initRankPtr,
 
 	SimTime_t l_time = x_cycle;
 
-	int l_bl = m_bankParams->at("nBL");
+	int l_bl = m_bankParams->at(e_BankTiming::nBL);
 
 	if(x_cmdPtr->m_memzip_mode)
 		if(x_cmdPtr->getCommandMnemonic()==e_BankCommandType::READ || x_cmdPtr->getCommandMnemonic()==e_BankCommandType::WRITE)
 		{
 			if (x_cmdPtr->getTransaction()->getCompressedSize() > 50)
-				m_bankParams->at("nBL") *= 2;
+				m_bankParams->at(e_BankTiming::nBL) *= 2;
 		}
 
 
@@ -125,10 +126,10 @@ void c_Channel::updateOtherBanksNextCommandCycles(c_Rank* x_initRankPtr,
 								l_bankPtr->getNextCommandCycle(
 										e_BankCommandType::READA)),
 						l_time
-								+ std::max(m_bankParams->at("nBL"),
-										std::min(m_bankParams->at("nCCD_S"),
-												m_bankParams->at("nCCD_L")))
-								+ m_bankParams->at("nERTR"));
+								+ std::max(m_bankParams->at(e_BankTiming::nBL),
+										std::min(m_bankParams->at(e_BankTiming::nCCD_S),
+												m_bankParams->at(e_BankTiming::nCCD_L)))
+								+ m_bankParams->at(e_BankTiming::nERTR));
 
 				l_bankPtr->setNextCommandCycle(e_BankCommandType::READ,
 						l_nextCycle);
@@ -143,12 +144,12 @@ void c_Channel::updateOtherBanksNextCommandCycles(c_Rank* x_initRankPtr,
 								l_bankPtr->getNextCommandCycle(
 										e_BankCommandType::WRITEA)),
 						l_time
-								+ m_bankParams->at("nCL")
-								+ std::max(m_bankParams->at("nBL"),
-										std::min(m_bankParams->at("nCCD_S"),
-												m_bankParams->at("nCCD_L")))
-								+ m_bankParams->at("nERTW")
-								- m_bankParams->at("nCWL"));
+								+ m_bankParams->at(e_BankTiming::nCL)
+								+ std::max(m_bankParams->at(e_BankTiming::nBL),
+										std::min(m_bankParams->at(e_BankTiming::nCCD_S),
+												m_bankParams->at(e_BankTiming::nCCD_L)))
+								+ m_bankParams->at(e_BankTiming::nERTW)
+								- m_bankParams->at(e_BankTiming::nCWL));
 
 
 				l_bankPtr->setNextCommandCycle(e_BankCommandType::WRITE,
@@ -168,12 +169,12 @@ void c_Channel::updateOtherBanksNextCommandCycles(c_Rank* x_initRankPtr,
 								l_bankPtr->getNextCommandCycle(
 										e_BankCommandType::READA)),
 						l_time
-								+ m_bankParams->at("nCWL")
-								+ std::max(m_bankParams->at("nBL"),
-										std::min(m_bankParams->at("nCCD_S"),
-												m_bankParams->at("nCCD_L")))
-								+ m_bankParams->at("nEWTR")
-								- m_bankParams->at("nCL"));
+								+ m_bankParams->at(e_BankTiming::nCWL)
+								+ std::max(m_bankParams->at(e_BankTiming::nBL),
+										std::min(m_bankParams->at(e_BankTiming::nCCD_S),
+												m_bankParams->at(e_BankTiming::nCCD_L)))
+								+ m_bankParams->at(e_BankTiming::nEWTR)
+								- m_bankParams->at(e_BankTiming::nCL));
 
 				l_bankPtr->setNextCommandCycle(e_BankCommandType::READ,
 						l_nextCycle);
@@ -188,10 +189,10 @@ void c_Channel::updateOtherBanksNextCommandCycles(c_Rank* x_initRankPtr,
 								l_bankPtr->getNextCommandCycle(
 										e_BankCommandType::WRITEA)),
 						l_time
-								+ std::max(m_bankParams->at("nBL"),
-										std::min(m_bankParams->at("nCCD_S"),
-												m_bankParams->at("nCCD_L")))
-								+ m_bankParams->at("nEWTW"));
+								+ std::max(m_bankParams->at(e_BankTiming::nBL),
+										std::min(m_bankParams->at(e_BankTiming::nCCD_S),
+												m_bankParams->at(e_BankTiming::nCCD_L)))
+								+ m_bankParams->at(e_BankTiming::nEWTW));
 
 
 				l_bankPtr->setNextCommandCycle(e_BankCommandType::WRITE,
@@ -208,6 +209,6 @@ void c_Channel::updateOtherBanksNextCommandCycles(c_Rank* x_initRankPtr,
 
 		}
 
-		m_bankParams->at("nBL")=l_bl;
+		m_bankParams->at(e_BankTiming::nBL)=l_bl;
 	}
 }

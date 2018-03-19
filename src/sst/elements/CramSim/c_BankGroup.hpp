@@ -38,6 +38,7 @@
 // SST includes
 #include <sst/core/component.h>
 #include <sst/core/link.h>
+#include "Types.hpp"
 
 namespace SST {
 namespace n_Bank {
@@ -50,7 +51,7 @@ class c_BankGroup {
 public:
 
 
-        c_BankGroup(std::map<std::string, unsigned>* x_bankParams, unsigned x_Id);
+        c_BankGroup(std::map<e_BankTiming, unsigned>* x_bankParams, unsigned x_Id);
 	virtual ~c_BankGroup();
 
 	void acceptBank(c_BankInfo* x_bankPtr);
@@ -69,7 +70,7 @@ private:
 	std::vector<c_BankInfo*> m_bankPtrs;
 	c_Rank* m_rankPtr;
 
-	std::map<std::string, unsigned>* m_bankParams;
+	std::map<e_BankTiming, unsigned>* m_bankParams;
 
 };
 

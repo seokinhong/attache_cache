@@ -15,7 +15,8 @@ namespace SST {
     typedef enum comp_alg_ {
         FPC,
         BDI,
-        ZERO
+        FVC,
+        COMP_ALG_NUM,
     } COMP_ALG;
 
     class c_CompressEngine {

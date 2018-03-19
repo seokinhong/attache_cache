@@ -40,7 +40,7 @@ public:
 		const uint64_t eAddr,
 		const uint32_t eLen,
 		const std::vector<uint64_t> eData,
-		const uint64_t compRatio,
+		const std::vector<uint8_t> compRatio,
 		const ProsperoTraceEntryOperation eOp,
 		const uint32_t eAtom) :
 		cycles(eCyc), address(eAddr), length(eLen), data_vector(eData), op(eOp), atomic(eAtom),data(0),compRatio(compRatio){
@@ -55,7 +55,7 @@ public:
 			const uint64_t eData,
 			const ProsperoTraceEntryOperation eOp,
 			const uint32_t eAtom) :
-			cycles(eCyc), address(eAddr), length(eLen), data(eData), op(eOp), atomic(eAtom),compRatio(0){
+			cycles(eCyc), address(eAddr), length(eLen), data(eData), op(eOp), atomic(eAtom){
 
 
 		//                   printf("address: 0x%x data: 0x%x\n",eAddr,eData);
@@ -71,6 +71,7 @@ public:
 	uint64_t getAtomic() const { return atomic; }
 	uint64_t getInstNum() const {return instnum;}
 	uint64_t getCycle() const {return cycles;}
+	std::vector<uint8_t> getCompRatio() const {return compRatio;}
 	void setInstNum(uint64_t instnum_) {instnum=instnum_;}
 	ProsperoTraceEntryOperation getOperationType() const { return op; }
 	std::vector<uint64_t> getDataVector() const{return data_vector;}
@@ -80,7 +81,7 @@ private:
 	const uint32_t length;
 	const uint64_t data;
 	std::vector<uint64_t> data_vector;
-	const uint64_t compRatio;
+	std::vector<uint8_t> compRatio;
 	const uint32_t atomic;
 	uint64_t instnum;
 	const ProsperoTraceEntryOperation op;

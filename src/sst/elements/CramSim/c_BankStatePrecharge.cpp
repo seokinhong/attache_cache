@@ -46,7 +46,7 @@ using namespace SST;
 using namespace SST::n_Bank;
 
 c_BankStatePrecharge::c_BankStatePrecharge(
-		std::map<std::string, unsigned>* x_bankParams) :
+		std::map<e_BankTiming, unsigned>* x_bankParams) :
 		m_receivedCommandPtr(nullptr) {
 	// std::cout << std::endl << __PRETTY_FUNCTION__ << std::endl;
 
@@ -86,7 +86,7 @@ void c_BankStatePrecharge::enter(c_BankInfo* x_bank, c_BankState* x_prevState,
 	x_bank->resetRowOpen();
 	m_prevCommandPtr = x_cmdPtr;
 	m_receivedCommandPtr = nullptr;
-	m_timer = m_bankParams->at("nRP") - 2; // MBH it takes 2 cycles from the time PRE is issued for m_timer to start counting down
+	m_timer = m_bankParams->at(e_BankTiming::nRP) - 2; // MBH it takes 2 cycles from the time PRE is issued for m_timer to start counting down
 	m_allowedCommands.clear();
 
 	

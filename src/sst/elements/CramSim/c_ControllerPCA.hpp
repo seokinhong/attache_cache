@@ -326,6 +326,7 @@ namespace SST {
                 uint64_t getClMissCnt(){return m_cl_miss_cnt;}
                 uint64_t getPredSuccessCnt(){return m_predSucess_cnt;}
                 uint64_t getPredFailCnt(){return m_predFail_cnt;}
+
                 c_2LvPredictor(uint64_t rownum, int _num_cache_entries, int _num_col_per_cache_entry, Output* output)
                 {
                         for(int j=0; j<rownum;j++)
@@ -336,8 +337,9 @@ namespace SST {
 
                     m_cache_data.resize(m_num_cache_entries);
                     m_cache_tag.resize(m_num_cache_entries);
+
                     for(int i=0;i<m_num_cache_entries;i++) {
-                        m_cache_tag.push_back(0);
+                        m_cache_tag[i]=0;
                         for (int j=0; j < m_num_col_per_cache_entry; j++) {
                             std::pair<uint8_t, uint64_t> l_par = make_pair(0, 0);
                             m_cache_data[i].push_back(l_par);
@@ -522,7 +524,10 @@ namespace SST {
                 Output* m_output;
             };
 
-            std::map<uint64_t, uint8_t> backing_;
+           // std::map<uint64_t, uint8_t> backing_;
+            std::map<uint64_t, uint8_t> compRatio_bdi;
+            std::map<uint64_t, uint8_t> compRatio_fvc;
+            std::map<uint64_t, uint8_t> compRatio_fpc;
 
             c_MetaCache* metacache;
             c_2LvPredictor* cmpSize_predictor;

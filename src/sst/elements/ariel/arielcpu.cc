@@ -500,7 +500,7 @@ int ArielCPU::forkPINChild(const char* app, char** args, std::map<std::string, s
 
 	full_execute_line[next_line_index] = '\0';
 
-	output->verbose(CALL_INFO, 2, 0, "Executing PIN command: %s\n", full_execute_line);
+	printf("Executing PIN command: %s\n", full_execute_line);
 	free(full_execute_line);
 
 	pid_t the_child;

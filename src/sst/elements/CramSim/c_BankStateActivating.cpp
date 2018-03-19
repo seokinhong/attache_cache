@@ -41,7 +41,7 @@
 using namespace SST;
 using namespace SST::n_Bank;
 
-c_BankStateActivating::c_BankStateActivating(std::map<std::string, unsigned>* x_bankParams) :
+c_BankStateActivating::c_BankStateActivating(std::map<enum e_BankTiming, unsigned>* x_bankParams) :
 	m_receivedCommandPtr(nullptr) {
 
 	//std::cout << "Entered " << __PRETTY_FUNCTION__ << std::endl;
@@ -81,7 +81,7 @@ void c_BankStateActivating::enter(c_BankInfo* x_bank,
 	//std::cout << "Entered " << __PRETTY_FUNCTION__ << std::endl;
 
 	// set timer for auto precharge countdown used in the pseudo-open page policy
-	x_bank->setAutoPreTimer(m_bankParams->at("nRAS"));
+	x_bank->setAutoPreTimer(m_bankParams->at(e_BankTiming::nRAS));
 	x_bank->setRowOpen();
 	x_bank->setOpenRowNum(x_cmdPtr->getHashedAddress()->getRow());
 

@@ -43,7 +43,7 @@ using namespace SST;
 using namespace SST::n_Bank;
 
 c_BankStateWriteA::c_BankStateWriteA(
-		std::map<std::string, unsigned>* x_bankParams) {
+		std::map<enum e_BankTiming, unsigned>* x_bankParams) {
 	// std::cout << "Entered " << __PRETTY_FUNCTION__ << std::endl;
 	m_timerEnter = 0;
 	m_timerExit = 0;
@@ -75,10 +75,10 @@ void c_BankStateWriteA::clockTic(c_BankInfo* x_bank, SimTime_t x_cycle) {
 			x_bank->setLastCommandCycle(e_BankCommandType::WRITEA, l_time);
 			SimTime_t l_nextCycle = std::max(
 					x_bank->getNextCommandCycle(e_BankCommandType::ACT)
-							+ m_bankParams->at("nRAS"),
+							+ m_bankParams->at(e_BankTiming::nRAS),
 					x_bank->getLastCommandCycle(e_BankCommandType::WRITEA)
-							+ m_bankParams->at("nCWL") + m_bankParams->at("nBL")
-							+ m_bankParams->at("nWR"))-2;
+							+ m_bankParams->at(e_BankTiming::nCWL) + m_bankParams->at(e_BankTiming::nBL)
+							+ m_bankParams->at(e_BankTiming::nWR))-2;
 			m_timerExit = 0;
 			if (l_nextCycle > l_time){
 				m_timerExit = l_nextCycle-l_time;
@@ -107,7 +107,7 @@ void c_BankStateWriteA::enter(c_BankInfo* x_bank, c_BankState* x_prevState,
 
 		switch (m_prevCommandPtr->getCommandMnemonic()) {
 		case e_BankCommandType::WRITEA:
-			m_timerEnter = std::max(m_bankParams->at("nCCD_L"),m_bankParams->at("nBL"))-1;
+			m_timerEnter = std::max(m_bankParams->at(e_BankTiming::nCCD_L),m_bankParams->at(e_BankTiming::nBL))-1;
 			break;
 		default:
 			std::cout << __PRETTY_FUNCTION__ << ": Unrecognized command"
@@ -127,34 +127,34 @@ void c_BankStateWriteA::enter(c_BankInfo* x_bank, c_BankState* x_prevState,
 	x_bank->setNextCommandCycle(e_BankCommandType::READ,
 			std::max(x_bank->getNextCommandCycle(e_BankCommandType::READ),
 					x_bank->getLastCommandCycle(e_BankCommandType::WRITE))
-					+ m_bankParams->at("nCWL") + m_bankParams->at("nBL")
-					+ m_bankParams->at("nWR") - m_bankParams->at("nCL"));
+					+ m_bankParams->at(e_BankTiming::nCWL) + m_bankParams->at(e_BankTiming::nBL)
+					+ m_bankParams->at(e_BankTiming::nWR) - m_bankParams->at(e_BankTiming::nCL));
 	x_bank->setNextCommandCycle(e_BankCommandType::READA,
 			std::max(x_bank->getNextCommandCycle(e_BankCommandType::READA),
 					x_bank->getLastCommandCycle(e_BankCommandType::WRITE))
-					+ m_bankParams->at("nCWL") + m_bankParams->at("nBL")
-					+ m_bankParams->at("nWR") - m_bankParams->at("nCL"));
+					+ m_bankParams->at(e_BankTiming::nCWL) + m_bankParams->at(e_BankTiming::nBL)
+					+ m_bankParams->at(e_BankTiming::nWR) - m_bankParams->at(e_BankTiming::nCL));
 	x_bank->setNextCommandCycle(e_BankCommandType::WRITE,
 			std::max(x_bank->getNextCommandCycle(e_BankCommandType::WRITE),
-					l_time + m_bankParams->at("nCCD_L")));
+					l_time + m_bankParams->at(e_BankTiming::nCCD_L)));
 	x_bank->setNextCommandCycle(e_BankCommandType::PRE,
 			std::max(x_bank->getNextCommandCycle(e_BankCommandType::PRE),
 					std::max(
 							x_bank->getLastCommandCycle(e_BankCommandType::ACT)
-									+ m_bankParams->at("nRAS") - 2,
+									+ m_bankParams->at(e_BankTiming::nRAS) - 2,
 							std::max(
 									x_bank->getLastCommandCycle(
 											e_BankCommandType::WRITE),
 									x_bank->getLastCommandCycle(
 											e_BankCommandType::READ)
-											+ m_bankParams->at("nRTP") - 2))));
+											+ m_bankParams->at(e_BankTiming::nRTP) - 2))));
 	x_bank->setNextCommandCycle(e_BankCommandType::WRITEA,
 			std::max(
 					x_bank->getNextCommandCycle(e_BankCommandType::ACT)
-							+ m_bankParams->at("nRAS"),
+							+ m_bankParams->at(e_BankTiming::nRAS),
 					x_bank->getLastCommandCycle(e_BankCommandType::WRITEA)
-							+ m_bankParams->at("nCWL") + m_bankParams->at("nBL")
-							+ m_bankParams->at("nWR"))-2);
+							+ m_bankParams->at(e_BankTiming::nCWL) + m_bankParams->at(e_BankTiming::nBL)
+							+ m_bankParams->at(e_BankTiming::nWR))-2);
 
 	m_nextStatePtr = new c_BankStatePrecharge(m_bankParams);
 

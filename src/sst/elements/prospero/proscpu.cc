@@ -214,6 +214,7 @@ ProsperoComponent::ProsperoComponent(ComponentId_t id, Params& params) :
 		statA_XorIns = this->registerStatistic<uint64_t>("a_xor", subID);
 		statA_XaddIns = this->registerStatistic<uint64_t>("a_xadd", subID);
 		statA_Atomify = this->registerStatistic<uint64_t>("a_atomify", subID);
+		statOoOMemAccess = this->registerStatistic<uint64_t>("OoOMemAccess", subID);
 
 		output->verbose(CALL_INFO, 1, 0, "Prospero configuration completed successfully.\n");
 
@@ -242,17 +243,20 @@ ProsperoComponent::ProsperoComponent(ComponentId_t id, Params& params) :
 	isPageRequestSent=false;
 	m_inst=0;
     sim_started=false;
+	old_instnum =0;
+	old_addr =0;
 }
 
 
-void ProsperoComponent::sendMemContent(uint64_t addr, uint64_t vaddr, uint32_t size, uint64_t data) {
+void ProsperoComponent::sendMemContent(uint64_t addr, uint64_t vaddr, uint32_t size, std::vector<uint8_t> compRatio_vector) {
 
+	/*
 	std::vector<uint8_t> data_tmp;
 	for(int i=0;i<8;i++) {
 		uint8_t tmp=(uint8_t)(data>>8*i);
 		data_tmp.push_back(tmp);
-	}
-    MemEvent *req = new MemEvent(this,addr,vaddr,Command::Put,data_tmp);
+	}*/
+    MemEvent *req = new MemEvent(this,addr,vaddr,Command::Put,compRatio_vector);
 	//printf("sender [%s], addr:%llx cline addr: %llx size:%d\n",this->getName().c_str(),addr,(addr>>6)<<6,data);
 	req->setVirtualAddress(vaddr);
     req->setDst("MemController0");
@@ -263,6 +267,7 @@ void ProsperoComponent::sendMemContent(uint64_t addr, uint64_t vaddr, uint32_t s
 void ProsperoComponent::sendPageAllocRequest(uint64_t addr) {
 	if(isPageRequestSent==false) {
 		MemEvent *req = new MemEvent(this, addr, addr, Command::Get);
+		req->setRqstr(this->getName());
 		page_link->send(req);
 		isPageRequestSent = true;
 	}
@@ -410,7 +415,7 @@ void ProsperoComponent::handlerDirectCacheResponse(Event *ev) {
 	currentOutstanding--;
 
 	//set done flag in the corresponding entry of rob
-	if(hasROB) {
+	if(hasROB && cmd!=Command::GetXResp) {
 		bool found=false;
 		for (auto &it: ROB) {
 			if (it.isMemory && it.id == res->getResponseToID()) {
@@ -432,7 +437,7 @@ void ProsperoComponent::handlerDirectCacheResponse(Event *ev) {
 	delete ev;
 }
 
-void ProsperoComponent::pushROB(bool isMemInst, Event::id_type id) {
+void ProsperoComponent::pushROB(bool isMemInst, bool isWrite, Event::id_type id) {
 	ROB_ENTRY entry;
 	entry.isMemory = isMemInst;
 	entry.id = id;
@@ -444,7 +449,8 @@ void ProsperoComponent::pushROB(bool isMemInst, Event::id_type id) {
 
 	entry.issueCycle=this->m_simCycle;
 
-	ROB.push_back(entry);
+	if(!isWrite)
+		ROB.push_back(entry);
 }
 
 bool ProsperoComponent::tick(SST::Cycle_t currentCycle) {
@@ -532,7 +538,7 @@ bool ProsperoComponent::tick(SST::Cycle_t currentCycle) {
 	// go ahead and issue it, otherwise we will stall
 	uint32_t i=0;
 	for(i = 0; i < maxIssuePerCycle; ++i) {
-		if (m_inst % 1000000 >=0 && m_inst %1000000<5) {
+		if (m_inst % 10000000 >=0 && m_inst %10000000<5) {
 			printf("# of issued inst: %lld\n", m_inst);
 			fflush(0);
 		}
@@ -545,13 +551,16 @@ bool ProsperoComponent::tick(SST::Cycle_t currentCycle) {
 					{
 						if(ROB.size()< sizeROB) {
 
+							//non memory instructions
 							if (NonMemInstCnt > 0) {
 								#ifdef DEBUG_ROB
 								printf("[%lld]non mem inst issued\n",currentCycle);
                                 #endif
-								pushROB (false, Event::id_type(0,0));
+								pushROB (false, false,Event::id_type(0,0));
 								NonMemInstCnt--;
-							} else {
+
+							} //memory instructions
+							else {
 
 								if (page_link) {
 									if (isPageRequestSent == true) {
@@ -565,8 +574,10 @@ bool ProsperoComponent::tick(SST::Cycle_t currentCycle) {
 									}
 								}
 
-								uint64_t old_instnum = currentEntry->getInstNum();
-								Addr old_addr = currentEntry->getAddress();
+								if(!currentEntry->isWrite()) {
+									old_instnum = currentEntry->getInstNum();
+									old_addr = currentEntry->getAddress();
+								}
 
 
 								// Issue the pending request into the memory subsystem
@@ -576,16 +587,31 @@ bool ProsperoComponent::tick(SST::Cycle_t currentCycle) {
 								currentEntry = reader->readNextEntry();
 
 								//update the number of non mem inst cnt
-								NonMemInstCnt = currentEntry->getInstNum() - old_instnum;
-#ifdef DEBUG_ROB
-								printf("[%lld]mem inst issued, address:%lx, dependent inst:%lld\n",currentCycle,old_addr,NonMemInstCnt);
-#endif
+								if(!currentEntry->isWrite()) {
+									if(currentEntry->getInstNum() < old_instnum) {
+										printf("currentEntry->getInstNum() < old_instnum\n");
+										NonMemInstCnt = 0;
+										statOoOMemAccess->addData(1);
+									}
+									else
+										NonMemInstCnt = currentEntry->getInstNum() - old_instnum;
+
+								}
+
+                                #ifdef DEBUG_ROB
+								printf("[%lld]mem inst issued, address:%lx, iswrite?:%d dependent inst:%lld old_instnum:%lld new_instnum:%lld\n",currentCycle,old_addr,currentEntry->isWrite(), NonMemInstCnt,old_instnum,currentEntry->getInstNum());
+								#endif
 
 								// Trace reader has read all entries, time to begin draining
 								// the system, caches etc
 								if (NULL == currentEntry) {
 									traceEnded = true;
 									break;
+								}
+
+								if(NonMemInstCnt>100000)
+								{
+									printf("NonMemInstCnt>100000, cycle: %lld\n",m_simCycle);
 								}
 							}
 						}
@@ -733,24 +759,29 @@ void ProsperoComponent::issueRequest(const ProsperoTraceEntry* entry) {
 	bool isAtomic		= entry->isAtomic();
 	const uint32_t atomicClass	= entry->getAtomic();
     std::vector<uint64_t> data_vector = entry->getDataVector();
-/*
-	std::cout << "["<<m_simCycle<<"] ";
+	std::vector<uint8_t> compRatio_vector = entry->getCompRatio();
+
+
+	bool isWrite = entry->isWrite();
+
+	/*
+	std::cout << "["<<std::dec<<m_simCycle<<"] ";
 	std::cout << "prospero" <<  this->cpuid <<" ";
-	std::cout << entry->getCycle() << " ";
-	std::cout << std::hex << entryInstNum;
+	std::cout << std::dec<< entry->getCycle() << " ";
+	std::cout << entryInstNum;
+
+	if (isRead)
+		std::cout << " " <<"RD";
+	else
+		std::cout << " " <<"WR";
+
 	std::cout << " " << std::hex << entryAddress;
-	std::cout << " " << isRead;
 
 	for (auto &it:data_vector)
 		std::cout << " " << std::hex << it;
+
+	std::cout << " "<< std::dec << entry->getCompRatio();
 	std::cout << std::endl;
-*/
-
-
-/*	if(max_inst>0 && entryInstNum>max_inst)
-	{
-		traceEnded=true;
-	}
 */
 	if(lineOffset + entryLength > cacheLineSize) {
 		// Perform a split cache line load
@@ -768,51 +799,26 @@ void ProsperoComponent::issueRequest(const ProsperoTraceEntry* entry) {
 		const uint64_t entryAddress_upper=((lowerAddress - (lowerAddress % cacheLineSize)) + cacheLineSize);
 		const uint64_t upperAddress = memMgr->translate(entryAddress_upper);
 
-		SimpleMem::Request* reqLower = new SimpleMem::Request( isRead ? SimpleMem::Request::Read : SimpleMem::Request::Write, lowerAddress, lowerLength);
-		reqLower->setVirtualAddress(entryAddress);
-
-		SimpleMem::Request* reqUpper = new SimpleMem::Request(isRead ? SimpleMem::Request::Read : SimpleMem::Request::Write, upperAddress, upperLength);
-		reqUpper->setVirtualAddress((entryAddress - (entryAddress % cacheLineSize)) + cacheLineSize);
+		MemEvent *reqL = new SST::MemHierarchy::MemEvent(this,lowerAddress,entryAddress, isRead? Command::GetS:Command::GetX,0);
+		MemEvent *reqU = new SST::MemHierarchy::MemEvent(this,upperAddress,entryAddress_upper, isRead? Command::GetS:Command::GetX,0);
 
 		if(cpu_to_mem_link) {
-			sendMemContent(lowerAddress, entryAddress, 64, entry->getData());
-			sendMemContent(upperAddress, entryAddress_upper, 64, entry->getData());
+			sendMemContent(lowerAddress, entryAddress, 64, compRatio_vector);
+			sendMemContent(upperAddress, entryAddress_upper, 64, compRatio_vector);
 		}
 
 		if (pimSupport == 0 || !isAtomic){
 
-			//Treet all memory request as noncacheable
-			if(noncacheable)
-			{
-				reqLower->flags |= Interfaces::SimpleMem::Request::F_NONCACHEABLE;
-				reqUpper->flags |= Interfaces::SimpleMem::Request::F_NONCACHEABLE;
-			}
+			reqL->setDst(dst_cache_name);
+			reqU->setDst(dst_cache_name);
+			cramsim_cache_link->send(reqL);
+			cramsim_cache_link->send(reqU);
+
+			pushROB(true,isWrite,reqL->getID());
+			pushROB(true,isWrite,reqU->getID());
 
 
-			//Treat atomics as regular ops
-			if(!cramsim_cache_link) {
-				cache_link->sendRequest(reqLower);
-				cache_link->sendRequest(reqUpper);
-
-				//pushROB(true,reqLower->id);
-				//pushROB(true,reqUpper->id);
-			} else{
-				MemEvent *reqL = new SST::MemHierarchy::MemEvent(this,lowerAddress,entryAddress, isRead? Command::GetS:Command::GetX,0);
-				MemEvent *reqU = new SST::MemHierarchy::MemEvent(this,upperAddress,entryAddress_upper, isRead? Command::GetS:Command::GetX,0);
-				reqL->setDst(dst_cache_name);
-				reqU->setDst(dst_cache_name);
-				cramsim_cache_link->send(reqL);
-				cramsim_cache_link->send(reqU);
-
-				pushROB(true,reqL->getID());
-				pushROB(true,reqU->getID());
-			}
-
-
-			if(noncacheable)
-				currentOutstandingUC += 2;
-			else
-				currentOutstanding += 2;
+			currentOutstanding += 2;
 
 			if(isRead) {
 				readsIssued += 2;
@@ -840,30 +846,14 @@ void ProsperoComponent::issueRequest(const ProsperoTraceEntry* entry) {
 
 		else if (pimSupport == 1 && isAtomic){
 			//Send read and write atomics as noncacheable to the memory subsystem
-			reqLower->flags |= Interfaces::SimpleMem::Request::F_NONCACHEABLE;
-			reqUpper->flags |= Interfaces::SimpleMem::Request::F_NONCACHEABLE;
+			reqL->setDst(dst_cache_name);
+			reqU->setDst(dst_cache_name);
 
-			//Treat atomics as regular ops
-			if(!cramsim_cache_link) {
-				cache_link->sendRequest(reqLower);
-				cache_link->sendRequest(reqUpper);
+			cramsim_cache_link->send(reqL);
+			cramsim_cache_link->send(reqU);
 
-				//pushROB(true,reqLower->id);
-				//pushROB(true,reqUpper->id);
-
-			} else{
-
-				MemEvent *reqL = new SST::MemHierarchy::MemEvent(this,lowerAddress,entryAddress, isRead? Command::GetS:Command::GetX,0);
-				MemEvent *reqU = new SST::MemHierarchy::MemEvent(this,upperAddress,entryAddress_upper, isRead? Command::GetS:Command::GetX,0);
-				reqL->setDst(dst_cache_name);
-				reqU->setDst(dst_cache_name);
-
-				cramsim_cache_link->send(reqL);
-				cramsim_cache_link->send(reqU);
-
-				pushROB(true,reqL->getID());
-				pushROB(true,reqU->getID());
-			}
+			pushROB(true,isWrite,reqL->getID());
+			pushROB(true,isWrite,reqU->getID());
 
 			if(isRead) {
 				readsIssued += 2;
@@ -894,28 +884,13 @@ void ProsperoComponent::issueRequest(const ProsperoTraceEntry* entry) {
 		else if (pimSupport == 2 && isAtomic){
 			//Send only write atomics as noncacheable to the memory subsystem
 			if (!isRead){
-				reqLower->flags |= Interfaces::SimpleMem::Request::F_NONCACHEABLE;
-				reqUpper->flags |= Interfaces::SimpleMem::Request::F_NONCACHEABLE;
+				reqL->setDst(dst_cache_name);
+				reqU->setDst(dst_cache_name);
+				cramsim_cache_link->send(reqL);
+				cramsim_cache_link->send(reqU);
 
-				//Treat atomics as regular ops
-				if(!cramsim_cache_link) {
-					cache_link->sendRequest(reqLower);
-					cache_link->sendRequest(reqUpper);
-
-				//	pushROB(true,reqLower->id);
-				//	pushROB(true,reqUpper->id);
-				} else{
-
-					MemEvent *reqL = new SST::MemHierarchy::MemEvent(this,lowerAddress,entryAddress, isRead? Command::GetS:Command::GetX,0);
-					MemEvent *reqU = new SST::MemHierarchy::MemEvent(this,upperAddress,entryAddress_upper, isRead? Command::GetS:Command::GetX,0);
-					reqL->setDst(dst_cache_name);
-					reqU->setDst(dst_cache_name);
-					cramsim_cache_link->send(reqL);
-					cramsim_cache_link->send(reqU);
-
-					pushROB(true,reqL->getID());
-					pushROB(true,reqU->getID());
-				}
+				pushROB(true,isWrite,reqL->getID());
+				pushROB(true,isWrite,reqU->getID());
 
 				currentOutstandingUC += 2;
 
@@ -959,38 +934,22 @@ void ProsperoComponent::issueRequest(const ProsperoTraceEntry* entry) {
 		//	addr = addr - (addr % cacheLineSize);
 		//}
 		// Perform a single load
-		SimpleMem::Request* request = new SimpleMem::Request(cmd, addr, size);
-	       	request->setVirtualAddress(entryAddress);
 
-		output->verbose(CALL_INFO, 8, 0, "Issuing request id: %" PRIu64 ", cacheable %" PRIu32" \n", request->id, isAtomic);
+		MemEvent *req = new SST::MemHierarchy::MemEvent(this,addr,entryAddress, isRead? Command::GetS:Command::GetX,0);
+		output->verbose(CALL_INFO, 1, 0, "Core%d, cacheable %d, vaddr: %lx, paddr: %lx, isWrite?:%d\n", this->cpuid, isAtomic,entryAddress,addr,isRead!=true);
 
 		if(cpu_to_mem_link)
-			sendMemContent(addr,entryAddress,64, entry->getData());
+			sendMemContent(addr,entryAddress,64, compRatio_vector);
 
 
 		if (pimSupport == 0 || !isAtomic){
 
-			//Treet all memory request as noncacheable
-			if(noncacheable)
-				request->flags |= Interfaces::SimpleMem::Request::F_NONCACHEABLE;
+			req->setDst(dst_cache_name);
+			cramsim_cache_link->send(req);
+			pushROB(true,isWrite,req->getID());
 
 
-			//Treat atomics as regular ops
-			if(!cramsim_cache_link) {
-				cache_link->sendRequest(request);
-			//	pushROB(true,request->id);
-			} else{
-				MemEvent *req = new SST::MemHierarchy::MemEvent(this,addr,entryAddress, isRead? Command::GetS:Command::GetX,0);
-				req->setDst(dst_cache_name);
-				cramsim_cache_link->send(req);
-				pushROB(true,req->getID());
-
-			}
-
-			if(noncacheable)
-				currentOutstandingUC += 1;
-			else
-				currentOutstanding += 1;
+			currentOutstanding += 1;
 
 
 			if(isRead) {
@@ -1013,19 +972,10 @@ void ProsperoComponent::issueRequest(const ProsperoTraceEntry* entry) {
 		}
 
 		else if (pimSupport == 1 && isAtomic){
-			//Send read and write atomics as noncacheable to the memory subsystem
-			request->flags |= Interfaces::SimpleMem::Request::F_NONCACHEABLE;
 
-				//Treat atomics as regular ops
-			if(!cramsim_cache_link) {
-				cache_link->sendRequest(request);
-			//	pushROB(true,request->id);
-			} else{
-				MemEvent *req = new SST::MemHierarchy::MemEvent(this,addr,entryAddress, isRead? Command::GetS:Command::GetX,0);
-				req->setDst(dst_cache_name);
-				cramsim_cache_link->send(req);
-				pushROB(true,req->getID());
-			}
+			req->setDst(dst_cache_name);
+			cramsim_cache_link->send(req);
+			pushROB(true,isWrite,req->getID());
 
 			if(isRead) {
 				readsIssued += 1;
@@ -1051,18 +1001,11 @@ void ProsperoComponent::issueRequest(const ProsperoTraceEntry* entry) {
 		else if (pimSupport == 2 && isAtomic){
 			//Send only write atomics as noncacheable to the memory subsystem
 			if (!isRead){
-				request->flags |= Interfaces::SimpleMem::Request::F_NONCACHEABLE;
+				req->setFlag(SimpleMem::Request::F_NONCACHEABLE);
 
-				//Treat atomics as regular ops
-				if(!cramsim_cache_link) {
-					cache_link->sendRequest(request);
-				//	pushROB(true,request->id);
-				} else{
-					MemEvent *req = new SST::MemHierarchy::MemEvent(this,addr,entryAddress, isRead? Command::GetS:Command::GetX,0);
-					req->setDst(dst_cache_name);
-					cramsim_cache_link->send(req);
-					pushROB(true,req->getID());
-				}
+				req->setDst(dst_cache_name);
+				cramsim_cache_link->send(req);
+				pushROB(true,isWrite,req->getID());
 				currentOutstandingUC += 1;
 
 				writesIssued += 1;

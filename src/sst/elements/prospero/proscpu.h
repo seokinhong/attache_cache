@@ -71,11 +71,11 @@ namespace SST {
 				bool tick( Cycle_t );
 				void issueRequest(const ProsperoTraceEntry* entry);
 				void countAtomicInstr(uint32_t opcode);
-				void sendMemContent(uint64_t addr, uint64_t vaddr, uint32_t size, uint64_t data);
+				void sendMemContent(uint64_t addr, uint64_t vaddr, uint32_t size, std::vector<uint8_t> data);
 				void sendPageAllocRequest(uint64_t addr);
 				void handlePageAllocResponse(Event* ev);
 				void handlerDirectCacheResponse(Event* ev);
-				void pushROB(bool isMemInst, Event::id_type);
+				void pushROB(bool isMemInst, bool isWrite, Event::id_type);
 
 				Output* output;
 				ProsperoTraceReader* reader;
@@ -85,6 +85,8 @@ namespace SST {
 				std::deque<ROB_ENTRY> ROB;
 				uint64_t m_simCycle;
 				uint64_t m_instID;
+				uint64_t old_instnum ;
+				uint64_t old_addr;
 
 
 
@@ -180,7 +182,8 @@ namespace SST {
 				Statistic<uint64_t>* statA_SubIns;
 				Statistic<uint64_t>* statA_XorIns;
 				Statistic<uint64_t>* statA_XaddIns;
-				Statistic<uint64_t>* statA_Atomify;	
+				Statistic<uint64_t>* statA_Atomify;
+				Statistic<uint64_t>* statOoOMemAccess;
 		};
 
 	}

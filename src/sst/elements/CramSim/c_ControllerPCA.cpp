@@ -100,25 +100,20 @@ c_ControllerPCA::c_ControllerPCA(ComponentId_t id, Params &x_params) :
 
     if(metadata_predictor==1)       //meta-data cache
     {
-        uint32_t metacache_entry_num = x_params.find<uint32_t>("metaCache_entries",0,l_found); //128KB, 130b per entry
-        if(!l_found)
-        {
-            fprintf(stderr,"metaCache_entries is missing exit!!");
-            exit(-1);
-        }
+        uint32_t metacache_row_num = x_params.find<uint32_t>("metacache_rownum",32,l_found); //128KB, 130b per entry
 
-        uint32_t rowsize=m_deviceDriver->getNumColPerBank()*64;
+        uint32_t dram_rowsize=m_deviceDriver->getNumColPerBank()*64;
         double hitrate= x_params.find<double>("metacache_hitrate",0,l_found);
         int metacache_way= x_params.find<int>("metacache_way",16,l_found);
-        metacache = new c_MetaCache(rowsize,metacache_entry_num,metacache_way,output,hitrate);
+        metacache = new c_MetaCache(dram_rowsize,metacache_row_num,metacache_way,output,hitrate);
     }
     else if(metadata_predictor==2) //compression predictor
     {
         bool found=false;
-        uint32_t metacache_entry_num = x_params.find<uint32_t>("metaCache_entries",16*1024,found); //128KB, 80b per entry
-        int metacache_entry_colnum = x_params.find<uint32_t>("metaCache_Colnum",16,found); //128KB, 130b per entry
+        uint32_t predictor_entry_num = x_params.find<uint32_t>("predictor_entry_num",16*1024,found); //128KB, 80b per entry
+        int predictor_entry_colnum = x_params.find<uint32_t>("predictor_entry_colnum",16,found); //128KB, 130b per entry
 
-        cmpSize_predictor = new c_2LvPredictor(m_rownum*m_total_num_banks,metacache_entry_num,metacache_entry_colnum,output);
+        cmpSize_predictor = new c_2LvPredictor(m_rownum*m_total_num_banks,predictor_entry_num,predictor_entry_colnum,output);
     }
 
     isMultiThreadMode=x_params.find<bool>("multiThreadMode",false);
@@ -376,18 +371,18 @@ bool c_ControllerPCA::clockTic(SST::Cycle_t clock) {
 
         uint64_t addr = (newTxn->getAddress() >> 6) << 6;
         //calculate the compressed size of cacheline
-        if(backing_.size()>0&&newTxn->getCompressedSize()<0) {
+        if(compRatio_bdi.size()>0&&newTxn->getCompressedSize()<0) {
 
-                if(!m_isFixedCompressionMode &&(backing_.find(addr)==backing_.end())) {
+                if(!m_isFixedCompressionMode &&(compRatio_bdi.find(addr)==compRatio_bdi.end())) {
                     printf("Error!! cacheline is not found, %llx\n",addr);
-                    backing_[addr] = 0;
+                    compRatio_bdi[addr] = 0;
                     s_BackingMiss->addData(1);
                 }
 
                 uint8_t normalized_size = 100;
 
                 if(!m_isFixedCompressionMode)
-                    normalized_size=backing_[addr];
+                    normalized_size=compRatio_bdi[addr];
                 else
                     normalized_size= m_compEngine->getCompressedSize();
 
@@ -885,7 +880,7 @@ void c_ControllerPCA::storeContent()
             if(req->getCmd()==MemHierarchy::Command::Put) {
                 uint64_t cacheline_addr = (req_addr >> 6) << 6;
 
-                if(compression_en) {
+                /*if(compression_en) {
 
                     uint64_t *mem_ptr_64;
                     int size=req->getSize();
@@ -921,7 +916,11 @@ void c_ControllerPCA::storeContent()
 
                     backing_[cacheline_addr] = normalized_size;
 
-                }
+                }*/
+
+                std::vector<uint8_t> compRatio_vector=(std::vector<uint8_t>)req->getPayload();
+                compRatio_bdi[cacheline_addr] = compRatio_vector[0];
+                //printf("cacheline addr:%llx comp_ratio:%d\n",cacheline_addr,compRatio_vector[0]);
 
             } else
             {

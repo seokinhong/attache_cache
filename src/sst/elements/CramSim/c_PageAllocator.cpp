@@ -114,6 +114,10 @@ void c_PageAllocator::handlePageAllocation(SST::Event* event)
             resp_data.push_back(tmp);
         }
 
+        #ifdef __SST_DEBUG_OUTPUT__
+        output->verbose(CALL_INFO,1,0,"requester:%s requested address:%llx allocated page:%llx\n",req->getRqstr().c_str(),req_addr,next_page_num);
+        #endif
+
         SST::MemHierarchy::MemEvent* res=new SST::MemHierarchy::MemEvent(this, req_addr,req_addr,MemHierarchy::Command::GetSResp, resp_data);
         event->getDeliveryLink()->send(res);
     } else
@@ -148,6 +152,8 @@ uint64_t c_PageAllocator::getPageAddress(uint64_t  virtAddr){
 
             if (m_nextPageAddress + m_osPageSize > m_memSize) {
                 fprintf(stderr, "[memController] Out of Address Range!!\n");
+                fflush(stderr);
+                exit(-1);
             }
 
             m_nextPageAddress = (m_nextPageAddress + m_osPageSize) % m_memSize;
@@ -159,6 +165,8 @@ uint64_t c_PageAllocator::getPageAddress(uint64_t  virtAddr){
 
         if (m_nextPageAddress + m_osPageSize > m_memSize) {
             fprintf(stderr, "[memController] Out of Address Range!!, nextPageAddress:%lld pageSize:%lld memsize:%lld\n", m_nextPageAddress,m_osPageSize,m_memSize);
+            fflush(stderr);
+            exit(-1);
         }
 
         m_nextPageAddress = (m_nextPageAddress + m_osPageSize) % m_memSize;

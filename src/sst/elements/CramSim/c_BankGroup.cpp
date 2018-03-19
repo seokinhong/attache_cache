@@ -45,7 +45,7 @@
 using namespace SST;
 using namespace SST::n_Bank;
 
-c_BankGroup::c_BankGroup(std::map<std::string, unsigned>* x_bankParams, unsigned x_Id) {
+c_BankGroup::c_BankGroup(std::map<e_BankTiming, unsigned>* x_bankParams, unsigned x_Id) {
 	m_rankPtr = nullptr;
 	m_bankParams = x_bankParams;
 	m_bankGroupId = x_Id;
@@ -101,7 +101,7 @@ void c_BankGroup::updateOtherBanksNextCommandCycles(c_BankInfo* x_initBankPtr,
 		case e_BankCommandType::ACT: {
 			SimTime_t l_nextCycle = std::max(
 					l_bankPtr->getNextCommandCycle(e_BankCommandType::ACT),
-					l_time + m_bankParams->at("nRRD_L"));
+					l_time + m_bankParams->at(e_BankTiming::nRRD_L));
 			l_bankPtr->setNextCommandCycle(e_BankCommandType::ACT, l_nextCycle);
 			break;
 		}
@@ -115,8 +115,8 @@ void c_BankGroup::updateOtherBanksNextCommandCycles(c_BankInfo* x_initBankPtr,
 							l_bankPtr->getNextCommandCycle(
 									e_BankCommandType::READA)),
 					l_time
-							+ std::max(m_bankParams->at("nCCD_L"),
-									m_bankParams->at("nBL")));
+							+ std::max(m_bankParams->at(e_BankTiming::nCCD_L),
+									m_bankParams->at(e_BankTiming::nBL)));
 			l_bankPtr->setNextCommandCycle(e_BankCommandType::READ,
 					l_nextCycle);
 			l_bankPtr->setNextCommandCycle(e_BankCommandType::READA,
@@ -130,9 +130,9 @@ void c_BankGroup::updateOtherBanksNextCommandCycles(c_BankInfo* x_initBankPtr,
 							l_bankPtr->getNextCommandCycle(
 									e_BankCommandType::WRITEA)),
 					l_time
-							+ m_bankParams->at("nCL") + m_bankParams->at("nBL")
-							+ m_bankParams->at("nRTW")
-							- m_bankParams->at("nCWL"));
+							+ m_bankParams->at(e_BankTiming::nCL) + m_bankParams->at(e_BankTiming::nBL)
+							+ m_bankParams->at(e_BankTiming::nRTW)
+							- m_bankParams->at(e_BankTiming::nCWL));
 			l_bankPtr->setNextCommandCycle(e_BankCommandType::WRITE,
 					l_nextCycle);
 			l_bankPtr->setNextCommandCycle(e_BankCommandType::WRITEA,
@@ -150,8 +150,8 @@ void c_BankGroup::updateOtherBanksNextCommandCycles(c_BankInfo* x_initBankPtr,
 							l_bankPtr->getNextCommandCycle(
 									e_BankCommandType::READA)),
 					l_time
-							+ m_bankParams->at("nCWL") + m_bankParams->at("nBL")
-							+ m_bankParams->at("nWTR_L"));
+							+ m_bankParams->at(e_BankTiming::nCWL) + m_bankParams->at(e_BankTiming::nBL)
+							+ m_bankParams->at(e_BankTiming::nWTR_L));
 			l_bankPtr->setNextCommandCycle(e_BankCommandType::READ,
 					l_nextCycle);
 			l_bankPtr->setNextCommandCycle(e_BankCommandType::READA,
@@ -165,8 +165,8 @@ void c_BankGroup::updateOtherBanksNextCommandCycles(c_BankInfo* x_initBankPtr,
 							l_bankPtr->getNextCommandCycle(
 									e_BankCommandType::WRITEA)),
 					l_time
-							+ std::max(m_bankParams->at("nCCD_L"),
-									m_bankParams->at("nBL")));
+							+ std::max(m_bankParams->at(e_BankTiming::nCCD_L),
+									m_bankParams->at(e_BankTiming::nBL)));
 			l_bankPtr->setNextCommandCycle(e_BankCommandType::WRITE,
 					l_nextCycle);
 			l_bankPtr->setNextCommandCycle(e_BankCommandType::WRITEA,
