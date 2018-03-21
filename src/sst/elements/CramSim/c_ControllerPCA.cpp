@@ -39,10 +39,11 @@ using namespace SST::n_Bank;
 c_ControllerPCA::c_ControllerPCA(ComponentId_t id, Params &x_params) :
         c_Controller(id, x_params){
 
+    int verbosity = x_params.find<int>("verbose", 0);
+    output = new SST::Output("CramSim.Controller[@f:@l:@p] ",
+                             verbosity, 0, SST::Output::STDOUT);
 
     bool l_found;
-    // Set up backing store if needed
-    verbosity = x_params.find<int>("verbose", 0);
 
     m_osPageSize = x_params.find<uint64_t>("page_size",4096,l_found);
     if(l_found==false)
@@ -110,10 +111,13 @@ c_ControllerPCA::c_ControllerPCA(ComponentId_t id, Params &x_params) :
     else if(metadata_predictor==2) //compression predictor
     {
         bool found=false;
-        uint32_t predictor_entry_num = x_params.find<uint32_t>("predictor_entry_num",16*1024,found); //128KB, 80b per entry
-        int predictor_entry_colnum = x_params.find<uint32_t>("predictor_entry_colnum",16,found); //128KB, 130b per entry
 
-        cmpSize_predictor = new c_2LvPredictor(m_rownum*m_total_num_banks,predictor_entry_num,predictor_entry_colnum,output);
+        uint32_t ropr_entry_num = x_params.find<uint32_t>("ropr_entry_num",512*1024,found); //128KB, 80b per entry
+        uint32_t lipr_entry_num = x_params.find<uint32_t>("lipr_entry_num",8*1024,found); //128KB, 80b per entry
+        int lipr_entry_colnum = x_params.find<uint32_t>("lipr_entry_colnum",128,found); //128KB, 130b per entry
+        bool selectiveRepl= x_params.find<bool>("selectiveRepl",true,found); //128KB, 130b per entry
+
+        cmpSize_predictor = new c_2LvPredictor(ropr_entry_num,lipr_entry_num,lipr_entry_colnum,selectiveRepl,output);
     }
 
     isMultiThreadMode=x_params.find<bool>("multiThreadMode",false);
@@ -142,6 +146,12 @@ c_ControllerPCA::c_ControllerPCA(ComponentId_t id, Params &x_params) :
    s_predicted_success_below50=registerStatistic<uint64_t>("predicted_success_below50");
    s_predicted_fail_above50=registerStatistic<uint64_t>("predicted_fail_above50");
 
+   s_predictor_lipr_hit = registerStatistic<uint64_t>("predictor_lipr_hit");
+   s_predictor_lipr_miss = registerStatistic<uint64_t>("predictor_lipr_miss");
+   s_predictor_lipr_success=registerStatistic<uint64_t>("predictor_lipr_success");
+   s_predictor_lipr_fail=registerStatistic<uint64_t>("predictor_lipr_fail");
+   s_predictor_ropr_success=registerStatistic<uint64_t>("predictor_ropr_success");
+   s_predictor_ropr_fail=registerStatistic<uint64_t>("predictor_ropr_fail");
     //---- configure link ----//
 
     for (int i = 0; i < contentline_num; i++) {
@@ -308,6 +318,12 @@ void c_ControllerPCA::finish() {
         printf("predictor metacache cacheline miss: %lld\n",cmpSize_predictor->getClMissCnt());
         printf("predictor prediction success: %lld\n",cmpSize_predictor->getPredSuccessCnt());
         printf("predictor prediction fail: %lld\n",cmpSize_predictor->getPredFailCnt());
+        s_predictor_lipr_hit->addData(cmpSize_predictor->m_predictor_lipr_hit);
+        s_predictor_lipr_miss->addData(cmpSize_predictor->m_predictor_lipr_miss);
+        s_predictor_lipr_success->addData(cmpSize_predictor->m_predictor_lipr_success);
+        s_predictor_lipr_fail->addData(cmpSize_predictor->m_predictor_lipr_fail);
+        s_predictor_ropr_success->addData(cmpSize_predictor->m_predictor_ropr_success);
+        s_predictor_ropr_fail->addData(cmpSize_predictor->m_predictor_ropr_fail);
     }
 
     printf("cacheline compression ratio:\t%lf\n",compression_ratio);
@@ -699,53 +715,6 @@ bool c_ControllerPCA::clockTic(SST::Cycle_t clock) {
                          s_DoubleRankAccess->addData(1);
 
 
-                         //if (fillTxn->getHelper() == NULL) {
-                      /*       c_Transaction *helper_txn = new c_Transaction(fillTxn->getSeqNum(),
-                                                                           fillTxn->getTransactionMnemonic(),
-                                                                           fillTxn->getAddress(),
-                                                                           fillTxn->getDataWidth());
-
-                             helper_txn->setChipAccessRatio(50);
-
-                             c_HashedAddress l_hashedAddress = fillTxn->getHashedAddress();
-
-                             int new_rank = 0;
-                             if (l_hashedAddress.getPChannel() == 0)
-                                 new_rank = 1;
-                             else
-                                 new_rank = 0;
-
-                             l_hashedAddress.setPChannel(new_rank);
-
-
-                             unsigned l_bankId =
-                                     l_hashedAddress.getBank()
-                                     + l_hashedAddress.getBankGroup() * Banks
-                                     + l_hashedAddress.getRank() * Banks * BGs
-                                     + l_hashedAddress.getPChannel() * Banks * BGs * Ranks
-                                     + l_hashedAddress.getChannel() * (PChs + 1) * Banks * BGs * (Ranks);
-                             //std::cout <<"row: "<<row<<" subrank: "<<subrank<<" bankid[old]: "<<l_hashedAddress.getBankId()<< " bankid[new]: "<<l_bankId<<std::endl;
-                             unsigned l_rankId =
-                                     +l_hashedAddress.getRank()
-                                     + l_hashedAddress.getPChannel() * Ranks
-                                     + l_hashedAddress.getChannel() * (PChs + 1) * (Ranks);
-
-
-                             l_hashedAddress.setRankId(l_rankId);
-                             l_hashedAddress.setBankId(l_bankId);
-
-                             helper_txn->setHashedAddress(l_hashedAddress);
-                             helper_txn->setHelperFlag(true);
-                             fillTxn->setHelper(helper_txn);
-                             fillTxn->donotRespond();
-                             m_ResQ.push_back(helper_txn);
-                             fillTxn->print(output, "newtxn\n", 0);
-                             helper_txn->print(output, "helper\n", 0);*/
-                       //  }
-                      //   else
-                       //  s_SingleRankAccess->addData(1);
-
-
                          m_MReqQ.push_back(fillTxn);
                          m_ResQ.push_back(fillTxn);
                          break;
@@ -880,44 +849,6 @@ void c_ControllerPCA::storeContent()
             if(req->getCmd()==MemHierarchy::Command::Put) {
                 uint64_t cacheline_addr = (req_addr >> 6) << 6;
 
-                /*if(compression_en) {
-
-                    uint64_t *mem_ptr_64;
-                    int size=req->getSize();
-                    c_Cacheline* new_cacheline=new c_Cacheline(req->getPayload());
-
-                    int compressed_size = m_compEngine->getCompressedSize(new_cacheline->getData(), COMP_ALG::BDI);
-                    int normalized_size = (int) ((double) compressed_size / (double) 512 * 100);
-
-                    backing_[cacheline_addr] = normalized_size;
-
-                    if(verbosity>2) {
-                        uint64_t cacheline_vaddr = (req->getVirtualAddress() >> 6) << 6;
-                        uint32_t offset = 0;
-                        for (int j = 0; j < 8; j++) {
-                            mem_ptr_64 = (uint64_t *) new_cacheline->getData();
-                            output->verbose(CALL_INFO, 4, 0, "paddr: %llx vaddr: %llx data: %llx \n", cacheline_addr + j * 8,
-                                            cacheline_vaddr + j * 8, *mem_ptr_64);
-                        }
-                   }
-                    delete new_cacheline;
-                }
-                else
-                {
-                    std::vector<uint8_t> recv_data=req->getPayload();
-                    uint64_t compressed_size=0;
-                    for(int i=0;i<8;i++)
-                    {
-                        uint64_t tmp=recv_data[i];
-                        compressed_size+=(tmp<<8*i);
-                    }
-                  //  printf("recv, address:%llx compressed_size:%d\n",req_addr,compressed_size);
-                    int normalized_size = (int) ((double) compressed_size / (double) 512 * 100);
-
-                    backing_[cacheline_addr] = normalized_size;
-
-                }*/
-
                 std::vector<uint8_t> compRatio_vector=(std::vector<uint8_t>)req->getPayload();
                 compRatio_bdi[cacheline_addr] = compRatio_vector[0];
                 //printf("cacheline addr:%llx comp_ratio:%d\n",cacheline_addr,compRatio_vector[0]);
@@ -930,5 +861,187 @@ void c_ControllerPCA::storeContent()
 
             delete req;
         }
+    }
+}
+
+c_2LvPredictor::c_2LvPredictor(uint64_t robr_entries, int lipr_entries, int _num_col_per_lipr_entry, bool isSelectiveReplace_,Output* output)
+{
+    m_rowtable.resize(robr_entries);
+    for(int j=0; j<robr_entries;j++)
+    m_rowtable[j]=0;
+
+    m_num_cache_entries=lipr_entries;
+    m_num_col_per_cache_entry=_num_col_per_lipr_entry;
+
+    m_cache_data.resize(m_num_cache_entries);
+    m_cache_tag.resize(m_num_cache_entries);
+
+    for(int i=0;i<m_num_cache_entries;i++) {
+        m_cache_tag[i]=0;
+        for (int j=0; j < m_num_col_per_cache_entry; j++) {
+        std::pair<uint8_t, uint64_t> l_par = make_pair(0, 0);
+        m_cache_data[i].push_back(l_par);
+        }
+    }
+
+    cache_index_mask = m_num_cache_entries-1;
+    cache_tag_offset=(int)log2(m_num_cache_entries);
+    row_table_offset=(int)log2(robr_entries);
+    m_row_table_mask = robr_entries-1;
+    isSelectiveReplace=isSelectiveReplace_;
+    m_output=output;
+    m_hit_cnt=0;
+    m_miss_cnt=0;
+    m_predictor_lipr_hit=0;
+    m_predictor_lipr_fail=0;
+    m_predictor_lipr_miss=0;
+    m_predictor_lipr_success=0;
+    m_predictor_ropr_fail=0;
+    m_predictor_ropr_success=0;
+    //  cache_tag_offset=(int)log2(_num_col_per_cache_entry);
+}
+
+uint8_t c_2LvPredictor::updateRowTable(int cacheline_size, int row_)
+{
+    int row_idx = row_ & m_row_table_mask;
+    uint8_t prev_state=m_rowtable.at(row_idx);
+    uint8_t new_state=0;
+    if(cacheline_size<=50)
+        new_state=prev_state+1;
+    else
+        new_state=0;
+
+    if(new_state>3)
+        new_state=3;
+
+    m_rowtable.at(row_idx)=new_state;
+    m_output->verbose(CALL_INFO,1,0,"update row table, row:%lld, row_idx:%lld, newstate:%d\n",row_,row_idx,new_state);
+    //printf("update row table, row:%lld, row_idx:%lld, newstate:%d\n",row_,row_idx,new_state);
+    return new_state;
+}
+
+int c_2LvPredictor::getPredictedSize(uint32_t col, uint32_t row_, uint32_t actual_size)
+{
+    int predict_size=-1;
+
+    //1. see metacache
+    if(m_num_cache_entries>0) {
+        predict_size = getCompSizeFromCache(col, row_);
+
+        //statistics
+        if(predict_size<0) {
+            m_predictor_lipr_miss++;
+            m_output->verbose(CALL_INFO,1,0,"LiPR miss, col:%d, row_:%d\n",col,row_);
+         //   printf("LiPR miss, misscount:%lld, col:%d, row_:%d\n",m_predictor_lipr_miss,col,row_);
+        }
+        else
+        {
+            m_predictor_lipr_hit++;
+            if(actual_size<=50 && predict_size<=50 || actual_size>50 && predict_size>50) {
+                m_predictor_lipr_success++;
+                m_output->verbose(CALL_INFO,1,0,"LiPR Hit prediction success, actual_size:%d predict_size:%d, col:%d, row_:%d, \n",actual_size, predict_size,col,row_);
+            //    printf("LiPR Hit prediction success, success:%lld, actual_size:%d predict_size:%d, col:%d, row_:%d, \n",m_predictor_lipr_success, actual_size, predict_size,col,row_);
+            }
+            else {
+                m_predictor_lipr_fail++;
+                m_output->verbose(CALL_INFO,1,0,"LiPR Hit prediction miss, actual_size:%d predict_size:%d, col:%d, row_:%d, \n",actual_size, predict_size,col,row_);
+            //    printf("LiPR Hit prediction miss, fail:%lld, actual_size:%d predict_size:%d, col:%d, row_:%d, \n",m_predictor_lipr_fail, actual_size, predict_size,col,row_);
+            }
+        }
+    }
+
+    //2. see rowtable
+    if(predict_size<0) {
+        int row_idx=row_ & m_row_table_mask;
+        int predict_bit = m_rowtable[row_idx];
+        if (predict_bit == 3)
+            predict_size = 50;
+        else
+            predict_size = 100;
+
+        if(actual_size<=50 && predict_size<=50 || actual_size>50 && predict_size>50) {
+            m_predictor_ropr_success++;
+            m_output->verbose(CALL_INFO,1,0,"RoPR prediction success, actual_size:%d predict_size:%d\n",actual_size, predict_size,col,row_);
+        //    printf("RoPR prediction success, success:%lld, actual_size:%d predict_size:%d\n",m_predictor_ropr_success,actual_size, predict_size,col,row_);
+        }
+        else {
+            m_predictor_ropr_fail++;
+            m_output->verbose(CALL_INFO,1,0,"RoPR prediction fail, actual_size:%d predict_size:%d\n",actual_size, predict_size,col,row_);
+        //    printf("RoPR prediction fail, fail:%lld, actual_size:%d predict_size:%d\n",m_predictor_ropr_fail,actual_size, predict_size,col,row_);
+        }
+    }
+
+    return predict_size;
+}
+
+
+int c_2LvPredictor::getCompSizeFromCache(int col, int row)
+{
+    int compSize=-1;
+    int index = row & cache_index_mask;
+    int tag = row >> cache_tag_offset;
+    int col_index = (int)((double)col / ((double)128/(double)m_num_col_per_cache_entry));  //assume that the number of dram column is 128
+    int col_tag = col >> (int)log2(m_num_col_per_cache_entry);
+
+    if(m_cache_tag.at(index)==tag)
+    {
+        std::pair<uint8_t, uint64_t> comp_data= m_cache_data[index][col_index];
+
+        if(comp_data.first==col_tag) {
+            compSize = comp_data.second;
+            m_cl_hit_cnt++;
+        }
+        else {
+            m_cl_miss_cnt++;
+            compSize = comp_data.second;
+        }
+
+        m_hit_cnt++;
+        m_output->verbose(CALL_INFO,1,0,"[Hit] col: %d, row:%d index: %d tag: %d, col_index: %d, col_tag:%d compSize:%d\n",col, row, index, tag, col_index, col_tag, compSize);
+    //    printf("[Hit] hitcount:%lld, col: %d, row:%d index: %d tag: %d, col_index: %d, col_tag:%d compSize:%d\n",this->m_predictor_lipr_hit, col, row, index, tag, col_index, col_tag, compSize);
+    } else {
+        m_miss_cnt++;
+        m_cl_miss_cnt++;
+        compSize = -1;
+        m_output->verbose(CALL_INFO,1,0,"[Miss] col: %d, row:%d index: %d tag: %d, col_index: %d, col_tag:%d compSize:%d\n",col, row, index, tag, col_index, col_tag, compSize);
+     //   printf("[Miss] misscount:%lld, col: %d, row:%d index: %d tag: %d, col_index: %d, col_tag:%d compSize:%d\n",m_predictor_lipr_miss, col, row, index, tag, col_index, col_tag, compSize);
+    }
+
+    return compSize;
+}
+
+int c_2LvPredictor::update(int col, int row, int compSize) {
+    int index = row & cache_index_mask;
+    int tag = row >> cache_tag_offset;
+    int col_index = (int) ((double) col / ((double) 128 /
+                                           (double) m_num_col_per_cache_entry));  //assume that the number of dram column is 128
+    int col_tag = col >> (int) log2(m_num_col_per_cache_entry);
+
+    uint8_t next_state = updateRowTable(compSize, row);
+
+    //cache miss and the row state is not highly compressible
+    bool doReplace=true;
+    if(isSelectiveReplace)
+        if(next_state!=3)
+            doReplace=false;
+
+
+    if (doReplace && m_cache_tag.at(index) != tag) {
+        m_cache_tag.at(index) = tag;
+
+        int fill_comp_size = compSize;
+
+        for (int i = 0; i < m_num_col_per_cache_entry; i++) {
+            std::pair<uint8_t, uint64_t> comp_data = make_pair(col_tag, fill_comp_size);
+            m_cache_data[index][i] = comp_data;
+        }
+
+        std::pair<uint8_t, uint64_t> comp_data = make_pair(col_tag, compSize);
+        m_cache_data[index][col_index] = comp_data;
+        // }
+    }//cache hit
+    else {
+        std::pair<uint8_t, uint64_t> comp_data = make_pair(col_tag, compSize);
+        m_cache_data[index][col_index] = comp_data;
     }
 }

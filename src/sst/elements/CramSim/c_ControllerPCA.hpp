@@ -45,6 +45,52 @@
 // local includes
 namespace SST {
     namespace n_Bank {
+        class c_2LvPredictor{
+        public:
+            uint64_t getHitCnt(){return m_hit_cnt;}
+            uint64_t getMissCnt(){return m_miss_cnt;}
+            uint64_t getClHitCnt(){return m_cl_hit_cnt;}
+            uint64_t getClMissCnt(){return m_cl_miss_cnt;}
+            uint64_t getPredSuccessCnt(){return m_predSucess_cnt;}
+            uint64_t getPredFailCnt(){return m_predFail_cnt;}
+
+            c_2LvPredictor(uint64_t robr_entries, int lipr_entries, int _num_col_per_lipr_entry,bool isSelectiveReplace_, Output* output);
+            uint8_t updateRowTable(int cacheline_size, int row_);
+            int getPredictedSize(uint32_t col, uint32_t row_, uint32_t actual_size);
+            int getCompSizeFromCache(int col, int row);
+            int update(int col, int row, int compSize);
+            uint64_t m_predictor_lipr_miss;
+            uint64_t m_predictor_lipr_hit;
+            uint64_t m_predictor_lipr_success;
+            uint64_t m_predictor_lipr_fail;
+            uint64_t m_predictor_ropr_success;
+            uint64_t m_predictor_ropr_fail;
+
+
+
+        private:
+            std::vector<uint8_t> m_rowtable;
+            std::vector<std::vector<std::pair<uint8_t,uint64_t>>> m_cache_data;
+            std::vector<uint64_t> m_cache_tag;
+
+            int m_num_cache_entries;
+            int m_num_col_per_cache_entry;
+            int cache_index_offset;
+            int cache_tag_offset;
+            int cache_index_mask;
+            int row_table_offset;
+            int m_row_table_mask;
+            int m_dram_column;
+            bool isSelectiveReplace;
+            uint64_t m_hit_cnt;
+            uint64_t m_miss_cnt;
+            uint64_t m_cl_hit_cnt;
+            uint64_t m_cl_miss_cnt;
+            uint64_t m_predSucess_cnt;
+            uint64_t m_predFail_cnt;
+
+            Output* m_output;
+        };
 
         class c_RowStat{
         private:
@@ -318,211 +364,7 @@ namespace SST {
                 int m_num_way;
             };
 
-            class c_2LvPredictor{
-            public:
-                uint64_t getHitCnt(){return m_hit_cnt;}
-                uint64_t getMissCnt(){return m_miss_cnt;}
-                uint64_t getClHitCnt(){return m_cl_hit_cnt;}
-                uint64_t getClMissCnt(){return m_cl_miss_cnt;}
-                uint64_t getPredSuccessCnt(){return m_predSucess_cnt;}
-                uint64_t getPredFailCnt(){return m_predFail_cnt;}
 
-                c_2LvPredictor(uint64_t rownum, int _num_cache_entries, int _num_col_per_cache_entry, Output* output)
-                {
-                        for(int j=0; j<rownum;j++)
-                            m_rowtable.push_back(0);
-
-                    m_num_cache_entries=_num_cache_entries;
-                    m_num_col_per_cache_entry=_num_col_per_cache_entry;
-
-                    m_cache_data.resize(m_num_cache_entries);
-                    m_cache_tag.resize(m_num_cache_entries);
-
-                    for(int i=0;i<m_num_cache_entries;i++) {
-                        m_cache_tag[i]=0;
-                        for (int j=0; j < m_num_col_per_cache_entry; j++) {
-                            std::pair<uint8_t, uint64_t> l_par = make_pair(0, 0);
-                            m_cache_data[i].push_back(l_par);
-                        }
-                    }
-
-                    cache_index_mask = m_num_cache_entries-1;
-                    cache_tag_offset=(int)log2(m_num_cache_entries);
-                    m_output=output;
-                    m_hit_cnt=0;
-                    m_miss_cnt=0;
-                  //  cache_tag_offset=(int)log2(_num_col_per_cache_entry);
-                }
-
-                void updateRowTable(int cacheline_size, int row)
-                {
-                    uint8_t prev_state=m_rowtable.at(row);
-                    uint8_t new_state=0;
-                    if(cacheline_size<=50)
-                        new_state=prev_state+1;
-                    else
-                        new_state=0;
-
-                    if(new_state>3)
-                        new_state=3;
-
-                    m_rowtable.at(row)=new_state;
-                }
-
-                int getPredictedSize(uint32_t col, uint32_t row, uint32_t actual_size)
-                {
-                    int predict_size=50;
-
-                    //1. see metacache
-                    int tmp_predict_size=getCompSizeFromCache(col, row);
-                    if(tmp_predict_size>0) {
-                        predict_size=tmp_predict_size;
-
-                        //return predict_size;
-                    }
-                    else {
-                        //2. see rowtable
-                        int predict_bit = m_rowtable[row];
-                        if (predict_bit == 3)
-                            predict_size = 50;
-                        else
-                            predict_size = 100;
-
-                    }
-
-                    uint64_t pre_success=m_predSucess_cnt;
-                    uint64_t pre_fail=m_predFail_cnt;
-
-
-                  /*  if(pre_success<m_predSucess_cnt)
-                        printf("[Success]predsuccess_cnt: %lld predfail_cnt: %lld actual_size:%d pred_size:%d hit:%lld miss:%lld\n",m_predSucess_cnt,m_predFail_cnt,actual_size,predict_size,m_hit_cnt,m_miss_cnt);
-                    else
-                        printf("[Fail]predsuccess_cnt: %lld predfail_cnt: %lld actual_size:%d pred_size:%d hit:%lld miss:%lld\n",m_predSucess_cnt,m_predFail_cnt,actual_size,predict_size,m_hit_cnt,m_miss_cnt);*/
-                    return predict_size;
-                }
-
-                int getCompSizeFromCache(int col, int row)
-                {
-                    int compSize;
-                    int index = row & cache_index_mask;
-                    int tag = row >> cache_tag_offset;
-                    int col_index = (int)((double)col / (double)m_num_col_per_cache_entry);
-                    int col_tag = col >> (int)log2(m_num_col_per_cache_entry);
-
-                    if(m_cache_tag.at(index)==tag)
-                    {
-                        std::pair<uint8_t, uint64_t> comp_data= m_cache_data[index][col_index];
-
-                        if(comp_data.first==col_tag) {
-                            compSize = comp_data.second;
-                            m_cl_hit_cnt++;
-                        }
-                        else {
-                            m_cl_miss_cnt++;
-                            compSize = comp_data.second;
-                        }
-
-                        m_hit_cnt++;
-                        m_output->verbose(CALL_INFO,1,0,"[Hit] col: %d, row:%d index: %d tag: %d, col_index: %d, col_tag:%d compSize:%d\n",col, row, index, tag, col_index, col_tag, compSize);
-                    } else {
-                        m_miss_cnt++;
-                        m_cl_miss_cnt++;
-                        compSize = -1;
-                        m_output->verbose(CALL_INFO,1,0,"[Miss] col: %d, row:%d index: %d tag: %d, col_index: %d, col_tag:%d compSize:%d\n",col, row, index, tag, col_index, col_tag, compSize);
-                    }
-
-
-                    return compSize;
-                }
-
-//#option 3
-/*                int update(int col, int row, int compSize)
-                {
-                    int index = row & cache_index_mask;
-                    int tag = row >> cache_tag_offset;
-                    int col_index = (int)((double)col / (double)m_num_col_per_cache_entry);
-                    int col_tag = col >> (int)log2(m_num_col_per_cache_entry);
-
-                    //cache miss
-                    if(m_cache_tag.at(index)!=tag)
-                    {
-                            m_cache_tag.at(index) = tag;
-
-                            int confidence_bit = m_rowtable[index];
-                            int fill_comp_size = 100;
-                            if (confidence_bit == 3)
-                                fill_comp_size = compSize;
-                            else
-                                fill_comp_size = 100;
-
-                            for (int i = 0; i < m_num_col_per_cache_entry; i++) {
-                                std::pair<uint8_t, uint64_t> comp_data = make_pair(col_tag, fill_comp_size);
-                                m_cache_data[index][i] = comp_data;
-                            }
-
-                            std::pair<uint8_t, uint64_t> comp_data = make_pair(col_tag, compSize);
-                            m_cache_data[index][col_index] = comp_data;
-                    }//cache hit
-                    else {
-                        std::pair<uint8_t, uint64_t> comp_data = make_pair(col_tag, compSize);
-                        m_cache_data[index][col_index] = comp_data;
-                    }
-
-                    updateRowTable(compSize,row);
-                }
-*/
-
-                // option #4, store all rows, and fill the empty slot with the current info
-                int update(int col, int row, int compSize)
-                {
-                    int index = row & cache_index_mask;
-                    int tag = row >> cache_tag_offset;
-                    int col_index = (int)((double)col / (double)m_num_col_per_cache_entry);
-                    int col_tag = col >> (int)log2(m_num_col_per_cache_entry);
-
-                    //cache miss
-                    if(m_cache_tag.at(index)!=tag)
-                    {
-                        m_cache_tag.at(index) = tag;
-
-                        int fill_comp_size = compSize;
-
-                        for (int i = 0; i < m_num_col_per_cache_entry; i++) {
-                            std::pair<uint8_t, uint64_t> comp_data = make_pair(col_tag, fill_comp_size);
-                            m_cache_data[index][i] = comp_data;
-                        }
-
-                        std::pair<uint8_t, uint64_t> comp_data = make_pair(col_tag, compSize);
-                        m_cache_data[index][col_index] = comp_data;
-                        // }
-                    }//cache hit
-                    else {
-                        std::pair<uint8_t, uint64_t> comp_data = make_pair(col_tag, compSize);
-                        m_cache_data[index][col_index] = comp_data;
-                    }
-
-                    updateRowTable(compSize,row);
-                }
-
-
-            private:
-                std::vector<uint8_t> m_rowtable;
-                std::vector<std::vector<std::pair<uint8_t,uint64_t>>> m_cache_data;
-                std::vector<uint64_t> m_cache_tag;
-
-                int m_num_cache_entries;
-                int m_num_col_per_cache_entry;
-                int cache_index_offset;
-                int cache_tag_offset;
-                int cache_index_mask;
-                uint64_t m_hit_cnt;
-                uint64_t m_miss_cnt;
-                 uint64_t m_cl_hit_cnt;
-                uint64_t m_cl_miss_cnt;
-                uint64_t m_predSucess_cnt;
-                uint64_t m_predFail_cnt;
-                Output* m_output;
-            };
 
            // std::map<uint64_t, uint8_t> backing_;
             std::map<uint64_t, uint8_t> compRatio_bdi;
@@ -584,6 +426,12 @@ namespace SST {
             Statistic<uint64_t>* s_predicted_success_above50;
             Statistic<uint64_t>* s_predicted_success_below50;
             Statistic<uint64_t>* s_predicted_fail_above50;
+            Statistic<uint64_t>* s_predictor_lipr_hit;
+            Statistic<uint64_t>* s_predictor_lipr_miss;
+            Statistic<uint64_t>* s_predictor_lipr_success;
+            Statistic<uint64_t>* s_predictor_lipr_fail;
+            Statistic<uint64_t>* s_predictor_ropr_success;
+            Statistic<uint64_t>* s_predictor_ropr_fail;
 
 
 
@@ -591,6 +439,8 @@ namespace SST {
 
 
         };
+
+
     }
 }
 
