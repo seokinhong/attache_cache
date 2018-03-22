@@ -362,28 +362,6 @@ bool c_ControllerPCA::clockTic(SST::Cycle_t clock) {
             newTxn->setHashedAddress(l_hashedAddress);
         }
 
-        //If new transaction hits in the transaction queue, send a response immediately and do not access memory
- /*       if(k_enableQuickResponse && m_txnScheduler->isHit(newTxn))
-        {
-            newTxn->setResponseReady();
-            sendResponse(newTxn);
-            //delete the new transaction from request queue
-            l_it=m_ReqQ.erase(l_it);
-            //delete the new transaction from response queue
-            for (std::deque<c_Transaction*>::iterator l_itRes = m_ResQ.begin();
-                 l_itRes != m_ResQ.end();)  {
-                if((*l_itRes)==newTxn)
-                {
-                    m_ResQ.erase(l_itRes);
-                    break;
-                }
-            }
-
-#ifdef __SST_DEBUG_OUTPUT__
-            newTxn->print(output,"[TxnQueue hit]",m_simCycle);
-#endif
-            continue;
-        }*/
 
         uint64_t addr = (newTxn->getAddress() >> 6) << 6;
         //calculate the compressed size of cacheline
@@ -749,17 +727,17 @@ bool c_ControllerPCA::clockTic(SST::Cycle_t clock) {
                          l_hashedAddress.setPChannel(new_rank);
 
 
-             unsigned l_bankId =
-                     l_hashedAddress.getBank()
-                     + l_hashedAddress.getBankGroup() * Banks
-                     + l_hashedAddress.getRank() * Banks * BGs
-                     + l_hashedAddress.getPChannel() * Banks * BGs * Ranks
-                     + l_hashedAddress.getChannel() * (PChs+1) * Banks * BGs * (Ranks );
-             //std::cout <<"row: "<<row<<" subrank: "<<subrank<<" bankid[old]: "<<l_hashedAddress.getBankId()<< " bankid[new]: "<<l_bankId<<std::endl;
-             unsigned l_rankId =
-                     +l_hashedAddress.getRank()
-                     + l_hashedAddress.getPChannel() * Ranks
-                     + l_hashedAddress.getChannel() * (PChs+1) * (Ranks );
+                         unsigned l_bankId =
+                                 l_hashedAddress.getBank()
+                                 + l_hashedAddress.getBankGroup() * Banks
+                                 + l_hashedAddress.getRank() * Banks * BGs
+                                 + l_hashedAddress.getPChannel() * Banks * BGs * Ranks
+                                 + l_hashedAddress.getChannel() * (PChs+1) * Banks * BGs * (Ranks );
+                         //std::cout <<"row: "<<row<<" subrank: "<<subrank<<" bankid[old]: "<<l_hashedAddress.getBankId()<< " bankid[new]: "<<l_bankId<<std::endl;
+                         unsigned l_rankId =
+                                 +l_hashedAddress.getRank()
+                                 + l_hashedAddress.getPChannel() * Ranks
+                                 + l_hashedAddress.getChannel() * (PChs+1) * (Ranks );
 
 
 

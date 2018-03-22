@@ -103,10 +103,71 @@ EXTRA_DIST = \
 	ddr3_power.cfg \
 	tests/VeriMem/test_verimem1.py \
 	tests/test_txngen.py \
-	tests/test_txntrace.py
+	tests/test_txntrace.py \
+	Profiler/memProfiler.cc
 
 libCramSim_la_LDFLAGS = -module -avoid-version
 
-##########################################################################
-##########################################################################
-##########################################################################
+if SST_COMPILE_OSX
+
+all-local: Profiler/memProfiler.cc
+
+	$(CXX) -O3 -shared \
+	$(CXXFLAGS) \
+	$(CPPFLAGS) \
+	$(LIBZ_CPPFLAGS) \
+	-DBIGARRAY_MULTIPLIER=1 \
+	-DTARGET_IA32E -DHOST_IA32E -fPIC -DTARGET_MAC \
+	-I./ \
+	-I$(PINTOOL_DIR)/source/include/pin \
+	-I$(PINTOOL_DIR)/ \
+	-I$(PINTOOL_DIR)/extras/components/include \
+	-I$(PINTOOL_DIR)/source/include/pin/gen/ \
+	-I$(PINTOOL_DIR)/extras/xed-intel64/include \
+	-I$(top_srcdir)/src/sst \
+	-I$(top_srcdir)/src/sst/elements/ariel \
+	-fomit-frame-pointer -fno-stack-protector \
+	-Wl,-exported_symbols_list \
+	-Wl,$(PINTOOL_DIR)/source/include/pin/pintool.exp \
+	-L$(PINTOOL_DIR)/intel64/lib \
+	-L$(PINTOOL_DIR)/intel64/lib-ext \
+	-L$(PINTOOL_DIR)/extras/xed-intel64/lib \
+	-o memProfiler.dylib $(top_srcdir)/src/sst/elements/CramSim/Profiler/memProfiler.cc \
+	-stdlib=libstdc++ \
+	-lpin -lxed -lpindwarf -lpthread $(LIBZ_LDFLAGS) $(LIBZ_LIB)
+
+install-exec-hook:
+	$(MKDIR_P) $(libexecdir)
+	$(INSTALL) memProfiler.dylib $(libexecdir)/memProfiler.dylib
+
+else
+all-local:
+	$(CXX) -shared -Wl,--hash-style=sysv -Wl,-Bsymbolic \
+	-fPIC -O3 \
+	-fomit-frame-pointer \
+	$(CXXFLAGS) \
+	$(CPPFLAGS) \
+	$(LIBZ_CPPFLAGS) \
+	-DTARGET_IA32E -DHOST_IA32E -fPIC -DTARGET_LINUX \
+	-I./ \
+	-I$(PINTOOL_DIR)/source/include/pin \
+	-I$(PINTOOL_DIR)/ \
+	-I$(PINTOOL_DIR)/extras/components/include \
+	-I$(PINTOOL_DIR)/source/include/pin/gen/ \
+	-I$(PINTOOL_DIR)/extras/xed-intel64/include \
+	-I$(top_srcdir)/src/sst \
+	-I$(top_srcdir)/src/sst/elements/ariel \
+	-Wl,--version-script=$(PINTOOL_DIR)/source/include/pin/pintool.ver \
+	-L$(PINTOOL_DIR)/intel64/lib \
+	-L$(PINTOOL_DIR)/intel64/lib-ext \
+	-L$(PINTOOL_DIR)/intel64/runtime/glibc \
+	-L$(PINTOOL_DIR)/extras/xed-intel64/lib \
+	-o memProfiler.so $(top_srcdir)/src/sst/elements/CramSim/Profiler/memProfiler.cc \
+	-ldl -lpin -lxed -lpindwarf -ldl -lpthread -lrt $(LIBZ_LDFLAGS) $(LIBZ_LIB)
+
+
+install-exec-hook:
+	$(MKDIR_P) $(libexecdir)
+	$(INSTALL) memProfiler.so $(libexecdir)/memProfiler.so
+
+endif

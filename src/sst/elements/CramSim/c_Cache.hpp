@@ -55,8 +55,6 @@
 #define SAT_DEC(x)       (x>0)? x-1:0
 
 
-/* Renames -- Try to use these rather than built-in C types for portability */
-
 
 typedef unsigned	    uns;
 typedef unsigned char	    uns8;
@@ -130,10 +128,9 @@ namespace SST{
              c_Cache( ComponentId_t id, Params& params);
              ~c_Cache();
              void init(unsigned int phase);
-
-            MCache *mcache_new(uns sets, uns assocs, uns repl );
-            Flag    mcache_access (MCache *c, Addr addr, Flag dirty);
-            MCache_Entry  mcache_install (MCache *c, Addr addr, Flag dirty);
+             static MCache     *mcache_new(uns sets, uns assocs, uns repl );
+             static Flag       mcache_access (MCache *c, Addr addr, Flag dirty);
+             static MCache_Entry  mcache_install (MCache *c, Addr addr, Flag dirty);
 
 
          private:
@@ -143,34 +140,32 @@ namespace SST{
              void handleCpuEvent(SST::Event *ev);
              void handleMemEvent(SST::Event *ev);
              void eventProcessing();
-             void sendRequest();
-             void sendResponse();
 
-            Flag    mcache_probe         (MCache *c, Addr addr);
-            Flag    mcache_invalidate    (MCache *c, Addr addr);
-            Flag    mcache_mark_dirty    (MCache *c, Addr addr);
-            uns     mcache_get_index     (MCache *c, Addr addr);
+             static Flag    mcache_probe         (MCache *c, Addr addr);
+             static Flag    mcache_invalidate    (MCache *c, Addr addr);
+             static Flag    mcache_mark_dirty    (MCache *c, Addr addr);
+             static uns     mcache_get_index     (MCache *c, Addr addr);
 
-            uns     mcache_find_victim   (MCache *c, uns set);
-            uns     mcache_find_victim_lru   (MCache *c, uns set);
-            uns     mcache_find_victim_rnd   (MCache *c, uns set);
-            uns     mcache_find_victim_srrip   (MCache *c, uns set);
-            uns     mcache_find_victim_fifo    (MCache *c, uns set);
-            void    mcache_swap_lines(MCache *c, uns set, uns way_i, uns way_j);
+             static uns     mcache_find_victim   (MCache *c, uns set);
+             static uns     mcache_find_victim_lru   (MCache *c, uns set);
+             static uns     mcache_find_victim_rnd   (MCache *c, uns set);
+             static uns     mcache_find_victim_srrip   (MCache *c, uns set);
+             static uns     mcache_find_victim_fifo    (MCache *c, uns set);
+             void    mcache_swap_lines(MCache *c, uns set, uns way_i, uns way_j);
 
-            void    mcache_select_leader_sets(MCache *c,uns sets);
-            uns     mcache_drrip_get_ripctrval(MCache *c, uns set);
-            Flag    mcache_dip_check_lru_update(MCache *c, uns set);
+             static void    mcache_select_leader_sets(MCache *c,uns sets);
+             static uns     mcache_drrip_get_ripctrval(MCache *c, uns set);
+             static Flag    mcache_dip_check_lru_update(MCache *c, uns set);
 
 
-            MCache* m_cache;
-            SimTime_t m_simCycle;
-            uint32_t m_cacheLatency;
-             bool enableAllHit;
-             uint32_t m_seqnum;
+             MCache*    m_cache;
+             SimTime_t  m_simCycle;
+             uint32_t   m_cacheLatency;
+             bool       enableAllHit;
+             uint32_t   m_seqnum;
 
              //link to/from Memory
-             SST::Link *m_linkMem;
+             SST::Link* m_linkMem;
              //link to/from CPU
              SST::Link* m_linkCPU;
 
@@ -185,16 +180,15 @@ namespace SST{
              public:
                  CPU_RES(uint64_t t_, MemEvent* ev_,string dst_, bool ready_)
                  : time(t_),ev(ev_),dst(dst_),ready(ready_) {}
-                 uint64_t time;
-                 MemEvent* ev;
-                 string dst;
-                 bool ready;
+                 uint64_t   time;
+                 MemEvent*  ev;
+                 string     dst;
+                 bool       ready;
              };
 
-             std::deque<MEM_REQ*> m_memReqQ;
-             std::map<uint64_t,MemEvent*> m_cpuResQ;
-             std::deque<std::pair<uint64_t,MemEvent*>> m_cpuReqQ;
-             std::map<uint64_t,MEM_REQ*> m_outstandingMemReqQ;
+             // Response and Request Queue
+             std::map<uint64_t,MemEvent*>               m_cpuResQ;
+             std::deque<std::pair<uint64_t,MemEvent*>>  m_cpuReqQ;
 
              // Debug Output
              Output* output;

@@ -33,6 +33,12 @@
 
 #include <bitset>
 
+#include <cstdlib>
+
+#include <cstdlib>
+#include <iostream>
+#include <ctime>
+
 
 using namespace std;
 using namespace SST;
@@ -70,7 +76,7 @@ c_PageAllocator::c_PageAllocator(ComponentId_t x_id, Params &params):Component(x
             }
         }
     }
-
+    std::srand(std::time(nullptr)); // use current time as seed for random generator
     std::string l_clockFreqStr = (std::string)params.find<std::string>("ClockFreq", "1GHz", l_found);
     //set our clock
     registerClock(l_clockFreqStr,
@@ -146,32 +152,56 @@ uint64_t c_PageAllocator::getPageAddress(uint64_t  virtAddr){
             l_nextPageAddress = findEntry->second;
         }
         else {
-            l_nextPageAddress = m_nextPageAddress;
+            uint64_t nextAddress_tmp = rand()%m_memSize;
+            uint64_t offset = nextAddress_tmp % m_osPageSize;
+            l_nextPageAddress=nextAddress_tmp-offset;
+
+
+            while(allocatedPage.end()!=allocatedPage.find(l_nextPageAddress))
+            {
+                uint64_t nextAddress_tmp = rand()%m_memSize;
+                uint64_t offset = nextAddress_tmp % m_osPageSize;
+                l_nextPageAddress=nextAddress_tmp-offset;
+            }
+
+            allocatedPage[l_nextPageAddress]=1;
             pageTable[virtPageStart]=l_nextPageAddress;
+
             s_numAllocPages->addData(1);
 
-            if (m_nextPageAddress + m_osPageSize > m_memSize) {
-                fprintf(stderr, "[memController] Out of Address Range!!\n");
+            if (l_nextPageAddress + m_osPageSize > m_memSize) {
+                fprintf(stderr, "[memController] Out of Address Range!!, nextPageAddress:%lld pageSize:%lld memsize:%lld\n", l_nextPageAddress,m_osPageSize,m_memSize);
                 fflush(stderr);
                 exit(-1);
             }
-
-            m_nextPageAddress = (m_nextPageAddress + m_osPageSize) % m_memSize;
         }
     }
     else {
-        l_nextPageAddress = m_nextPageAddress;
+
+        uint64_t nextAddress_tmp = rand()%m_memSize;
+        uint64_t offset = nextAddress_tmp % m_osPageSize;
+        l_nextPageAddress=nextAddress_tmp-offset;
+
+
+        while(allocatedPage.end()!=allocatedPage.find(l_nextPageAddress))
+        {
+            uint64_t nextAddress_tmp = rand()%m_memSize;
+            uint64_t offset = nextAddress_tmp % m_osPageSize;
+            l_nextPageAddress=nextAddress_tmp-offset;
+        }
+
+        //printf("m_nextPageAddress:%llx\n",l_nextPageAddress);
+        allocatedPage[l_nextPageAddress]=1;
+
         s_numAllocPages->addData(1);
 
-        if (m_nextPageAddress + m_osPageSize > m_memSize) {
-            fprintf(stderr, "[memController] Out of Address Range!!, nextPageAddress:%lld pageSize:%lld memsize:%lld\n", m_nextPageAddress,m_osPageSize,m_memSize);
+        if (l_nextPageAddress + m_osPageSize > m_memSize) {
+            fprintf(stderr, "[memController] Out of Address Range!!, nextPageAddress:%lld pageSize:%lld memsize:%lld\n", l_nextPageAddress,m_osPageSize,m_memSize);
             fflush(stderr);
             exit(-1);
         }
 
-        m_nextPageAddress = (m_nextPageAddress + m_osPageSize) % m_memSize;
     }
 
     return l_nextPageAddress;
 }
-

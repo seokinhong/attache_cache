@@ -121,6 +121,7 @@ void c_Cache::init(unsigned int phase) {
 
 c_Cache::~c_Cache(){}
 
+
 c_Cache::c_Cache() :
         Component(-1) {
     // for serialization only
@@ -131,8 +132,6 @@ bool c_Cache::clockTic(Cycle_t clock)
 {
     m_simCycle++;
     eventProcessing();
-//    sendResponse();
- //   sendRequest();
 
     return false;
 }
@@ -153,6 +152,8 @@ void c_Cache::handleCpuEvent(SST::Event *ev) {
     m_cpuReqQ.push_back(req_entry);
 }
 
+
+//processing events received from CPU
 void c_Cache::eventProcessing()
 {
     while(!m_cpuReqQ.empty()&& m_cpuReqQ.front().first<=m_simCycle) {
@@ -164,25 +165,14 @@ void c_Cache::eventProcessing()
         bool isHit = mcache_access(m_cache, req_addr, isWrite);
 
         if(enableAllHit)
-        {
             isHit=true;
-        }
-
-        if (isWrite)
-            s_writeRecv->addData(1);
-        else
-            s_readRecv->addData(1);
-
-        s_accesses->addData(1);
-
-    //    bool isHit=false;
 
         #ifdef __SST_DEBUG_OUTPUT__
         output->verbose(CALL_INFO, 1, 0, "[%lld] addr: %llx write:%d isHit:%d accesses:%lld\n", m_simCycle, req_addr, isWrite, isHit,s_accesses->getCollectionCount());
         #endif
+
         // cache miss
         if (!isHit) {
-            s_miss->addData(1);
             MCache_Entry victim = mcache_install(m_cache, req_addr, isWrite);
 
             //if dirty, store the victim to the memory
@@ -198,7 +188,7 @@ void c_Cache::eventProcessing()
                 #endif
             }
 
-            //queue the mem request to the memory request queue
+            //send a read request to memory
             c_Transaction *fillTxn = new c_Transaction(m_seqnum, e_TransactionType::READ, req_addr, 1);
             c_TxnReqEvent *fillev = new c_TxnReqEvent();
             fillev->m_payload=fillTxn;
@@ -209,6 +199,8 @@ void c_Cache::eventProcessing()
                             fillTxn->getSeqNum());
             #endif
 
+            // register a response event in the response queue to keep track the corresponding memory request.
+            // When response comes from the memory, the request is removed from the queue
             MemEvent *res = new MemEvent(this, req_addr, newReq->getVirtualAddress(), isWrite ? Command::GetX : Command::GetS);
             res->setResponse(newReq);
             m_cpuResQ[m_seqnum]=res;
@@ -216,12 +208,13 @@ void c_Cache::eventProcessing()
             m_seqnum++;
         } else //cache hit
         {
-            s_hit->addData(1);
             //queue the response to the cpu response queue
             MemEvent *res = new MemEvent(this, req_addr, newReq->getVirtualAddress(),
                                          isWrite ? Command::GetX : Command::GetS);
 
             res->setResponse(newReq);
+
+            //send a response to cpu
             m_linkCPU->send(res);
 
             #ifdef __SST_DEBUG_OUTPUT__
@@ -231,10 +224,21 @@ void c_Cache::eventProcessing()
 
         delete newReq;
 
+        if(!isHit)
+            s_miss->addData(1);
+        else
+            s_hit->addData(1);
+
+        if (isWrite)
+            s_writeRecv->addData(1);
+        else
+            s_readRecv->addData(1);
+
+        s_accesses->addData(1);
     }
 }
 
-//response from memory
+//handle responses from memory
 void c_Cache::handleMemEvent(SST::Event *ev) {
     c_TxnResEvent* l_newRes=dynamic_cast<c_TxnResEvent*>(ev);
     c_Transaction* newTxn=l_newRes->m_payload;
@@ -255,19 +259,6 @@ void c_Cache::handleMemEvent(SST::Event *ev) {
     delete ev;
 }
 
-
-//send request to memory
-void c_Cache::sendRequest()
-{
-  ;
-}
-
-
-//send response to cpu
-void c_Cache::sendResponse()
-{
-;
-}
 
 
 ////////////////////////////////////////////////////////////////////

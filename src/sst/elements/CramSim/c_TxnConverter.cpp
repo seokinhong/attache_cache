@@ -174,14 +174,15 @@ void c_TxnConverter::push(c_Transaction* newTxn) {
 
 	// make sure the internal req q has at least one empty entry
 	// to accept a new txn ptr
-		if(newTxn->getTransactionMnemonic() == e_TransactionType::READ) {
-		  s_readTxnsRecvd->addData(1);
-		}
-		if(newTxn->getTransactionMnemonic() == e_TransactionType::WRITE) {
-		  s_writeTxnsRecvd->addData(1);
-		}
-		s_totalTxnsRecvd->addData(1);
-
+    if(!newTxn->isHelper()) {
+        if (newTxn->getTransactionMnemonic() == e_TransactionType::READ) {
+            s_readTxnsRecvd->addData(1);
+        }
+        if (newTxn->getTransactionMnemonic() == e_TransactionType::WRITE) {
+            s_writeTxnsRecvd->addData(1);
+        }
+        s_totalTxnsRecvd->addData(1);
+    }
 		m_inputQ.push_back(newTxn);
 }
 

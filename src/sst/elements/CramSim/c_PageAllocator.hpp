@@ -52,6 +52,7 @@ namespace SST{
              int corenum;
              uint64_t  m_nextPageAddress;
              std::map<uint64_t, uint64_t> pageTable;
+             std::map<uint64_t, uint64_t> allocatedPage;
              uint64_t m_osPageSize;
              size_t      m_memSize;
 
@@ -61,6 +62,7 @@ namespace SST{
 
              void handlePageAllocation(SST::Event* event);
              uint64_t getPageAddress(uint64_t virtAddr);
+             uint64_t mapPagesRandom(uint64_t pageSize, uint64_t startAddr);
 
              virtual bool clockTic(Cycle_t);
 
