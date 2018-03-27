@@ -33,7 +33,7 @@
 #include <sst/core/component.h>
 #include <sst/core/link.h>
 #include <sst/elements/memHierarchy/memEvent.h>
-
+#include <random>
 
 namespace SST{
     namespace n_Bank{
@@ -44,6 +44,18 @@ namespace SST{
              ~c_PageAllocator();
 
          private:
+
+
+            std::mt19937_64 rng;
+             void seed(uint64_t new_seed = std::mt19937_64::default_seed) {
+                     rng.seed(new_seed);
+                 }
+
+             uint64_t randGen() {
+                     return rng(); }
+
+
+
              Output *output;
              bool isPageAllocLink;
              bool isMultiThreadMode;
@@ -65,7 +77,7 @@ namespace SST{
              uint64_t mapPagesRandom(uint64_t pageSize, uint64_t startAddr);
 
              virtual bool clockTic(Cycle_t);
-
+             uint64_t m_pagecount;
              c_PageAllocator();
 
         };

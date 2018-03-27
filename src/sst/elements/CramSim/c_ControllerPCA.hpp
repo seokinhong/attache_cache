@@ -167,6 +167,8 @@ namespace SST {
         private:
             uint64_t isMultiThreadMode;
             std::map<uint64_t, uint64_t> pageTable;
+            uint64_t m_metacache_latency;
+            bool multilane_rowtable;
             //uint8_t*       backing_;
             class c_Cacheline{
             public:
@@ -408,6 +410,7 @@ namespace SST {
             void handleContentEvent(SST::Event *ev);
             void storeContent();
             uint32_t getPageAddress();
+            void handleInDeviceResPtrEvent(SST::Event *ev);
 
             Statistic<double>* s_CompRatio;
             Statistic<uint64_t>* s_RowSize0;

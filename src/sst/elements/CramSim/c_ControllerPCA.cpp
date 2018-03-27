@@ -73,6 +73,9 @@ c_ControllerPCA::c_ControllerPCA(ComponentId_t id, Params &x_params) :
     pca_mode=x_params.find<bool>("pca_enable",false);
     oracle_mode=x_params.find<bool>("oracle_mode",false);
     memzip_mode=x_params.find<bool>("memzip_mode",false);
+    m_metacache_latency=x_params.find<uint64_t>("metacache_latency",3);  //3 cycle is 8 cpu cycles at cpu 4GHz and memory 1.6GHz
+    multilane_rowtable=x_params.find<bool>("multilane_rowtable",false); // enable multilane per each entry of row table
+
     if(memzip_mode)
     {
         printf("memzip mode is enabled\n");
@@ -168,6 +171,7 @@ c_ControllerPCA::c_ControllerPCA(ComponentId_t id, Params &x_params) :
     }
 
     m_nextPageAddress=0;
+
     m_total_num_banks= m_deviceDriver->getTotalNumBank();
     m_chnum=m_deviceDriver->getNumChannel();
     m_ranknum=m_deviceDriver->getNumRanksPerChannel();
@@ -355,13 +359,15 @@ bool c_ControllerPCA::clockTic(SST::Cycle_t clock) {
     {
         c_Transaction* newTxn= *l_it;
 
+        if(!(newTxn->m_time_arrived_Controller+m_metacache_latency<m_simCycle))
+            break;
+
         if(newTxn->hasHashedAddress()== false)
         {
             c_HashedAddress l_hashedAddress;
             m_addrHasher->fillHashedAddress(&l_hashedAddress, newTxn->getAddress());
             newTxn->setHashedAddress(l_hashedAddress);
         }
-
 
         uint64_t addr = (newTxn->getAddress() >> 6) << 6;
         //calculate the compressed size of cacheline
@@ -633,7 +639,14 @@ bool c_ControllerPCA::clockTic(SST::Cycle_t clock) {
                          int row = newTxn->getHashedAddress().getRow();
                          int bankid = newTxn->getHashedAddress().getBankId();
                          int rowoffset = (int) log2(m_rownum);
-                         int rowid = (bankid << rowoffset) | row;
+                         int rowid=0;
+                         if(!multilane_rowtable)
+                             rowid = (bankid << rowoffset) | row;
+                         else {
+                             int lane_idx= (col>=64) ? 1 : 0;
+                             rowid = (bankid << rowoffset+1) | row<<1 | lane_idx;
+                         }
+
                          bool isWrite = newTxn->isWrite();
 
                          int compSize = 100;

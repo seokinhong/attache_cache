@@ -60,6 +60,7 @@ KNOB<UINT32> CacheWays(KNOB_MODE_WRITEONCE, "pintool",
 KNOB<UINT32> CacheReplPolicy(KNOB_MODE_WRITEONCE, "pintool",
     "cp", "0", "cache replacement policy");
 
+
 #define MY_MAX(a,b) \
    ({ __typeof__ (a) _a = (a); __typeof__ (b) _b = (b); _a > _b ? _a : _b; })
 
@@ -68,13 +69,11 @@ PIN_LOCK mallocIndexLock;
 
 UINT64 inst_cnt =0;
 UINT64 max_insts=0;
-
+UINT64 recordInterval=10000000;
 UINT32 funcProfileLevel;
 UINT32 core_count;
 UINT64 warmup_insts=0;
 
-bool enable_output;
-bool content_copy_en=false;
 bool randomness_profile_en=false;
 UINT64 randomness_window=0;
 UINT64 mem_access_counter=0;
@@ -87,12 +86,8 @@ int cache_sets;
 int cache_ways;
 int cache_repl_policy;
 
-UINT64 g_similarity_comp_cnt=0;
-UINT64 g_similarity_incomp_cnt=0;
-UINT64 g_accessed_cacheline_num=0;
 int similarity_distance=0;
 FILE * outputFile;
-
 
 typedef struct {
 	UINT64 raddr;
@@ -104,11 +99,79 @@ typedef struct {
 } threadRecord;
 threadRecord* thread_instr_id;
 
-///////Memory compression//////
-bool enable_memcomp;
-string memcomp_tracefile;
-UINT32 memcomp_interval;
+////// Page Allocator ////////
+UINT64 memSize = 34359738368; //32GB
+UINT32 pageSize = 8*1024; //Dram Page Size
+UINT64 pageCount = 0;
+std::map<UINT64,UINT64> allocatedPage;
+std::map<UINT64,UINT64> pageTable;
 
+
+std::mt19937_64 rng;
+void seed(uint64_t new_seed = std::mt19937_64::default_seed) {
+	rng.seed(new_seed);
+}
+
+uint64_t randGen() {
+	return rng(); }
+
+
+UINT64 getPhyAddress(UINT64 virtAddr)
+{
+	//get physical address
+	const uint64_t pageOffset = virtAddr % pageSize;
+	const uint64_t virtPageStart = virtAddr - pageOffset;
+	int retry_cnt=0;
+	UINT64 l_nextPageAddress;
+
+	std::map<uint64_t, uint64_t>::iterator findEntry = pageTable.find(virtPageStart);
+
+	if (findEntry != pageTable.end()) {
+		l_nextPageAddress = findEntry->second;
+	}
+	else {
+		uint64_t rand_num = randGen();
+		uint64_t nextAddress_tmp = rand_num % memSize;
+		uint64_t offset = nextAddress_tmp % pageSize;
+		l_nextPageAddress = nextAddress_tmp - offset;
+
+		retry_cnt = 0;
+		while (allocatedPage.end() != allocatedPage.find(l_nextPageAddress)) {
+			uint64_t nextAddress_tmp = randGen() % memSize;
+			uint64_t offset = nextAddress_tmp % pageSize;
+			l_nextPageAddress = nextAddress_tmp - offset;
+			if (++retry_cnt > 10000000) {
+				printf("allocated page:%lld, clear the allocated page table\n", pageCount);
+				allocatedPage.clear();
+			}
+			//       printf("same physical address is detected, new addr:%llx\n",l_nextPageAddress);
+		}
+
+		allocatedPage[l_nextPageAddress] = 1;
+		pageTable[virtPageStart] = l_nextPageAddress;
+
+		if (l_nextPageAddress + pageSize > memSize) {
+			fprintf(stderr, "[memController] Out of Address Range!!, nextPageAddress:%lld pageSize:%lld memsize:%lld\n",
+					l_nextPageAddress, pageSize, memSize);
+			fflush(stderr);
+			exit(-1);
+		}
+
+		pageCount++;
+	}
+	return l_nextPageAddress;
+}
+
+///////Memory compression//////
+UINT64 cnt_cl_size16=0;
+UINT64 cnt_cl_size32=0;
+UINT64 cnt_cl_size48=0;
+UINT64 cnt_cl_size64=0;
+UINT64 cnt_page_all16=0;
+UINT64 cnt_page_all32=0;
+UINT64 cnt_page_all48=0;
+UINT64 cnt_page_all64=0;
+bool doVerify=false;
 
 
 uint32_t getDataSize(int64_t data_)
@@ -132,7 +195,6 @@ uint32_t getDataSize(int64_t data_)
 	return size;
 }
 
-//VOID checkSimilarity(uint64_t*,uint64_t);
 VOID ReadCacheLine(uint64_t addr, uint64_t * data)
 {
 	//assume that cache line size is 64B
@@ -149,26 +211,21 @@ VOID ReadCacheLine(uint64_t addr, uint64_t * data)
 	if(copied_size !=64)
 		fprintf(stderr, "ariel memory copy fail\n");
 
-
-	//checkSimilarity(data,addr);
-//#ifdef COMP_DEBUG
-//        for(int i=0;i<8;i++)
-//        {
-//
-//            fprintf(stderr,"[PINTOOL] cacheline read [%d] addr:%llx data:%llx \n", i, addr_new+i*8, *(data+i));
-//        }
-//#endif
-
-
 #endif
+}
+
+
+int64_t getSignedExtension(int64_t data, uint32_t size) {
+	assert(size<=65);
+	int64_t new_data;
+	new_data=(data<<(64-size))>>(64-size);
+	return new_data;
 }
 
 uint32_t getCompressedSize(uint8_t *cacheline) {
 
 
 	int min_compressed_size = 512;
-
-
 	std::vector<uint64_t> data_vec;
 
 	std::vector<uint32_t> base_size(3);
@@ -252,15 +309,6 @@ uint32_t getCompressedSize(uint8_t *cacheline) {
 					k * 8 + delta_base_vector.size() * max_delta_size_base +
 					delta_immd_vector.size() * max_delta_size_immd +
 					(64 / k) + 6 * 2 + 2; //bits
-			// compressed_size = base + delta@base + delta@immd
-			//                   + delta_flag       //indicate base
-			//                   + delta_size
-			//                   + base_size        // (2B or 4B or 8B)
-
-			//	output->verbose(CALL_INFO, 5, 0,
-			//					"k:%d base: %llx max_delta_size_base: %d max_delta_size_immd: %d num_delta_base:%d num_delta_immd:%d compressed_size:%d compression ratio:%lf\n",
-			//					k, base, max_delta_size_base, max_delta_size_immd, delta_base_vector.size(),
-			//					delta_immd_vector.size(), compressed_size, (double) 512 / (double) compressed_size);
 
 
 			//get min compressed size
@@ -270,168 +318,92 @@ uint32_t getCompressedSize(uint8_t *cacheline) {
 				min_compressed_size = compressed_size;
 
 				//validate compression algorithm
-				/*if (1) {
-                        int base_idx = 0;
-                        int immd_idx = 0;
-                        int data_idx = 0;
-                        uint64_t delta = 0;
+				if (doVerify) {
+					int base_idx = 0;
+					int immd_idx = 0;
+					int data_idx = 0;
+					uint64_t delta = 0;
 
-                        std::vector<uint64_t> decompressed_data;
+					std::vector<uint64_t> decompressed_data;
 
-                        for (auto &flag:delta_flag) {
-                            uint64_t data;
-                            if (flag == 0) {
-                                delta = delta_immd_vector[immd_idx++];
-                                data = delta;
-                            } else {
-                                delta = delta_base_vector[base_idx++];
+					for (auto &flag:delta_flag) {
+						uint64_t data;
+						if (flag == 0) {
+							delta = delta_immd_vector[immd_idx++];
+							data = delta;
+						} else {
+							delta = delta_base_vector[base_idx++];
 
-                                data = base + getSignedExtension(delta, getDataSize(delta));
-                            }
-                            decompressed_data.push_back(data);
-                            //output->verbose(CALL_INFO, 5, 0, "data: %llx decompressed data: %llx\n",
-                                            data_vec[data_idx], data);
-                            if (data != data_vec[data_idx++]) {
-                                printf("decompression error\n");
-                                exit(1);
-                            }
-                        }
-                    }*/
+							data = base + getSignedExtension(delta, getDataSize(delta));
+						}
+						decompressed_data.push_back(data);
+						//output->verbose(CALL_INFO, 5, 0, "data: %llx decompressed data: %llx\n",
+						//               data_vec[data_idx], data);
+						if (data != data_vec[data_idx++]) {
+							printf("decompression error\n");
+							exit(1);
+						}
+					}
+				}
 			}
 		}
 	}
-	//output->verbose(CALL_INFO, 5, 0,
-	//				"[CompressionResult] k:%d base: %llx compressed_size:%d compression ratio:%lf\n",
-	//min_k, min_base, min_compressed_size, (double) 512 / (double) min_compressed_size);
 
 	return min_compressed_size;
 }
 
 
 
-VOID checkSimilarity(uint64_t* data, uint64_t addr)
-{
-	int cacheline_addr=(addr>>6)<<6;
-	int compressed_size=getCompressedSize((uint8_t*)data);
-	bool compressible=false;
-
-	if(compressed_size<=256)
-		compressible = true;
-
-	bool neighbor_compressible=false;
-
-	char* tmp = (char*) malloc(sizeof(char)*64);
-	int cnt=0;
-	int l_similarity_comp_cnt=0;
-	int l_similarity_incomp_cnt=0;
-
-	g_accessed_cacheline_num++;
-
-	//fprintf(stderr,"[PINTOOL] compressed size: %d\n",compressed_size);
-
-	uint64_t neighbor_addr=addr+9;
-	uint64_t page_num=(addr>>12);
-
-	for(int i=0;i<similarity_distance;i++)
-	{
-
-		uint64_t neighbor_page=(neighbor_addr>>12);
-
-		//fprintf(stderr,"[PINTOOL] page_num: %lld neigh pae_nu:%lld\n", page_num, neighbor_page);
-		if(page_num!=neighbor_page)
-			break;
-
-		//ReadCacheLine(neighbor_addr,(uint64_t*)tmp);
-		int neighbor_compressed_size=getCompressedSize((uint8_t*) tmp);
-		if(compressible) {
-			if (neighbor_compressed_size <= 256)
-				l_similarity_comp_cnt++;
-		}
-		else {
-			if (neighbor_compressed_size > 256)
-				l_similarity_incomp_cnt++;
-		}
-
-		if(g_accessed_cacheline_num%1000000==0)
-			fprintf(stderr,"[PINTOOL]distance: %d addr: %llx neighbor address:%llx neighbor compressed size: %d l_similarity_comp_cnt:%lld l_similarity_incomp_cnt:%lld accessed_cnt:%lld\n",
-					similarity_distance, addr, neighbor_addr, neighbor_compressed_size, l_similarity_comp_cnt,l_similarity_incomp_cnt,g_accessed_cacheline_num);
-
-		neighbor_addr+=8;
-	}
-
-	if(l_similarity_comp_cnt==similarity_distance)
-		g_similarity_comp_cnt++;
-
-	if(l_similarity_incomp_cnt==similarity_distance)
-		g_similarity_incomp_cnt++;
-
-	if(g_accessed_cacheline_num%1000000==0)
-		fprintf(stderr,"[PINTOOL] g_similarity_cmp_cnt:%lld g_similarity_incomp_cnt:%lld accessed_cnt:%lld\n", g_similarity_comp_cnt,g_similarity_incomp_cnt,g_accessed_cacheline_num);
-
-	free(tmp);
-}
-
-
-int64_t getSignedExtension(int64_t data, uint32_t size) {
-	assert(size<=65);
-	int64_t new_data;
-	new_data=(data<<(64-size))>>(64-size);
-	return new_data;
-}
-
-
-
-
-////// Page Allocator ////////
-UINT32 memSize;
-UINT32 pageSize;
-std::map<UINT64,UINT64> allocatedPage;
-std::map<UINT64,UINT64> pageTable;
-
-
-UINT64 getPhyAddress(UINT64 virtAddr)
+VOID recordCompression(UINT64 addr)
 {
 	//get physical address
-	const uint64_t pageOffset = virtAddr % pageSize;
-	const uint64_t virtPageStart = virtAddr - pageOffset;
-	UINT64 l_nextPageAddress;
+	const uint64_t pageOffset = addr % pageSize;
+	const uint64_t virtPageStart = addr - pageOffset;
+	int cl_size = 64;
+	int num_cl_in_page = pageSize/cl_size;
+	int cmp_size=0;
+	int tmp_cnt_cl_size16=0;
+	int tmp_cnt_cl_size32=0;
+	int tmp_cnt_cl_size48=0;
 
-	std::map<uint64_t, uint64_t>::iterator findEntry = pageTable.find(virtPageStart);
-
-	if(findEntry!=pageTable.end())
+	for(int i=0; i<num_cl_in_page;i++)
 	{
-		l_nextPageAddress = findEntry->second;
+		uint64_t cl_addr=addr+i*cl_size;
+		uint64_t cl_comp_size= getDataSize(cl_addr);
+
+		if(addr==cl_addr)
+			cmp_size=cl_comp_size;
+
+		if(cl_comp_size<128) {
+			cnt_cl_size16++;
+			tmp_cnt_cl_size16++;
+		}
+
+		if(cl_comp_size<256) {
+			cnt_cl_size32++;
+			tmp_cnt_cl_size32++;
+		}
+
+		if(cl_comp_size<384) {
+			cnt_cl_size48++;
+			tmp_cnt_cl_size48++;
+		}
 	}
+	if(tmp_cnt_cl_size16==num_cl_in_page)
+		cnt_page_all16++;
+	else if(tmp_cnt_cl_size32==num_cl_in_page)
+		cnt_page_all32++;
+	else if(tmp_cnt_cl_size48==num_cl_in_page)
+		cnt_page_all48++;
 	else
-	{
-		UINT64 nextAddress_tmp = rand() % memSize;
-		UINT64 offset = nextAddress_tmp % pageSize;
-		UINT64 l_nextPageAddress = nextAddress_tmp - offset;
+		cnt_page_all64++;
 
-		while (allocatedPage.end() != allocatedPage.find(l_nextPageAddress)) {
-			uint64_t nextAddress_tmp = rand() % memSize;
-			uint64_t offset = nextAddress_tmp % pageSize;
-			l_nextPageAddress = nextAddress_tmp - offset;
-		}
-
-		printf("m_nextPageAddress:$%llx\n", l_nextPageAddress);
-		allocatedPage[l_nextPageAddress] = 1;
-		pageTable[virtPageStart]=l_nextPageAddress;
-
-
-		if (l_nextPageAddress + pageSize > memSize) {
-			fprintf(stderr, "[memController] Out of Address Range!!, nextPageAddress:%lld pageSize:%lld memsize:%lld\n",
-					l_nextPageAddress, pageSize, memSize);
-			fflush(stderr);
-			exit(-1);
-		}
-	}
-	return l_nextPageAddress;
+	if(inst_cnt%100000 <4)
+		printf("c_addr: %llx p_start: %llx c_comp_size:%lld, c_size16:%lld,c_size32:%lld,c_size48:%lld,c_size64:%lld,p_size16:%lld,p_size32:%lld,p_size48:%lld,p_size64:%lld\n",
+			   addr,virtPageStart,cmp_size,cnt_cl_size16,cnt_cl_size32,cnt_cl_size48,cnt_cl_size64,cnt_page_all16,cnt_page_all32,cnt_page_all48,cnt_page_all64);
 }
 
 //// Cache //////
-
-
 #define MCACHE_SRRIP_MAX  7
 #define MCACHE_SRRIP_INIT 1
 #define MCACHE_PSEL_MAX    1023
@@ -467,7 +439,6 @@ typedef int long long	    int64;
 typedef int		    Generic_Enum;
 
 
-/* Conventions */
 typedef uns64		    Addr;
 typedef uns32		    Binary;
 typedef uns8		    Flag;
@@ -793,7 +764,7 @@ MCache *mcache_new(uns sets, uns assocs, uns repl_policy )
 	return c;
 }
 
-Flag mcache_access(MCache *c, Addr addr, Flag dirty)
+bool mcache_access(MCache *c, Addr addr, Flag dirty)
 {
 	Addr  tag  = addr; // full tags
 	uns   set  = mcache_get_index(c,addr);
@@ -817,17 +788,22 @@ Flag mcache_access(MCache *c, Addr addr, Flag dirty)
 			{
 				mcache_mark_dirty(c,tag);
 			}
-			return HIT;
+			printf("hit, addr:%llx\n",addr);
+			fflush(stdout);
+			return true;
 		}
 	}
 
+	printf("miss, addr:%llx\n",addr);
 	//even on a miss, we need to know which set was accessed
 	c->touched_wayid = 0;
 	c->touched_setid = set;
 	c->touched_lineid = start;
 
 	c->s_miss++;
-	return MISS;
+
+	fflush(stdout);
+	return false;
 }
 
 ////////////////////////////////////////////////////////////////////
@@ -893,10 +869,6 @@ void    mcache_swap_lines(MCache *c, uns set, uns way_ii, uns way_jj)
 }
 
 
-
-////////////////////////////////////////////////////////////////////
-
-
 ////////////////////////////////////////////////////////////////////
 ////////////////////////////////////////////////////////////////////
 
@@ -955,8 +927,6 @@ MCache_Entry mcache_install(MCache *c, Addr addr, Flag dirty)
 		entry->last_access  = c->s_count;
 	}
 
-
-
 	c->fifo_ptr[set] = (c->fifo_ptr[set]+1)%c->assocs; // fifo update
 
 	c->touched_lineid=victim;
@@ -966,13 +936,19 @@ MCache_Entry mcache_install(MCache *c, Addr addr, Flag dirty)
 }
 
 
-
-
+UINT64 cache_miss_cnt=0;
+UINT64 cache_access_cnt=0;
 VOID CacheAccess(UINT64 ADDR)
 {
 	UINT64 paddr = getPhyAddress(ADDR);
-	bool isHit=mcache_access(cache,paddr,0);
-	mcache_install(cache,paddr,0);
+	if(mcache_access(cache,paddr,0)==false){
+		mcache_install(cache, paddr, 0);
+		cache_miss_cnt++;
+		printf("miss2, addr:%llx\n",paddr);
+		fflush(stdout);
+
+	}
+	cache_access_cnt++;
 }
 
 ///// Profilers //////
@@ -997,10 +973,30 @@ VOID RandomnessRecord(UINT64 addr)
 	page_access_count[page_num]++;
 }
 
+VOID RecordStatistics() {
+	float miss_rate = (float) ((double) cache_miss_cnt / (double) cache_access_cnt);
+/*	float all_size16_rate = (float) ((double) cnt_page_all16 / (double) cache_access_cnt);
+	float all_size32_rate = (float) ((double) cnt_page_all32 / (double) cache_access_cnt);
+	float all_size48_rate = (float) ((double) cnt_page_all48 / (double) cache_access_cnt);
 
+	float cl_size16_rate = (float) ((double) cnt_cl_size16 / (double) cache_access_cnt);
+	float cl_size32_rate = (float) ((double) cnt_cl_size32 / (double) cache_access_cnt);
+	float cl_size48_rate = (float) ((double) cnt_cl_size48 / (double) cache_access_cnt);
+	fprintf(outputFile, "%f,%lld,%lld,%4f,%4f,%4f,%4f,%4f,%4f\n", miss_rate, pageCount, cache_access_cnt, cl_size16_rate,
+		cl_size32_rate, cl_size48_rate, all_size16_rate, all_size32_rate, all_size48_rate);
+	printf("%lld %lld\n", cache_miss_cnt,cache_access_cnt);
 
-
-
+	fflush(stdout);
+	fflush(outputFile);
+	cache_miss_cnt = 0;
+	cache_access_cnt = 0;
+	cnt_page_all16 = 0;
+	cnt_page_all32 = 0;
+	cnt_page_all48 = 0;
+	cnt_cl_size16 = 0;
+	cnt_cl_size32 = 0;
+	cnt_cl_size48 = 0;*/
+}
 /****************************************************************/
 /******************** END SHADOW STACK **************************/
 /****************************************************************/
@@ -1011,25 +1007,12 @@ VOID Fini(INT32 code, VOID* v)
 		std::cout << "SSTARIEL: Execution completed, shutting down." << std::endl;
 	}
 
-	if(similarity_distance>0)
-	{
-		fprintf(stderr,"g_similarity_comp_cnt:%lld", g_similarity_comp_cnt);
-		fprintf(stderr,"g_similarity_incomp_cnt:%lld", g_similarity_incomp_cnt);
-		fprintf(stderr,"accessed_cacheline_num:%lld", g_accessed_cacheline_num);
-		fprintf(stderr,"similarity:%f", (g_similarity_incomp_cnt+g_similarity_comp_cnt)/g_accessed_cacheline_num);
-
-	}
-
-	std::cout<<"Average page access count:"<<(UINT64)((double)accumulated_accessed_page/(double)randomness_window_cnt)<<std::endl;
+	//std::cout<<"Average page access count:"<<(UINT64)((double)accumulated_accessed_page/(double)randomness_window_cnt)<<std::endl;
 	std::cout<<"cache access:"<<cache->s_count<<std::endl;
 	std::cout<<"cache miss:"<<cache->s_miss<<std::endl;
-	std::cout<<"allocated pages:"<<pageTable.size();
+	std::cout<<"cache miss rate:"<<(double)cache->s_miss/(double)cache->s_count<<std::endl;
+	std::cout<<"allocated pages:"<<pageTable.size()<<std::endl;
 
-	UINT64 pagenum=0;
-	for(auto&counter : page_access_count)
-	{
-		fprintf(outputFile,"page%lld:%lld\n",pagenum++,counter.second);
-	}
 	fclose(outputFile);
 }
 
@@ -1048,168 +1031,98 @@ VOID RecordAddrSize(THREADID thr, VOID* raddr, UINT32 rsize, VOID* waddr, UINT32
     thread_instr_id[thr].rsize=rsize;
     thread_instr_id[thr].wsize=wsize;
     thread_instr_id[thr].ip=ip;
- //   printf("addrsize: addr:%lld size:%ld\n",addr,size);
 }
 
 
+bool ClockTick()
+{
+	bool enableProfiling=false;
 
+	inst_cnt++;
+
+	//check if warmup is done
+	if(inst_cnt==warmup_insts) {
+		fprintf(stderr,"warmup inst_cnt[%lld]\n", inst_cnt);
+		enableProfiling = true;
+	}else if(inst_cnt>warmup_insts)
+		enableProfiling = true;
+
+
+	//record dynamic statistics
+	if(inst_cnt%recordInterval==0) {
+		RecordStatistics();
+	}
+
+	//check the condition to complete
+	if(inst_cnt>(warmup_insts+max_insts))
+		PIN_ExitApplication(1);
+
+
+	return enableProfiling;
+}
 
 
 VOID WriteInstructionRead(UINT64 addr, UINT32 size, THREADID thr, ADDRINT ip,
 	UINT32 instClass, UINT32 simdOpWidth) {
 
-	inst_cnt++;
-
-	if(inst_cnt<warmup_insts) {
-		enable_output = false;
-		//enable_output = true;
-	}
-	else if(inst_cnt==warmup_insts) {
-		fprintf(stderr,"warmup inst_cnt[%lld]\n", inst_cnt);
-		enable_output = true;
-	}else if(inst_cnt>warmup_insts)
-	{
-
-		enable_output = true;
-	}
-
-	if(inst_cnt>(warmup_insts+max_insts))
-		PIN_ExitApplication(1);
-
-
-
-        if(thread_instr_id[thr].ip!=ip)
-        {
-            fprintf(stderr,"ip is mismatch\n");
-            exit(-1);
-        }
-
-		if(content_copy_en) {
-			//assume that cache line size is 64B
-			uint64_t *data = (uint64_t *) malloc(sizeof(uint64_t) * 8);
-			ReadCacheLine(addr, data);
-//#ifdef COMP_DEBUG
-//            fprintf(stderr,"[PINTOOL] [%d] write addr:%llx data:%llx ac.inst.data:%llx\n", i, addr, *(data+i), ac.inst.data[i]);
-//#endif
-
-
-			//checkSimilarity(data, addr);
-			free(data);
-		}
-		RandomnessRecord(addr);
-		CacheAccess(addr);
-
+	//RandomnessRecord(addr);
+	CacheAccess(addr);
+//	recordCompression(addr);
 }
 
 
 VOID WriteInstructionWrite(UINT64 addr, UINT32 size, THREADID thr, ADDRINT ip,
 						   UINT32 instClass, UINT32 simdOpWidth) {
 
-	inst_cnt++;
-
-
-	if(inst_cnt<warmup_insts) {
-		enable_output = false;
-		//enable_output=true;
-	}
-	else if(inst_cnt==warmup_insts) {
-		fprintf(stderr,"warmup inst_cnt[%lld]\n", inst_cnt);
-		enable_output = true;
-	}else if(inst_cnt>warmup_insts)
-	{
-		enable_output = true;
-	}
-
-	if(inst_cnt>(warmup_insts+max_insts))
-		PIN_ExitApplication(1);
-
-
-	if(thread_instr_id[thr].ip!=ip)
-	{
-		fprintf(stderr,"ip is mismatch\n");
-		exit(-1);
-	}
-
-
-	if(thread_instr_id[thr].ip!=ip){
-		fprintf(stderr,"ip is mismatch\n");
-		exit(-1);
-	}
-
-
-	if(content_copy_en) {
-		//assume that cache line size is 64B
-		uint64_t *data = (uint64_t *) malloc(sizeof(uint64_t) * 8);
-		ReadCacheLine(addr, data);
-//#ifdef COMP_DEBUG
-//            fprintf(stderr,"[PINTOOL] [%d] write addr:%llx data:%llx ac.inst.data:%llx\n", i, addr, *(data+i), ac.inst.data[i]);
-//#endif
-
-		//checkSimilarity(data, addr);
-		free(data);
-	}
-
-	RandomnessRecord(addr);
+	//RandomnessRecord(addr);
 	CacheAccess(addr);
-
+	//recordCompression(addr);
 }
 
 
 VOID WriteInstructionReadWrite(THREADID thr, ADDRINT ip, UINT32 instClass,
 	UINT32 simdOpWidth ) {
 
-        const uint64_t readAddr=(uint64_t) thread_instr_id[thr].raddr;
-        const uint32_t readSize=(uint32_t) thread_instr_id[thr].rsize;
-        const uint64_t writeAddr=(uint64_t) thread_instr_id[thr].waddr;
-        const uint32_t writeSize=(uint32_t) thread_instr_id[thr].wsize;
-	if(enable_output) {
-		if(thr < core_count) {
-			WriteInstructionRead(  readAddr,  readSize,  thr, ip, instClass, simdOpWidth );
-			WriteInstructionWrite( writeAddr, writeSize, thr, ip, instClass, simdOpWidth );
-		}
+    const uint64_t readAddr=(uint64_t) thread_instr_id[thr].raddr;
+    const uint32_t readSize=(uint32_t) thread_instr_id[thr].rsize;
+    const uint64_t writeAddr=(uint64_t) thread_instr_id[thr].waddr;
+    const uint32_t writeSize=(uint32_t) thread_instr_id[thr].wsize;
+
+	bool enableProfile=ClockTick();
+
+	if(enableProfile) {
+		WriteInstructionRead(  readAddr,  readSize,  thr, ip, instClass, simdOpWidth );
+		WriteInstructionWrite( writeAddr, writeSize, thr, ip, instClass, simdOpWidth );
 	}
 }
+
 
 VOID WriteInstructionReadOnly(THREADID thr, ADDRINT ip,
 	UINT32 instClass, UINT32 simdOpWidth) {
-        const uint64_t readAddr=(uint64_t) thread_instr_id[thr].raddr;
-        const uint32_t readSize=(uint32_t) thread_instr_id[thr].rsize;
-       
-        if(enable_output) {
-		if(thr < core_count) {
-			WriteInstructionRead(  readAddr,  readSize,  thr, ip, instClass, simdOpWidth );
-		}
-	}
+    const uint64_t readAddr=(uint64_t) thread_instr_id[thr].raddr;
+    const uint32_t readSize=(uint32_t) thread_instr_id[thr].rsize;
 
+	bool enableProfile=ClockTick();
+
+    if(enableProfile)
+		WriteInstructionRead(  readAddr,  readSize,  thr, ip, instClass, simdOpWidth );
 }
+
 
 VOID WriteNoOp(THREADID thr, ADDRINT ip) {
-	inst_cnt++;
-
-	if(inst_cnt<warmup_insts) {
-		enable_output = false;
-	}
-	else if(inst_cnt==warmup_insts) {
-		fprintf(stderr,"warmup inst_cnt[%lld]\n", inst_cnt);
-		enable_output = true;
-	}else if(inst_cnt>warmup_insts)
-	{
-		enable_output = true;
-	}
-
+	ClockTick();
 }
+
 
 VOID WriteInstructionWriteOnly(THREADID thr, ADDRINT ip,
 	UINT32 instClass, UINT32 simdOpWidth) {
-         const uint64_t writeAddr=(uint64_t) thread_instr_id[thr].waddr;
-        const uint32_t writeSize=(uint32_t) thread_instr_id[thr].wsize;
-       
+	const uint64_t writeAddr=(uint64_t) thread_instr_id[thr].waddr;
+	const uint32_t writeSize=(uint32_t) thread_instr_id[thr].wsize;
 
-	if(enable_output) {
-		if(thr < core_count) {
-                        WriteInstructionWrite(writeAddr, writeSize,  thr, ip, instClass, simdOpWidth);
-		}
-	}
+ 	bool enableProfile=ClockTick();
+
+	if(enableProfile)
+		WriteInstructionWrite(writeAddr, writeSize,  thr, ip, instClass, simdOpWidth);
 
 }
 
@@ -1301,7 +1214,7 @@ VOID InstrumentInstruction(INS ins, VOID *v)
 										 IARG_END);
 			}
 
-		} else if (INS_IsMemoryRead(ins)) {
+		}else if (INS_IsMemoryRead(ins)) {
 			INS_InsertPredicatedCall(ins, IPOINT_BEFORE, (AFUNPTR)
 											 RecordAddrSize,
 									 IARG_THREAD_ID,
@@ -1363,9 +1276,6 @@ VOID InstrumentInstruction(INS ins, VOID *v)
 
 }
 
-VOID InstrumentRoutine(RTN rtn, VOID* args) {
-}
-
 
 /*(===================================================================== */
 /* Print Help Message                                                    */
@@ -1384,6 +1294,7 @@ INT32 Usage()
 
 int main(int argc, char *argv[])
 {
+
     if (PIN_Init(argc, argv)) return Usage();
 
     // Load the symbols ready for us to mangle functions.
@@ -1405,35 +1316,37 @@ int main(int argc, char *argv[])
 	std::string output_filename=OutputFileName.Value();
 	outputFile=fopen(output_filename.c_str(),"w");
 
-    fflush(stdout);
 
     sleep(1);
-
 	max_insts= MaxInstructions.Value();
     warmup_insts = WarmupInstructions.Value();
 	similarity_distance = SimilarityDistance.Value();
 	randomness_profile_en = RecordRandomness.Value();
 	randomness_window=Randomness_window.Value();
+
 	if(randomness_profile_en==1 && randomness_window==0)
 	{
 		fprintf(stderr, "RANDOMNESS WINDOW ERROR");
 		exit(-1);
 	}
 
-
-	std::cout<<"warmup_insts: "<<warmup_insts<<std::endl;
-	std::cout<<"max_insts: "<<max_insts<<std::endl;
-	std::cout<<"randomness_profile_en: "<<randomness_profile_en<<std::endl;
-	std::cout<<"randomness_window: "<<randomness_window<<std::endl;
-
     INS_AddInstrumentFunction(InstrumentInstruction, 0);
-    RTN_AddInstrumentFunction(InstrumentRoutine, 0);
 
 	cache_sets=CacheSets.Value();
 	cache_ways=CacheWays.Value();
 	cache_repl_policy=CacheReplPolicy.Value();
 	cache=(MCache*) mcache_new(cache_sets,cache_ways,cache_repl_policy);
 
+	int max_thread_count = 16;
+
+	posix_memalign((void**) &thread_instr_id, 64, sizeof(threadRecord) * max_thread_count);
+
+	std::cout<<"warmup_insts: "<<warmup_insts<<std::endl;
+	std::cout<<"max_insts: "<<max_insts<<std::endl;
+//	std::cout<<"randomness_profile_en: "<<randomness_profile_en<<std::endl;
+//	std::cout<<"randomness_window: "<<randomness_window<<std::endl;
+	std::cout<<"cache sets: "<<cache_sets<<std::endl;
+	std::cout<<"cache ways: "<<cache_ways<<std::endl;
 
     fflush(stdout);
     PIN_StartProgram();

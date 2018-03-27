@@ -210,13 +210,14 @@ ArielCPU::ArielCPU(ComponentId_t id, Params& params) :
     const uint32_t launch_param_count = (uint32_t) params.find<uint32_t>("launchparamcount", 0);
    // const uint32_t pin_arg_count = 29+ launch_param_count;
     int similarity_distance=(uint32_t) params.find<uint32_t>("similarity_distance", 0);
-    const uint32_t pin_arg_count = 28+ launch_param_count;
+    //const uint32_t pin_arg_count = 28+ launch_param_count;
+    const uint32_t pin_arg_count = 30+ launch_param_count;
     //const uint32_t pin_arg_count = 25+ launch_param_count;
 
     execute_args = (char**) malloc(sizeof(char*) * (pin_arg_count + app_argc));
 
     const uint32_t profileFunctions = (uint32_t) params.find<uint32_t>("profilefunctions", 0);
-
+    const std::string profileFile = params.find<std::string>("profileFile", "none");
     output->verbose(CALL_INFO, 1, 0, "Processing application arguments...\n");
 
     uint32_t arg = 0;
@@ -260,6 +261,10 @@ ArielCPU::ArielCPU(ComponentId_t id, Params& params) :
     execute_args[arg++] = const_cast<char*>("-t");
     execute_args[arg++] = (char*) malloc(sizeof(char) * 8);
     sprintf(execute_args[arg-1], "%" PRIu32, profileFunctions);
+
+    execute_args[arg++] = const_cast<char*>("-f");
+    execute_args[arg++] = (char*) malloc(sizeof(char) * 512);
+    strcpy(execute_args[arg-1], profileFile.c_str());
 
     execute_args[arg++] = const_cast<char*>("-i");
     execute_args[arg++] = (char*) malloc(sizeof(char) * 30);

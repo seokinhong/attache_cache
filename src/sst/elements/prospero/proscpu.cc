@@ -539,7 +539,7 @@ bool ProsperoComponent::tick(SST::Cycle_t currentCycle) {
 	uint32_t i=0;
 	for(i = 0; i < maxIssuePerCycle; ++i) {
 		if (m_inst % 10000000 >=0 && m_inst %10000000<5) {
-			printf("# of issued inst: %lld\n", m_inst);
+			printf("[core%d]# of issued inst: %lld\n", this->cpuid, m_inst);
 			fflush(0);
 		}
 

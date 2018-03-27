@@ -83,6 +83,10 @@ c_PageAllocator::c_PageAllocator(ComponentId_t x_id, Params &params):Component(x
                   new Clock::Handler<c_PageAllocator>(this, &c_PageAllocator::clockTic));
 
     s_numAllocPages=registerStatistic<uint64_t>("numAllocPages");
+    m_pagecount=0;
+
+    seed();
+
 }
 
 bool c_PageAllocator::clockTic(Cycle_t)
@@ -140,6 +144,7 @@ void c_PageAllocator::handlePageAllocation(SST::Event* event)
 uint64_t c_PageAllocator::getPageAddress(uint64_t  virtAddr){
 
     uint64_t l_nextPageAddress = m_nextPageAddress;
+    int retry_cnt=0;
     if(isMultiThreadMode==true) {
 
         //get physical address
@@ -152,16 +157,22 @@ uint64_t c_PageAllocator::getPageAddress(uint64_t  virtAddr){
             l_nextPageAddress = findEntry->second;
         }
         else {
-            uint64_t nextAddress_tmp = rand()%m_memSize;
+            uint64_t rand_num=randGen();
+            uint64_t nextAddress_tmp = rand_num%m_memSize;
             uint64_t offset = nextAddress_tmp % m_osPageSize;
             l_nextPageAddress=nextAddress_tmp-offset;
 
-
+            retry_cnt=0;
             while(allocatedPage.end()!=allocatedPage.find(l_nextPageAddress))
             {
-                uint64_t nextAddress_tmp = rand()%m_memSize;
+                uint64_t nextAddress_tmp = randGen()%m_memSize;
                 uint64_t offset = nextAddress_tmp % m_osPageSize;
                 l_nextPageAddress=nextAddress_tmp-offset;
+                if(++retry_cnt>10000000) {
+                printf("allocated page:%lld, clear the allocated page table\n",m_pagecount);
+                allocatedPage.clear();
+            }
+         //       printf("same physical address is detected, new addr:%llx\n",l_nextPageAddress);
             }
 
             allocatedPage[l_nextPageAddress]=1;
@@ -178,16 +189,23 @@ uint64_t c_PageAllocator::getPageAddress(uint64_t  virtAddr){
     }
     else {
 
-        uint64_t nextAddress_tmp = rand()%m_memSize;
+        uint64_t rand_num=randGen();
+        uint64_t nextAddress_tmp = rand_num%m_memSize;
         uint64_t offset = nextAddress_tmp % m_osPageSize;
         l_nextPageAddress=nextAddress_tmp-offset;
 
-
+       // printf("startaddr:%llx\n",l_nextPageAddress);
+        retry_cnt=0;
         while(allocatedPage.end()!=allocatedPage.find(l_nextPageAddress))
         {
-            uint64_t nextAddress_tmp = rand()%m_memSize;
+            uint64_t nextAddress_tmp = randGen()%m_memSize;
             uint64_t offset = nextAddress_tmp % m_osPageSize;
             l_nextPageAddress=nextAddress_tmp-offset;
+            if(++retry_cnt>10000000) {
+                printf("allocated page:%lld, clear the allocated page table\n",m_pagecount);
+                allocatedPage.clear();
+            }
+//            printf("same physical address is detected, new addr:%llx\n",l_nextPageAddress);
         }
 
         //printf("m_nextPageAddress:%llx\n",l_nextPageAddress);
@@ -202,6 +220,8 @@ uint64_t c_PageAllocator::getPageAddress(uint64_t  virtAddr){
         }
 
     }
+
+    m_pagecount++;
 
     return l_nextPageAddress;
 }

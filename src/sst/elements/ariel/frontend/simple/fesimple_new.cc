@@ -32,6 +32,11 @@
 #include <bitset>
 #include <set>
 #include <sst_config.h>
+#include <vector>
+#include <math.h>
+#include <algorithm>
+
+
 
 #ifdef HAVE_LIBZ
 //#define COMP_DEBUG
@@ -80,12 +85,18 @@ KNOB<UINT32> DefaultMemoryPool(KNOB_MODE_WRITEONCE, "pintool",
     "d", "0", "Default SST Memory Pool");
 KNOB<UINT32> SimilarityDistance(KNOB_MODE_WRITEONCE, "pintool",
     "a", "0", "Default SST Memory Pool");
-KNOB<UINT32> MemCompProfile(KNOB_MODE_WRITEONCE, "pintool",
-    "x", "0", "Enable memory compression profiler");
-KNOB<string> MemCompTraceName(KNOB_MODE_WRITEONCE, "pintool",
-    "f", "comp_trace.csv", "Memory compression profile trace file name");
-KNOB<string> MemCompTraceInterval(KNOB_MODE_WRITEONCE, "pintool",
-    "n", "1000000", "Memory compression profile interval");
+KNOB<string> MemProfileName(KNOB_MODE_WRITEONCE, "pintool",
+    "f", "none", "Memory compression profile trace file name");
+KNOB<UINT32> ProfilingMode(KNOB_MODE_WRITEONCE, "pintool",
+    "o", "0", "pintool mode, 0=trace gen for sst, 1=standalone");
+KNOB<UINT32> CacheSets(KNOB_MODE_WRITEONCE, "pintool",
+					   "cs", "1024", "the number of cache sets");
+KNOB<UINT32> CacheWays(KNOB_MODE_WRITEONCE, "pintool",
+					   "cw", "16", "the number of cache way");
+KNOB<UINT32> CacheReplPolicy(KNOB_MODE_WRITEONCE, "pintool",
+							 "cp", "0", "cache replacement policy");
+
+
 
 #define ARIEL_MAX(a,b) \
    ({ __typeof__ (a) _a = (a); __typeof__ (b) _b = (b); _a > _b ? _a : _b; })
@@ -95,11 +106,17 @@ typedef struct {
 } ArielFunctionRecord;
 
 UINT64 inst_cnt =0;
+UINT64 max_insts = 0;
+UINT64 warmup_insts=0;
 
 UINT32 funcProfileLevel;
 UINT32 core_count;
 UINT32 default_pool;
-UINT64 warmup_insts=0;
+
+
+UINT64 cnt_cache_access_trace=0;
+UINT64 cnt_cache_miss_trace=0;
+UINT64 cnt_allocated_page_trace=0;
 
 ArielTunnel *tunnel = NULL;
 bool enable_output;
@@ -119,7 +136,16 @@ UINT64 g_similarity_comp_cnt=0;
 UINT64 g_similarity_incomp_cnt=0;
 UINT64 g_accessed_cacheline_num=0;
 int similarity_distance=0;
-
+UINT64 recordInterval=100000000;
+bool profilingMode=true;
+int cache_sets=0;
+int cache_ways=0;
+int cache_repl_policy=0;
+int dramPageSize=8*1024;
+int page_offset=log2(dramPageSize);
+std::map<UINT64,UINT64> accessed_page;
+FILE * outputFile;
+bool profile_file_out_en=false;
 
 typedef struct {
 	UINT64 raddr;
@@ -135,97 +161,15 @@ threadRecord* thread_instr_id;
 bool enable_memcomp;
 string memcomp_tracefile;
 UINT32 memcomp_interval;
-
-#if 0
-class RowCompInfo {
-    private:
-        UINT32 row_size;
-        UINT32 cacheline_size;
-        UINT32 num_cacheline;
-        UINT32 compressed_size;
-        std::vector<UINT32> cacheline_size;
-        UINT64 num_access_cacheline25;
-        UINT64 num_access_cacheline50;
-        UINT64 num_access_cacheline75;
-        UINT64 num_access_row25;
-        UINT64 num_access_row50;
-        UINT64 num_access_row75;
-        UINT64 num_access;
-
-
-        RowCompInfo(UINT32 _row_size, UINT32 _cacheline_size;)
-        {
-            row_size=_row_size;
-            cacheline_size=_cacheline_size;
-            num_cacheline=row_size/cacheline_size;  // cacheline is 64B
-
-            for(UINT32 i=0; i<num_cacheline;i++)
-                cacheline_size.push_back(0);
-        }
-
-        void Reset()
-        {
-           num_access_cacheline25=0;
-           num_access_cacheline50=0;
-           num_access_cacheline75=0;
-           num_access_row25=0;
-           num_access_row50=0;
-           num_access_row75=0;
-           num_access=0;
-        }
-
-        void inc_access(bool is_row, int comp_size)
-        {
-            int comp_ratio=0;
-            if(is_row)
-            {
-
-                comp_ratio = (int)((float)row_size/(float)comp_size*100);
-                fprintf(stderr,"row comp ratio: %d\n",comp_ratio);
-            }
-            else
-            {
-                comp_ratio = (int)((float)cacheline_size/(float)comp_size*100);
-                fprintf(stderr,"cacheline comp ratio: %d\n",comp_ratio);
-            }
-
-
-        }
-
-}
-
-#endif
-
-/****************************************************************/
-/********************** SHADOW STACK ****************************/
-/* Used by 'sieve' to associate mallocs to the code they        */
-/* are called from. Turn on by turning on malloc_stack_trace    */
-/****************************************************************/
-/****************************************************************/
-
-// Per-thread malloc file -> we don't have to lock the file this way
-// Compress it if possible
-#ifdef HAVE_LIBZ
-std::vector<gzFile> btfiles;
-#else
-std::vector<FILE*> btfiles;
-#endif
-
-UINT64 mallocIndex;
-FILE * rtnNameMap;
-/* This is a record for each function call */
-class StackRecord {
-    private:
-        ADDRINT stackPtr;
-        ADDRINT target;
-        ADDRINT instPtr;
-    public:
-        StackRecord(ADDRINT sp, ADDRINT targ, ADDRINT ip) : stackPtr(sp), target(targ), instPtr(ip) {}
-        ADDRINT getStackPtr() const { return stackPtr; }
-        ADDRINT getTarget() {return target;}
-        ADDRINT getInstPtr() { return instPtr; }
-};
-
+UINT64 cnt_cl_size16=0;
+UINT64 cnt_cl_size32=0;
+UINT64 cnt_cl_size48=0;
+UINT64 cnt_cl_size64=0;
+UINT64 cnt_page_all16=0;
+UINT64 cnt_page_all32=0;
+UINT64 cnt_page_all48=0;
+UINT64 cnt_page_all64=0;
+bool doVerify=false;
 
 uint32_t getDataSize(int64_t data_)
 {
@@ -251,39 +195,16 @@ uint32_t getDataSize(int64_t data_)
 //VOID checkSimilarity(uint64_t*,uint64_t);
 VOID ReadCacheLine(uint64_t addr, uint64_t * data)
 {
-	//assume that cache line size is 64B
-#if 0
-	ADDRINT addr_new = (addr);
-        int copied_size= PIN_SafeCopy(data, (VOID*) addr_new, 8);
-        if(copied_size !=8)
-            fprintf(stderr, "ariel memory copy fail\n");
-        fprintf(stderr,"addr:%lld data:%lld\n", addr, *(uint64_t*)data);
-
-#else
 	uint64_t addr_new = (addr>>6)<<6;
 	int copied_size= PIN_SafeCopy((uint8_t*)data, (VOID*) addr_new, 64);
 	if(copied_size !=64)
 		fprintf(stderr, "ariel memory copy fail\n");
-
-
-	//checkSimilarity(data,addr);
-//#ifdef COMP_DEBUG
-//        for(int i=0;i<8;i++)
-//        {
-//
-//            fprintf(stderr,"[PINTOOL] cacheline read [%d] addr:%llx data:%llx \n", i, addr_new+i*8, *(data+i));
-//        }
-//#endif
-
-
-#endif
 }
 
 uint32_t getCompressedSize(uint8_t *cacheline) {
 
 
 	int min_compressed_size = 512;
-
 
 	std::vector<uint64_t> data_vec;
 
@@ -487,171 +408,673 @@ VOID checkSimilarity(uint64_t* data, uint64_t addr)
 	free(tmp);
 }
 
-std::vector<std::vector<StackRecord> > arielStack; // Per-thread stacks
 
-/* Instrumentation function to be called on function calls */
-VOID ariel_stack_call(THREADID thr, ADDRINT stackPtr, ADDRINT target, ADDRINT ip) {
-    // Handle longjmp
-    while (arielStack[thr].size() > 0 && stackPtr >= arielStack[thr].back().getStackPtr()) {
-        //fprintf(btfiles[thr], "RET ON CALL %s (0x%" PRIx64 ", 0x%" PRIx64 ")\n", RTN_FindNameByAddress(arielStack[thr].back().getTarget()).c_str(), arielStack[thr].back().getInstPtr(), arielStack[thr].back().getStackPtr());
-        arielStack[thr].pop_back();
-    }
-    // Add new record
-    arielStack[thr].push_back(StackRecord(stackPtr, target, ip));
-    //fprintf(btfiles[thr], "CALL %s (0x%" PRIx64 ", 0x%" PRIx64 ")\n", RTN_FindNameByAddress(target).c_str(), ip, stackPtr);
+////// Page Allocator ////////
+UINT64 memSize = 34359738368; //32GB
+UINT32 pageSize = 4*1024; //
+UINT64 pageCount = 0;
+std::map<UINT64,UINT64> allocatedPage;
+std::map<UINT64,UINT64> pageTable;
+
+std::mt19937_64 rng;
+void seed(uint64_t new_seed = std::mt19937_64::default_seed) {
+	rng.seed(new_seed);
 }
 
-/* Instrumentation function to be called on function returns */
-VOID ariel_stack_return(THREADID thr, ADDRINT stackPtr) {
-    // Handle longjmp
-    while (arielStack[thr].size() > 0 && stackPtr >= arielStack[thr].back().getStackPtr()) {
-        //fprintf(btfiles[thr], "RET ON RET %s (0x%" PRIx64 ", 0x%" PRIx64 ")\n", RTN_FindNameByAddress(arielStack[thr].back().getTarget()).c_str(), arielStack[thr].back().getInstPtr(), arielStack[thr].back().getStackPtr());
-        arielStack[thr].pop_back();
-    }
-    // Remove last record
-    //fprintf(btfiles[thr], "RET %s (0x%" PRIx64 ", 0x%" PRIx64 ")\n", RTN_FindNameByAddress(arielStack[thr].back().getTarget()).c_str(), arielStack[thr].back().getInstPtr(), arielStack[thr].back().getStackPtr());
-    arielStack[thr].pop_back();
-}
-
-/* Function to print stack, called by malloc instrumentation code */
-VOID ariel_print_stack(UINT32 thr, UINT64 allocSize, UINT64 allocAddr, UINT64 allocIndex) {
-
-    unsigned int depth = arielStack[thr].size() - 1;
-    BT_PRINTF("Malloc,0x%" PRIx64 ",%lu,%" PRIu64 "\n", allocAddr, allocSize, allocIndex);
-
-    vector<ADDRINT> newMappings;
-    for (vector<StackRecord>::reverse_iterator rit = arielStack[thr].rbegin(); rit != arielStack[thr].rend(); rit++) {
-
-        // Note this only works if app is compiled with debug on
-        if (instPtrsList[thr].find(rit->getInstPtr()) == instPtrsList[thr].end()) {
-            newMappings.push_back(rit->getInstPtr());
-            instPtrsList[thr].insert(rit->getInstPtr());
-        }
-
-        BT_PRINTF("0x%" PRIx64 ",0x%" PRIx64 ",%s", rit->getTarget(), rit->getInstPtr(), ((depth == 0) ? "\n" : ""));
-        depth--;
-    }
-    // Generate any new mappings
-    for (std::vector<ADDRINT>::iterator it = newMappings.begin(); it != newMappings.end(); it++) {
-        string file;
-        int line;
-        PIN_LockClient();
-            PIN_GetSourceLocation(*it, NULL, &line, &file);
-        PIN_UnlockClient();
-        BT_PRINTF("MAP: 0x%" PRIx64 ", %s:%d\n", *it, file.c_str(), line);
-
-    }
-}
-
-/* Instrument traces to pick up calls and returns */
-VOID InstrumentTrace (TRACE trace, VOID* args) {
-    // For checking for jumps into shared libraries
-    RTN rtn = TRACE_Rtn(trace);
-
-    // Check each basic block tail
-    for (BBL bbl = TRACE_BblHead(trace); BBL_Valid(bbl); bbl = BBL_Next(bbl)) {
-        INS tail = BBL_InsTail(bbl);
-
-        if (INS_IsCall(tail)) {
-            if (INS_IsDirectBranchOrCall(tail)) {
-                ADDRINT target = INS_DirectBranchOrCallTargetAddress(tail);
-                INS_InsertPredicatedCall(tail, IPOINT_BEFORE, (AFUNPTR)
-                    ariel_stack_call,
-                    IARG_THREAD_ID,
-                    IARG_REG_VALUE, REG_STACK_PTR,
-                    IARG_ADDRINT, target,
-		    IARG_INST_PTR,
-                    IARG_END);
-            } else if (!RTN_Valid(rtn) || ".plt" != SEC_Name(RTN_Sec(rtn))) {
-                INS_InsertPredicatedCall(tail, IPOINT_BEFORE,
-                    (AFUNPTR) ariel_stack_call,
-                    IARG_THREAD_ID,
-                    IARG_REG_VALUE, REG_STACK_PTR,
-                    IARG_BRANCH_TARGET_ADDR,
-		    IARG_INST_PTR,
-                    IARG_END);
-            }
-
-        }
-        if (RTN_Valid(rtn) && ".plt" == SEC_Name(RTN_Sec(rtn))) {
-            INS_InsertCall(tail, IPOINT_BEFORE, (AFUNPTR)
-                ariel_stack_call,
-                    IARG_THREAD_ID,
-                    IARG_REG_VALUE, REG_STACK_PTR,
-                    IARG_BRANCH_TARGET_ADDR,
-		    IARG_INST_PTR,
-                    IARG_END);
-        }
-        if (INS_IsRet(tail)) {
-            INS_InsertPredicatedCall(tail, IPOINT_BEFORE, (AFUNPTR)
-                    ariel_stack_return,
-                    IARG_THREAD_ID,
-                    IARG_REG_VALUE, REG_STACK_PTR,
-                    IARG_END);
-        }
-    }
-}
-int64_t getSignedExtension(int64_t data, uint32_t size) {
-	assert(size<=65);
-	int64_t new_data;
-	new_data=(data<<(64-size))>>(64-size);
-	return new_data;
-}
+uint64_t randGen() {
+	return rng(); }
 
 
-
-
-/****************************************************************/
-/******************** END SHADOW STACK **************************/
-/****************************************************************/
-
-VOID Fini(INT32 code, VOID* v)
+UINT64 getPhyAddress(UINT64 virtAddr)
 {
-	if(SSTVerbosity.Value() > 0) {
-		std::cout << "SSTARIEL: Execution completed, shutting down." << std::endl;
+	//get physical address
+	const uint64_t pageOffset = virtAddr % pageSize;
+	const uint64_t virtPageStart = virtAddr - pageOffset;
+	int retry_cnt=0;
+	UINT64 l_nextPageAddress;
+
+	std::map<uint64_t, uint64_t>::iterator findEntry = pageTable.find(virtPageStart);
+
+	if (findEntry != pageTable.end()) {
+		l_nextPageAddress = findEntry->second;
+	}
+	else {
+		uint64_t rand_num = randGen();
+		uint64_t nextAddress_tmp = rand_num % memSize;
+		uint64_t offset = nextAddress_tmp % pageSize;
+		l_nextPageAddress = nextAddress_tmp - offset;
+
+		retry_cnt = 0;
+		while (allocatedPage.end() != allocatedPage.find(l_nextPageAddress)) {
+			uint64_t nextAddress_tmp = randGen() % memSize;
+			uint64_t offset = nextAddress_tmp % pageSize;
+			l_nextPageAddress = nextAddress_tmp - offset;
+			if (++retry_cnt > 10000000) {
+				printf("allocated page:%lld, clear the allocated page table\n", pageCount);
+				allocatedPage.clear();
+			}
+			//       printf("same physical address is detected, new addr:%llx\n",l_nextPageAddress);
+		}
+
+		allocatedPage[l_nextPageAddress] = 1;
+		pageTable[virtPageStart] = l_nextPageAddress;
+
+		if (l_nextPageAddress + pageSize > memSize) {
+			fprintf(stderr, "[memController] Out of Address Range!!, nextPageAddress:%lld pageSize:%lld memsize:%lld\n",
+					l_nextPageAddress, pageSize, memSize);
+			fflush(stderr);
+			exit(-1);
+		}
+
+		pageCount++;
+
+		if(enable_output)
+			cnt_allocated_page_trace++;
+	}
+	return l_nextPageAddress;
+}
+
+
+//// Cache //////
+
+
+#define MCACHE_SRRIP_MAX  7
+#define MCACHE_SRRIP_INIT 1
+#define MCACHE_PSEL_MAX    1023
+#define MCACHE_LEADER_SETS  32
+
+#define FALSE 0
+#define TRUE  1
+
+#define HIT   1
+#define MISS  0
+
+
+#define CLOCK_INC_FACTOR 4
+
+#define MAX_UNS 0xffffffff
+
+#define ASSERTM(cond, msg...) if(!(cond) ){ printf(msg); fflush(stdout);} assert(cond);
+#define DBGMSG(cond, msg...) if(cond){ printf(msg); fflush(stdout);}
+
+#define SAT_INC(x,max)   (x<max)? x+1:x
+#define SAT_DEC(x)       (x>0)? x-1:0
+
+
+
+typedef unsigned	    uns;
+typedef unsigned char	    uns8;
+typedef unsigned short	    uns16;
+typedef unsigned	    uns32;
+typedef unsigned long long  uns64;
+typedef short		    int16;
+typedef int		    int32;
+typedef int long long	    int64;
+typedef int		    Generic_Enum;
+
+
+/* Conventions */
+typedef uns64		    Addr;
+typedef uns32		    Binary;
+typedef uns8		    Flag;
+
+typedef uns64               Counter;
+typedef int64               SCounter;
+
+
+typedef struct MCache_Entry {
+    Flag    valid;
+    Flag    dirty;
+    Addr    tag;
+    uns     ripctr;
+    uns64   last_access;
+}MCache_Entry;
+
+
+
+typedef enum MCache_ReplPolicy_Enum {
+    REPL_LRU=0,
+    REPL_RND=1,
+    REPL_SRRIP=2,
+    REPL_DRRIP=3,
+    REPL_FIFO=4,
+    REPL_DIP=5,
+    NUM_REPL_POLICY=6
+} MCache_ReplPolicy;
+
+
+typedef struct MCache{
+    uns sets;
+    uns assocs;
+    MCache_ReplPolicy repl_policy; //0:LRU  1:RND 2:SRRIP
+    uns index_policy; // how to index cache
+
+    Flag *is_leader_p0; // leader SET for D(RR)IP
+    Flag *is_leader_p1; // leader SET for D(RR)IP
+    uns psel;
+
+    MCache_Entry *entries;
+    uns *fifo_ptr; // for fifo replacement (per set)
+    int touched_wayid;
+    int touched_setid;
+    int touched_lineid;
+
+    uns64 s_count; // number of accesses
+    uns64 s_miss; // number of misses
+    uns64 s_evict; // number of evictions
+} MCache;
+
+MCache* cache;
+
+
+////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////
+
+uns mcache_get_index(MCache *c, Addr addr){
+	uns retval;
+
+	switch(c->index_policy){
+		case 0:
+			retval=addr%c->sets;
+			break;
+
+		default:
+			exit(-1);
 	}
 
-		if(similarity_distance>0)
-	{
-		fprintf(stderr,"g_similarity_comp_cnt:%lld", g_similarity_comp_cnt);
-		fprintf(stderr,"g_similarity_incomp_cnt:%lld", g_similarity_incomp_cnt);
-		fprintf(stderr,"accessed_cacheline_num:%lld", g_accessed_cacheline_num);
-		fprintf(stderr,"simularity:%f", (g_similarity_incomp_cnt+g_similarity_comp_cnt)/g_accessed_cacheline_num);
+	return retval;
+}
 
+
+////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////
+
+Flag    mcache_mark_dirty    (MCache *c, Addr addr)
+{
+	Addr  tag  = addr; // full tags
+	uns   set  = mcache_get_index(c,addr);
+	uns   start = set * c->assocs;
+	uns   end   = start + c->assocs;
+	uns   ii;
+
+	for (ii=start; ii<end; ii++){
+		MCache_Entry *entry = &c->entries[ii];
+		if(entry->valid && (entry->tag == tag))
+		{
+			entry->dirty = TRUE;
+			return TRUE;
+		}
 	}
 
-    ArielCommand ac;
-    ac.command = ARIEL_PERFORM_EXIT;
-    ac.instPtr = (uint64_t) 0;
-    tunnel->writeMessage(0, ac);
+	return FALSE;
+}
+////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////
 
-    delete tunnel;
+void mcache_select_leader_sets(MCache *c, uns sets){
+	uns done=0;
+
+	c->is_leader_p0  = (Flag *) calloc (sets, sizeof(Flag));
+	c->is_leader_p1  = (Flag *) calloc (sets, sizeof(Flag));
+
+	while(done <= MCACHE_LEADER_SETS){
+		uns randval=rand()%sets;
+		if( (c->is_leader_p0[randval]==FALSE)&&(c->is_leader_p1[randval]==FALSE)){
+			c->is_leader_p0[randval]=TRUE;
+			done++;
+		}
+	}
+
+	done=0;
+	while(done <= MCACHE_LEADER_SETS){
+		uns randval=rand()%sets;
+		if( (c->is_leader_p0[randval]==FALSE)&&(c->is_leader_p1[randval]==FALSE)){
+			c->is_leader_p1[randval]=TRUE;
+			done++;
+		}
+	}
+}
 
 
-    if(funcProfileLevel > 0) {
-    	FILE* funcProfileOutput = fopen("func.profile", "wt");
+////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////
+Flag mcache_dip_check_lru_update(MCache *c, uns set){
+	Flag update_lru=TRUE;
 
-    	for(std::map<std::string, ArielFunctionRecord*>::iterator funcItr = funcProfile.begin();
-    			funcItr != funcProfile.end(); funcItr++) {
-    		fprintf(funcProfileOutput, "%s %" PRId64 "\n", funcItr->first.c_str(),
-    			funcItr->second->insExecuted);
-    	}
+	if(c->is_leader_p0[set]){
+		if(c->psel<MCACHE_PSEL_MAX){
+			c->psel++;
+		}
+		update_lru=FALSE;
+		if(rand()%100<5) update_lru=TRUE; // BIP
+	}
 
-    	fclose(funcProfileOutput);
-    }
+	if(c->is_leader_p1[set]){
+		if(c->psel){
+			c->psel--;
+		}
+		update_lru=1;
+	}
 
-    // Close backtrace files if needed
-    if (KeepMallocStackTrace.Value() == 1) {
-        fclose(rtnNameMap);
-        for (int i = 0; i < core_count; i++) {
-            if (btfiles[i] != NULL)
-#ifdef HAVE_LIBZ
-                gzclose(btfiles[i]);
-#else
-                fclose(btfiles[i]);
-#endif
-        }
-    }
+	if( (c->is_leader_p0[set]==FALSE)&& (c->is_leader_p1[set]==FALSE)){
+		if(c->psel >= (MCACHE_PSEL_MAX+1)/2){
+			update_lru=1; // policy 1 wins
+		}else{
+			update_lru=FALSE; // policy 0 wins
+			if(rand()%100<5) update_lru=TRUE; // BIP
+		}
+	}
+
+	return update_lru;
+}
+
+////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////
+uns mcache_drrip_get_ripctrval(MCache *c, uns set){
+	uns ripctr_val=MCACHE_SRRIP_INIT;
+
+	if(c->is_leader_p0[set]){
+		if(c->psel<MCACHE_PSEL_MAX){
+			c->psel++;
+		}
+		ripctr_val=0;
+		if(rand()%100<5) ripctr_val=1; // BIP
+	}
+
+	if(c->is_leader_p1[set]){
+		if(c->psel){
+			c->psel--;
+		}
+		ripctr_val=1;
+	}
+
+	if( (c->is_leader_p0[set]==FALSE)&& (c->is_leader_p1[set]==FALSE)){
+		if(c->psel >= (MCACHE_PSEL_MAX+1)/2){
+			ripctr_val=1; // policy 1 wins
+		}else{
+			ripctr_val=0; // policy 0 wins
+			if(rand()%100<5) ripctr_val=1; // BIP
+		}
+	}
+
+
+	return ripctr_val;
+}
+
+
+
+////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////
+
+uns mcache_find_victim_lru (MCache *c,  uns set)
+{
+	uns start = set   * c->assocs;
+	uns end   = start + c->assocs;
+	uns lowest=start;
+	uns ii;
+
+
+	for (ii = start; ii < end; ii++){
+		if (c->entries[ii].last_access < c->entries[lowest].last_access){
+			lowest = ii;
+		}
+	}
+
+	return lowest;
+}
+
+////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////
+
+uns mcache_find_victim_rnd (MCache *c,  uns set)
+{
+	uns start = set   * c->assocs;
+	uns victim = start + rand()%c->assocs;
+
+	return  victim;
+}
+
+
+
+////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////
+
+uns mcache_find_victim_srrip (MCache *c,  uns set)
+{
+	uns start = set   * c->assocs;
+	uns end   = start + c->assocs;
+	uns ii;
+	uns victim = end; // init to impossible
+
+	while(victim == end){
+		for (ii = start; ii < end; ii++){
+			if (c->entries[ii].ripctr == 0){
+				victim = ii;
+				break;
+			}
+		}
+
+		if(victim == end){
+			for (ii = start; ii < end; ii++){
+				c->entries[ii].ripctr--;
+			}
+		}
+	}
+
+	return  victim;
+}
+
+
+////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////
+
+uns mcache_find_victim_fifo (MCache *c,  uns set)
+{
+	uns start = set   * c->assocs;
+	uns retval = start + c->fifo_ptr[set];
+	return retval;
+}
+
+
+////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////
+
+uns mcache_find_victim (MCache *c, uns set)
+{
+	int ii;
+	int start = set   * c->assocs;
+	int end   = start + c->assocs;
+
+	//search for invalid first
+	for (ii = start; ii < end; ii++){
+		if(!c->entries[ii].valid){
+			return ii;
+		}
+	}
+
+
+	switch(c->repl_policy){
+		case REPL_LRU:
+			return mcache_find_victim_lru(c, set);
+		case REPL_RND:
+			return mcache_find_victim_rnd(c, set);
+		case REPL_SRRIP:
+			return mcache_find_victim_srrip(c, set);
+		case REPL_DRRIP:
+			return mcache_find_victim_srrip(c, set);
+		case REPL_FIFO:
+			return mcache_find_victim_fifo(c, set);
+		case REPL_DIP:
+			return mcache_find_victim_lru(c, set);
+		default:
+			assert(0);
+	}
+
+	return -1;
+
+}
+
+
+
+////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////
+
+MCache *mcache_new(uns sets, uns assocs, uns repl_policy )
+{
+	MCache *c = (MCache *) calloc (1, sizeof (MCache));
+	c->sets    = sets;
+	c->assocs  = assocs;
+	c->repl_policy = (MCache_ReplPolicy)repl_policy;
+
+	c->entries  = (MCache_Entry *) calloc (sets * assocs, sizeof(MCache_Entry));
+
+
+	c->fifo_ptr  = (uns *) calloc (sets, sizeof(uns));
+
+	//for drrip or dip
+	mcache_select_leader_sets(c,sets);
+	c->psel=(MCACHE_PSEL_MAX+1)/2;
+
+
+	return c;
+}
+
+bool mcache_access(MCache *c, Addr addr, Flag dirty)
+{
+	Addr  tag  = addr; // full tags
+	uns   set  = mcache_get_index(c,addr);
+	uns   start = set * c->assocs;
+	uns   end   = start + c->assocs;
+	uns   ii;
+
+	c->s_count++;
+
+	for (ii=start; ii<end; ii++){
+		MCache_Entry *entry = &c->entries[ii];
+
+		if(entry->valid && (entry->tag == tag))
+		{
+			entry->last_access  = c->s_count;
+			entry->ripctr       = MCACHE_SRRIP_MAX;
+			c->touched_wayid = (ii-start);
+			c->touched_setid = set;
+			c->touched_lineid = ii;
+			if(dirty==TRUE) //If the operation is a WB then mark it as dirty
+			{
+				mcache_mark_dirty(c,tag);
+			}
+			//printf("find %llx at %d\n",addr, ii);
+			return true;
+		}
+	}
+
+	//even on a miss, we need to know which set was accessed
+	c->touched_wayid = 0;
+	c->touched_setid = set;
+	c->touched_lineid = start;
+
+	c->s_miss++;
+	return false;
+}
+
+////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////
+
+Flag    mcache_probe    (MCache *c, Addr addr)
+{
+	Addr  tag  = addr; // full tags
+	uns   set  = mcache_get_index(c,addr);
+	uns   start = set * c->assocs;
+	uns   end   = start + c->assocs;
+	uns   ii;
+
+	for (ii=start; ii<end; ii++){
+		MCache_Entry *entry = &c->entries[ii];
+		if(entry->valid && (entry->tag == tag))
+		{
+			return TRUE;
+		}
+	}
+
+	return FALSE;
+}
+
+
+////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////
+
+Flag    mcache_invalidate    (MCache *c, Addr addr)
+{
+	Addr  tag  = addr; // full tags
+	uns   set  = mcache_get_index(c,addr);
+	uns   start = set * c->assocs;
+	uns   end   = start + c->assocs;
+	uns   ii;
+
+	for (ii=start; ii<end; ii++){
+		MCache_Entry *entry = &c->entries[ii];
+		if(entry->valid && (entry->tag == tag))
+		{
+			entry->valid = FALSE;
+			return TRUE;
+		}
+	}
+
+	return FALSE;
+}
+
+
+////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////
+
+void    mcache_swap_lines(MCache *c, uns set, uns way_ii, uns way_jj)
+{
+	uns   start = set * c->assocs;
+	uns   loc_ii   = start + way_ii;
+	uns   loc_jj   = start + way_jj;
+
+	MCache_Entry tmp = c->entries[loc_ii];
+	c->entries[loc_ii] = c->entries[loc_jj];
+	c->entries[loc_jj] = tmp;
+
+}
+
+
+
+////////////////////////////////////////////////////////////////////
+
+
+////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////
+
+MCache_Entry mcache_install(MCache *c, Addr addr, Flag dirty)
+{
+	Addr  tag  = addr; // full tags
+	uns   set  = mcache_get_index(c,addr);
+	uns   start = set * c->assocs;
+	uns   end   = start + c->assocs;
+	uns   ii, victim;
+
+	Flag update_lrubits=TRUE;
+
+	MCache_Entry *entry;
+	MCache_Entry evicted_entry;
+
+	for (ii=start; ii<end; ii++){
+		entry = &c->entries[ii];
+		if(entry->valid && (entry->tag == tag)){
+			printf("Installed entry already with addr:%llx present in set:%u\n", addr, set);
+			fflush(stdout);
+			sleep(1);
+			exit(-1);
+		}
+	}
+
+	// find victim and install entry
+
+	victim = mcache_find_victim(c, set);
+	entry = &c->entries[victim];
+	evicted_entry =c->entries[victim];
+	if(entry->valid){
+		c->s_evict++;
+	}
+
+	//udpate DRRIP info and select value of ripctr
+	uns ripctr_val=MCACHE_SRRIP_INIT;
+
+	if(c->repl_policy==REPL_DRRIP){
+		ripctr_val=mcache_drrip_get_ripctrval(c,set);
+	}
+
+	if(c->repl_policy==REPL_DIP){
+		update_lrubits=mcache_dip_check_lru_update(c,set);
+	}
+
+
+	//put new information in
+	entry->tag   = tag;
+	entry->valid = TRUE;
+	if(dirty==TRUE)
+		entry->dirty=TRUE;
+	else
+		entry->dirty = FALSE;
+	entry->ripctr  = ripctr_val;
+
+	if(update_lrubits){
+		entry->last_access  = c->s_count;
+	}
+
+
+
+	c->fifo_ptr[set] = (c->fifo_ptr[set]+1)%c->assocs; // fifo update
+
+	c->touched_lineid=victim;
+	c->touched_setid=set;
+	c->touched_wayid=victim-(set*c->assocs);
+
+	return evicted_entry;
+}
+
+
+
+
+UINT64 cache_miss_cnt=0;
+UINT64 cache_access_cnt=0;
+bool isHit=false;
+VOID CacheAccess(UINT64 ADDR)
+{
+	UINT64 paddr = getPhyAddress(ADDR);
+	UINT64 cache_addr = paddr >> (int)page_offset;
+
+	isHit=mcache_access(cache,cache_addr,0);
+
+	if(!isHit) {
+		mcache_install(cache, cache_addr, 0);
+		cache_miss_cnt++;
+	}
+	cache_access_cnt++;
+
+	if(accessed_page.find(paddr)==accessed_page.end())
+		accessed_page[paddr]=0;
+	else
+		accessed_page[paddr]++;
+
+	if(enable_output){
+		cnt_cache_access_trace++;
+		if(!isHit)
+			cnt_cache_miss_trace++;
+	}
+	//printf("addr:%llx paddr:%llx tag:%llx isHit:%d\n",ADDR,paddr,tag,isHit==true?1:0);
+	//fflush(stdout);
+}
+
+
+VOID RecordStatistics() {
+	float miss_rate = (float) ((double) cache_miss_cnt / (double) cache_access_cnt);
+/*	float all_size16_rate = (float) ((double) cnt_page_all16 / (double) cache_access_cnt);
+	float all_size32_rate = (float) ((double) cnt_page_all32 / (double) cache_access_cnt);
+	float all_size48_rate = (float) ((double) cnt_page_all48 / (double) cache_access_cnt);
+
+	float cl_size16_rate = (float) ((double) cnt_cl_size16 / (double) cache_access_cnt);
+	float cl_size32_rate = (float) ((double) cnt_cl_size32 / (double) cache_access_cnt);
+	float cl_size48_rate = (float) ((double) cnt_cl_size48 / (double) cache_access_cnt);
+	fprintf(outputFile, "%.4f,%lld,%lld,%.4f,%.4f,%.4f,%.4f,%.4f,%.4f\n", miss_rate, cache_access_cnt, pageCount, cl_size16_rate,
+			cl_size32_rate, cl_size48_rate, all_size16_rate, all_size32_rate, all_size48_rate);*/
+//	fprintf(outputFile,"%f,%lld,%lld\n", miss_rate, cache_access_cnt,pageCount);
+//	printf("%lld,%.4f,%lld,%lld,%lld\n", inst_cnt,miss_rate,cache_miss_cnt,cache_access_cnt,pageCount);
+	fprintf(outputFile,"%lld,%.4f,%lld,%lld,%lld,%lld\n", inst_cnt,miss_rate,cache_miss_cnt,cache_access_cnt,pageCount,accessed_page.size());
+
+//	fflush(stdout);
+	fflush(outputFile);
+	cache_miss_cnt = 0;
+	cache_access_cnt = 0;
+	accessed_page.clear();
+/*	cnt_page_all16 = 0;
+	cnt_page_all32 = 0;
+	cnt_page_all48 = 0;
+	cnt_cl_size16 = 0;
+	cnt_cl_size32 = 0;
+	cnt_cl_size48 = 0;*/
 }
 
 
@@ -673,146 +1096,341 @@ VOID RecordAddrSize(THREADID thr, VOID* raddr, UINT32 rsize, VOID* waddr, UINT32
 }
 
 
+/****************************************************************/
+/********************** SHADOW STACK ****************************/
+/* Used by 'sieve' to associate mallocs to the code they        */
+/* are called from. Turn on by turning on malloc_stack_trace    */
+/****************************************************************/
+/****************************************************************/
+
+// Per-thread malloc file -> we don't have to lock the file this way
+// Compress it if possible
+#ifdef HAVE_LIBZ
+std::vector<gzFile> btfiles;
+#else
+std::vector<FILE*> btfiles;
+#endif
+
+UINT64 mallocIndex;
+FILE * rtnNameMap;
+/* This is a record for each function call */
+class StackRecord {
+private:
+	ADDRINT stackPtr;
+	ADDRINT target;
+	ADDRINT instPtr;
+public:
+	StackRecord(ADDRINT sp, ADDRINT targ, ADDRINT ip) : stackPtr(sp), target(targ), instPtr(ip) {}
+	ADDRINT getStackPtr() const { return stackPtr; }
+	ADDRINT getTarget() {return target;}
+	ADDRINT getInstPtr() { return instPtr; }
+};
+
+
+std::vector<std::vector<StackRecord> > arielStack; // Per-thread stacks
+
+/* Instrumentation function to be called on function calls */
+VOID ariel_stack_call(THREADID thr, ADDRINT stackPtr, ADDRINT target, ADDRINT ip) {
+	// Handle longjmp
+	while (arielStack[thr].size() > 0 && stackPtr >= arielStack[thr].back().getStackPtr()) {
+		//fprintf(btfiles[thr], "RET ON CALL %s (0x%" PRIx64 ", 0x%" PRIx64 ")\n", RTN_FindNameByAddress(arielStack[thr].back().getTarget()).c_str(), arielStack[thr].back().getInstPtr(), arielStack[thr].back().getStackPtr());
+		arielStack[thr].pop_back();
+	}
+	// Add new record
+	arielStack[thr].push_back(StackRecord(stackPtr, target, ip));
+	//fprintf(btfiles[thr], "CALL %s (0x%" PRIx64 ", 0x%" PRIx64 ")\n", RTN_FindNameByAddress(target).c_str(), ip, stackPtr);
+}
+
+/* Instrumentation function to be called on function returns */
+VOID ariel_stack_return(THREADID thr, ADDRINT stackPtr) {
+	// Handle longjmp
+	while (arielStack[thr].size() > 0 && stackPtr >= arielStack[thr].back().getStackPtr()) {
+		//fprintf(btfiles[thr], "RET ON RET %s (0x%" PRIx64 ", 0x%" PRIx64 ")\n", RTN_FindNameByAddress(arielStack[thr].back().getTarget()).c_str(), arielStack[thr].back().getInstPtr(), arielStack[thr].back().getStackPtr());
+		arielStack[thr].pop_back();
+	}
+	// Remove last record
+	//fprintf(btfiles[thr], "RET %s (0x%" PRIx64 ", 0x%" PRIx64 ")\n", RTN_FindNameByAddress(arielStack[thr].back().getTarget()).c_str(), arielStack[thr].back().getInstPtr(), arielStack[thr].back().getStackPtr());
+	arielStack[thr].pop_back();
+}
+
+/* Function to print stack, called by malloc instrumentation code */
+VOID ariel_print_stack(UINT32 thr, UINT64 allocSize, UINT64 allocAddr, UINT64 allocIndex) {
+
+	unsigned int depth = arielStack[thr].size() - 1;
+	BT_PRINTF("Malloc,0x%" PRIx64 ",%lu,%" PRIu64 "\n", allocAddr, allocSize, allocIndex);
+
+	vector<ADDRINT> newMappings;
+	for (vector<StackRecord>::reverse_iterator rit = arielStack[thr].rbegin(); rit != arielStack[thr].rend(); rit++) {
+
+		// Note this only works if app is compiled with debug on
+		if (instPtrsList[thr].find(rit->getInstPtr()) == instPtrsList[thr].end()) {
+			newMappings.push_back(rit->getInstPtr());
+			instPtrsList[thr].insert(rit->getInstPtr());
+		}
+
+		BT_PRINTF("0x%" PRIx64 ",0x%" PRIx64 ",%s", rit->getTarget(), rit->getInstPtr(), ((depth == 0) ? "\n" : ""));
+		depth--;
+	}
+	// Generate any new mappings
+	for (std::vector<ADDRINT>::iterator it = newMappings.begin(); it != newMappings.end(); it++) {
+		string file;
+		int line;
+		PIN_LockClient();
+		PIN_GetSourceLocation(*it, NULL, &line, &file);
+		PIN_UnlockClient();
+		BT_PRINTF("MAP: 0x%" PRIx64 ", %s:%d\n", *it, file.c_str(), line);
+
+	}
+}
+
+/* Instrument traces to pick up calls and returns */
+VOID InstrumentTrace (TRACE trace, VOID* args) {
+	// For checking for jumps into shared libraries
+	RTN rtn = TRACE_Rtn(trace);
+
+	// Check each basic block tail
+	for (BBL bbl = TRACE_BblHead(trace); BBL_Valid(bbl); bbl = BBL_Next(bbl)) {
+		INS tail = BBL_InsTail(bbl);
+
+		if (INS_IsCall(tail)) {
+			if (INS_IsDirectBranchOrCall(tail)) {
+				ADDRINT target = INS_DirectBranchOrCallTargetAddress(tail);
+				INS_InsertPredicatedCall(tail, IPOINT_BEFORE, (AFUNPTR)
+												 ariel_stack_call,
+										 IARG_THREAD_ID,
+										 IARG_REG_VALUE, REG_STACK_PTR,
+										 IARG_ADDRINT, target,
+										 IARG_INST_PTR,
+										 IARG_END);
+			} else if (!RTN_Valid(rtn) || ".plt" != SEC_Name(RTN_Sec(rtn))) {
+				INS_InsertPredicatedCall(tail, IPOINT_BEFORE,
+										 (AFUNPTR) ariel_stack_call,
+										 IARG_THREAD_ID,
+										 IARG_REG_VALUE, REG_STACK_PTR,
+										 IARG_BRANCH_TARGET_ADDR,
+										 IARG_INST_PTR,
+										 IARG_END);
+			}
+
+		}
+		if (RTN_Valid(rtn) && ".plt" == SEC_Name(RTN_Sec(rtn))) {
+			INS_InsertCall(tail, IPOINT_BEFORE, (AFUNPTR)
+								   ariel_stack_call,
+						   IARG_THREAD_ID,
+						   IARG_REG_VALUE, REG_STACK_PTR,
+						   IARG_BRANCH_TARGET_ADDR,
+						   IARG_INST_PTR,
+						   IARG_END);
+		}
+		if (INS_IsRet(tail)) {
+			INS_InsertPredicatedCall(tail, IPOINT_BEFORE, (AFUNPTR)
+											 ariel_stack_return,
+									 IARG_THREAD_ID,
+									 IARG_REG_VALUE, REG_STACK_PTR,
+									 IARG_END);
+		}
+	}
+}
+
+/****************************************************************/
+/******************** END SHADOW STACK **************************/
+/****************************************************************/
+
+
+VOID recordCompression(UINT64 addr)
+{
+	//get physical address
+	const uint64_t pageOffset = addr % pageSize;
+	const uint64_t virtPageStart = addr - pageOffset;
+	int cl_size = 64;
+	int num_cl_in_page = pageSize/cl_size;
+	int cmp_size=0;
+	int tmp_cnt_cl_size16=0;
+	int tmp_cnt_cl_size32=0;
+	int tmp_cnt_cl_size48=0;
+
+	//todo
+	uint64_t cl_comp_size= 0 ;
+	//getCompressedSize(addr);
+	cmp_size=cl_comp_size;
+
+	if(cl_comp_size<128) {
+		cnt_cl_size16++;
+	}
+
+	if(cl_comp_size<256) {
+		cnt_cl_size32++;
+	}
+
+	if(cl_comp_size<384) {
+		cnt_cl_size48++;
+	}
+
+	for(int i=0; i<num_cl_in_page;i++)
+	{
+		//todo
+		uint64_t cl_addr=addr+i*cl_size;
+		//cl_comp_size= getCompressedSize(cl_addr);
+
+
+		if(cl_comp_size<128) {
+			tmp_cnt_cl_size16++;
+		}
+
+		if(cl_comp_size<256) {
+			tmp_cnt_cl_size32++;
+		}
+
+		if(cl_comp_size<384) {
+			tmp_cnt_cl_size48++;
+		}
+	}
+	if(tmp_cnt_cl_size16==num_cl_in_page)
+		cnt_page_all16++;
+	else if(tmp_cnt_cl_size32==num_cl_in_page)
+		cnt_page_all32++;
+	else if(tmp_cnt_cl_size48==num_cl_in_page)
+		cnt_page_all48++;
+	else
+		cnt_page_all64++;
+
+	if(inst_cnt%10000000 ==0)
+		printf("c_addr: %llx p_start: %llx c_comp_size:%lld, c_size16:%lld,c_size32:%lld,c_size48:%lld,p_size16:%lld,p_size32:%lld,p_size48:%lld,p_size64:%lld\n",
+			   addr,virtPageStart,cmp_size,cnt_cl_size16,cnt_cl_size32,cnt_cl_size48,cnt_page_all16,cnt_page_all32,cnt_page_all48,cnt_page_all64);
+}
+
+VOID PrintFiniMessage()
+{
+	std::cout<<"cache access:"<<cache->s_count<<std::endl;
+	std::cout<<"cache miss:"<<cache->s_miss<<std::endl;
+	std::cout<<"cache miss rate:"<<(double)cache->s_miss/(double)cache->s_count<<std::endl;
+	std::cout<<"allocated pages:"<<pageTable.size()<<std::endl;
+
+	std::cout<<"cache access at trace:"<<cnt_cache_access_trace<<std::endl;
+	std::cout<<"cache miss at trace:"<<cnt_cache_miss_trace<<std::endl;
+	std::cout<<"cache miss rate at trace:"<<(double)cnt_cache_miss_trace/(double)cnt_cache_access_trace<<std::endl;
+	std::cout<<"allocated pages:"<<cnt_allocated_page_trace<<std::endl;
+	fclose(outputFile);
+}
+
 
 
 
 VOID WriteInstructionRead(UINT64 addr, UINT32 size, THREADID thr, ADDRINT ip,
 	UINT32 instClass, UINT32 simdOpWidth) {
 
-	inst_cnt++;
+    if(thread_instr_id[thr].ip!=ip)
+    {
+        fprintf(stderr,"ip is mismatch\n");
+        exit(-1);
+    }
 
-	if(inst_cnt<warmup_insts) {
-		enable_output = false;
-		//enable_output = true;
-	}
-	else if(inst_cnt==warmup_insts) {
-		fprintf(stderr,"warmup inst_cnt[%lld]\n", inst_cnt);
-		enable_output = true;
-	}else if(inst_cnt>warmup_insts)
-	{
+    ArielCommand ac;
 
-		enable_output = true;
-	}
-
-
-        if(thread_instr_id[thr].ip!=ip)
-        {
-            fprintf(stderr,"ip is mismatch\n");
-            exit(-1);
-        }
+    ac.command = ARIEL_PERFORM_READ;
+    ac.instPtr = (uint64_t) ip;
+    ac.inst.addr = addr;
+    ac.inst.size = size;
+    ac.inst.instClass = instClass;
+    ac.inst.simdElemCount = simdOpWidth;
 
 
-        ArielCommand ac;
-
-
-		ac.command = ARIEL_PERFORM_READ;
-		ac.instPtr = (uint64_t) ip;
-        ac.inst.addr = addr;
-        ac.inst.size = size;
-		ac.inst.instClass = instClass;
-		ac.inst.simdElemCount = simdOpWidth;
-
-
-        //assume that cache line size is 64B
-
-		if(content_copy_en) {
-			uint64_t *data = (uint64_t *) malloc(sizeof(uint64_t) * 8);
-			ReadCacheLine(addr, data);
-			for (int i = 0; i < 8; i++) {
-				ac.inst.data[i] = *(data + i);
+    //assume that cache line size is 64B
+    if(content_copy_en) {
+        uint64_t *data = (uint64_t *) malloc(sizeof(uint64_t) * 8);
+        ReadCacheLine(addr, data);
+        for (int i = 0; i < 8; i++) {
+            ac.inst.data[i] = *(data + i);
 #ifdef COMP_DEBUG
-				fprintf(stderr,"[PINTOOL] [%d] read addr:%llx data:%llx ac.inst.data:%llx\n", i, addr, *(data+i), ac.inst.data[i]);
+            fprintf(stderr,"[PINTOOL] [%d] read addr:%llx data:%llx ac.inst.data:%llx\n", i, addr, *(data+i), ac.inst.data[i]);
 #endif
 
-			}
-			//if(similarity_distance>0)
-			//	checkSimilarity((uint64_t*)ac.inst.data,ac.inst.addr);
-			free(data);
-		}
-
-
-        //std::cout<<"addr: 0x"<<std::hex<<addr64
-        //    <<"data: 0x"<<data<<" "
-        //    <<"copied size: "<<copied_size<<std::endl;
-
-
-
-        tunnel->writeMessage(thr, ac);
+        }
+        free(data);
+    }
+	if(tunnel)
+    	tunnel->writeMessage(thr, ac);
 }
 
 VOID WriteInstructionWrite(UINT64 addr, UINT32 size, THREADID thr, ADDRINT ip,
 	UINT32 instClass, UINT32 simdOpWidth) {
 
-	inst_cnt++;
+    if(thread_instr_id[thr].ip!=ip)
+    {
+        fprintf(stderr,"ip is mismatch\n");
+        exit(-1);
+    }
+
+    if(thread_instr_id[thr].ip!=ip){
+        fprintf(stderr,"ip is mismatch\n");
+        exit(-1);
+    }
 
 
-	if(inst_cnt<warmup_insts) {
-		enable_output = false;
-		//enable_output=true;
-	}
-	else if(inst_cnt==warmup_insts) {
-		fprintf(stderr,"warmup inst_cnt[%lld]\n", inst_cnt);
-		enable_output = true;
-	}else if(inst_cnt>warmup_insts)
-	{
-		enable_output = true;
-	}
+    ArielCommand ac;
 
+    ac.command = ARIEL_PERFORM_WRITE;
+    ac.instPtr = (uint64_t) ip;
+    ac.inst.addr = addr;
+    ac.inst.size = size;
+    ac.inst.instClass = instClass;
+    ac.inst.simdElemCount = simdOpWidth;
 
-        if(thread_instr_id[thr].ip!=ip)
-        {
-            fprintf(stderr,"ip is mismatch\n");
-            exit(-1);
+    if(content_copy_en) {
+        //assume that cache line size is 64B
+        uint64_t *data = (uint64_t *) malloc(sizeof(uint64_t) * 8);
+        ReadCacheLine(addr, data);
+        for (int i = 0; i < 8; i++) {
+            ac.inst.data[i] = *(data + i);
         }
+        free(data);
+    }
 
-
-        if(thread_instr_id[thr].ip!=ip){
-            fprintf(stderr,"ip is mismatch\n");
-            exit(-1);
-        }
-
-
-        ArielCommand ac;
-
-        ac.command = ARIEL_PERFORM_WRITE;
-	    ac.instPtr = (uint64_t) ip;
-        ac.inst.addr = addr;
-        ac.inst.size = size;
-	    ac.inst.instClass = instClass;
-        ac.inst.simdElemCount = simdOpWidth;
-
-		if(content_copy_en) {
-			//assume that cache line size is 64B
-			uint64_t *data = (uint64_t *) malloc(sizeof(uint64_t) * 8);
-			ReadCacheLine(addr, data);
-			for (int i = 0; i < 8; i++) {
-				ac.inst.data[i] = *(data + i);
-//#ifdef COMP_DEBUG
-//            fprintf(stderr,"[PINTOOL] [%d] write addr:%llx data:%llx ac.inst.data:%llx\n", i, addr, *(data+i), ac.inst.data[i]);
-//#endif
-
-			}
-
-			//checkSimilarity(data, addr);
-			free(data);
-		}
-
-        tunnel->writeMessage(thr, ac);
+	if(tunnel)
+    	tunnel->writeMessage(thr, ac);
 }
 
 VOID WriteStartInstructionMarker(UINT32 thr, ADDRINT ip) {
     	ArielCommand ac;
     	ac.command = ARIEL_START_INSTRUCTION;
     	ac.instPtr = (uint64_t) ip;
-    	tunnel->writeMessage(thr, ac);
+
+	if(tunnel)
+		tunnel->writeMessage(thr, ac);
 }
 
 VOID WriteEndInstructionMarker(UINT32 thr, ADDRINT ip) {
     	ArielCommand ac;
     	ac.command = ARIEL_END_INSTRUCTION;
     	ac.instPtr = (uint64_t) ip;
-    	tunnel->writeMessage(thr, ac);
+
+	if(tunnel)
+		tunnel->writeMessage(thr, ac);
 }
+
+VOID CycleTick()
+{
+ 	inst_cnt++;
+	if(profilingMode && inst_cnt%recordInterval==0) {
+		RecordStatistics();
+	}
+
+	if(inst_cnt<warmup_insts) {
+		enable_output = false;
+	}
+	else if(inst_cnt==warmup_insts) {
+		fprintf(stderr,"warmup inst_cnt[%lld]\n", inst_cnt);
+		enable_output = true;
+	}else if(inst_cnt>warmup_insts)
+	{
+		enable_output = true;
+	}
+
+	//for sst mode, print final message at this point
+	if(inst_cnt==(warmup_insts+max_insts))
+		PrintFiniMessage();
+}
+
 
 VOID WriteInstructionReadWrite(THREADID thr, ADDRINT ip, UINT32 instClass,
 	UINT32 simdOpWidth ) {
@@ -821,6 +1439,14 @@ VOID WriteInstructionReadWrite(THREADID thr, ADDRINT ip, UINT32 instClass,
         const uint32_t readSize=(uint32_t) thread_instr_id[thr].rsize;
         const uint64_t writeAddr=(uint64_t) thread_instr_id[thr].waddr;
         const uint32_t writeSize=(uint32_t) thread_instr_id[thr].wsize;
+
+	CycleTick();
+	if(profilingMode || enable_output) {
+		CacheAccess(readAddr);
+		CacheAccess(writeAddr);
+//		recordCompression(readAddr);
+//		recordCompression(writeAddr);
+	}
 	if(enable_output) {
 		if(thr < core_count) {
 			WriteStartInstructionMarker( thr, ip );
@@ -835,39 +1461,35 @@ VOID WriteInstructionReadOnly(THREADID thr, ADDRINT ip,
 	UINT32 instClass, UINT32 simdOpWidth) {
         const uint64_t readAddr=(uint64_t) thread_instr_id[thr].raddr;
         const uint32_t readSize=(uint32_t) thread_instr_id[thr].rsize;
-       
-        if(enable_output) {
-		if(thr < core_count) {
-			WriteStartInstructionMarker(thr, ip);
-			WriteInstructionRead(  readAddr,  readSize,  thr, ip, instClass, simdOpWidth );
-			WriteEndInstructionMarker(thr, ip);
+
+		CycleTick();
+		if(profilingMode||enable_output) {
+			CacheAccess(readAddr);
+//			recordCompression(readAddr);
 		}
-	}
+        if(enable_output) {
+            if(thr < core_count) {
+                WriteStartInstructionMarker(thr, ip);
+                WriteInstructionRead(  readAddr,  readSize,  thr, ip, instClass, simdOpWidth );
+                WriteEndInstructionMarker(thr, ip);
+            }
+		}
 
 }
 
 VOID WriteNoOp(THREADID thr, ADDRINT ip) {
-	inst_cnt++;
-
-	if(inst_cnt<warmup_insts) {
-		enable_output = false;
-	}
-	else if(inst_cnt==warmup_insts) {
-		fprintf(stderr,"warmup inst_cnt[%lld]\n", inst_cnt);
-		enable_output = true;
-	}else if(inst_cnt>warmup_insts)
-	{
-		enable_output = true;
-	}
-
+	CycleTick();
 	if(enable_output) {
 		if(thr < core_count) {
             		ArielCommand ac;
             		ac.command = ARIEL_NOOP;
             		ac.instPtr = (uint64_t) ip;
-            		tunnel->writeMessage(thr, ac);
+
+			if(tunnel)
+				tunnel->writeMessage(thr, ac);
 		}
 	}
+
 }
 
 VOID WriteInstructionWriteOnly(THREADID thr, ADDRINT ip,
@@ -875,7 +1497,11 @@ VOID WriteInstructionWriteOnly(THREADID thr, ADDRINT ip,
          const uint64_t writeAddr=(uint64_t) thread_instr_id[thr].waddr;
         const uint32_t writeSize=(uint32_t) thread_instr_id[thr].wsize;
        
-
+	CycleTick();
+	if(profilingMode||enable_output) {
+		CacheAccess(writeAddr);
+	//	recordCompression(writeAddr);
+	}
 	if(enable_output) {
 		if(thr < core_count) {
                         WriteStartInstructionMarker(thr, ip);
@@ -1078,13 +1704,16 @@ void mapped_ariel_enable() {
 }
 
 uint64_t mapped_ariel_cycles() {
-    return tunnel->getCycles();
+	if(tunnel)
+    	return tunnel->getCycles();
 }
 
 int mapped_gettimeofday(struct timeval *tp, void *tzp) {
     if ( tp == NULL ) { errno = EINVAL ; return -1; }
 
-    tunnel->getTime(tp);
+
+	if(tunnel)
+		tunnel->getTime(tp);
     return 0;
 }
 
@@ -1093,7 +1722,9 @@ void mapped_ariel_output_stats() {
     ArielCommand ac;
     ac.command = ARIEL_OUTPUT_STATS;
     ac.instPtr = (uint64_t) 0;
-    tunnel->writeMessage(thr, ac);
+
+	if(tunnel)
+		tunnel->writeMessage(thr, ac);
 }
 
 // same effect as mapped_ariel_output_stats(), but it also sends a user-defined reference number back
@@ -1102,7 +1733,9 @@ void mapped_ariel_output_stats_buoy(uint64_t marker) {
     ArielCommand ac;
     ac.command = ARIEL_OUTPUT_STATS;
     ac.instPtr = (uint64_t) marker; //user the instruction pointer slot to send the marker number
-    tunnel->writeMessage(thr, ac);
+
+	if(tunnel)
+		tunnel->writeMessage(thr, ac);
 }
 
 #if ! defined(__APPLE__)
@@ -1145,7 +1778,8 @@ int ariel_mlm_memcpy(void* dest, void* source, size_t size) {
     ac.dma_start.dest = ariel_dest;
     ac.dma_start.len = length;
 
-    tunnel->writeMessage(thr, ac);
+	if(tunnel)
+    	tunnel->writeMessage(thr, ac);
 
 #ifdef ARIEL_DEBUG
 	fprintf(stderr, "Done with ariel memcpy.\n");
@@ -1171,8 +1805,11 @@ void ariel_mlm_set_pool(int new_pool) {
 
     ArielCommand ac;
     ac.command = ARIEL_SWITCH_POOL;
-    ac.switchPool.pool = newDefaultPool;
-    tunnel->writeMessage(thr, ac);
+	ac.switchPool.pool = newDefaultPool;
+
+
+	if(tunnel)
+		tunnel->writeMessage(thr, ac);
 
 	// Keep track of the default pool
 	default_pool = (UINT32) new_pool;
@@ -1221,7 +1858,8 @@ void* ariel_mlm_malloc(size_t size, int level) {
         ac.mlm_map.alloc_level = allocationLevel;
     }
 
-    tunnel->writeMessage(thr, ac);
+	if(tunnel)
+    	tunnel->writeMessage(thr, ac);
 
 #ifdef ARIEL_DEBUG
     fprintf(stderr, "%u: Ariel mlm_malloc call allocates data at address: 0x%llx\n",
@@ -1265,7 +1903,9 @@ void ariel_mlm_free(void* ptr) {
         ArielCommand ac;
         ac.command = ARIEL_ISSUE_TLM_FREE;
         ac.mlm_free.vaddr = virtAddr;
-        tunnel->writeMessage(thr, ac);
+
+		if(tunnel)
+			tunnel->writeMessage(thr, ac);
 
 	} else {
 		fprintf(stderr, "ARIEL: Call to free in Ariel did not find a matching local allocation, this memory will be leaked.\n");
@@ -1310,7 +1950,9 @@ VOID ariel_postmalloc_instrument(ADDRINT allocLocation) {
         } else {
             ac.mlm_map.alloc_level = allocationLevel;
         }
-        tunnel->writeMessage(thr, ac);
+
+		if(tunnel)
+			tunnel->writeMessage(thr, ac);
         
     	/*printf("ARIEL: Created a malloc of size: %" PRIu64 " in Ariel\n",
          * (UINT64) allocationLength);*/
@@ -1326,7 +1968,9 @@ VOID ariel_postfree_instrument(ADDRINT allocLocation) {
     ArielCommand ac;
     ac.command = ARIEL_ISSUE_TLM_FREE;
     ac.mlm_free.vaddr = virtAddr;
-    tunnel->writeMessage(thr, ac);
+
+	if(tunnel)
+		tunnel->writeMessage(thr, ac);
 }
 
 VOID InstrumentRoutine(RTN rtn, VOID* args) {
@@ -1423,6 +2067,61 @@ VOID InstrumentRoutine(RTN rtn, VOID* args) {
 }
 
 
+VOID Fini(INT32 code, VOID* v)
+{
+	if(SSTVerbosity.Value() > 0) {
+		std::cout << "SSTARIEL: Execution completed, shutting down." << std::endl;
+	}
+
+	if(similarity_distance>0)
+	{
+		fprintf(stderr,"g_similarity_comp_cnt:%lld", g_similarity_comp_cnt);
+		fprintf(stderr,"g_similarity_incomp_cnt:%lld", g_similarity_incomp_cnt);
+		fprintf(stderr,"accessed_cacheline_num:%lld", g_accessed_cacheline_num);
+		fprintf(stderr,"simularity:%f", (g_similarity_incomp_cnt+g_similarity_comp_cnt)/g_accessed_cacheline_num);
+
+	}
+
+
+	ArielCommand ac;
+	ac.command = ARIEL_PERFORM_EXIT;
+	ac.instPtr = (uint64_t) 0;
+
+	if(tunnel) {
+		tunnel->writeMessage(0, ac);
+		delete tunnel;
+	}
+
+
+	if(funcProfileLevel > 0) {
+		FILE* funcProfileOutput = fopen("func.profile", "wt");
+
+		for(std::map<std::string, ArielFunctionRecord*>::iterator funcItr = funcProfile.begin();
+			funcItr != funcProfile.end(); funcItr++) {
+			fprintf(funcProfileOutput, "%s %" PRId64 "\n", funcItr->first.c_str(),
+					funcItr->second->insExecuted);
+		}
+
+		fclose(funcProfileOutput);
+	}
+
+	// Close backtrace files if needed
+	if (KeepMallocStackTrace.Value() == 1) {
+		fclose(rtnNameMap);
+		for (int i = 0; i < core_count; i++) {
+			if (btfiles[i] != NULL)
+#ifdef HAVE_LIBZ
+				gzclose(btfiles[i]);
+#else
+			fclose(btfiles[i]);
+#endif
+		}
+	}
+
+	PrintFiniMessage();
+
+}
+
 /*(===================================================================== */
 /* Print Help Message                                                    */
 /* ===================================================================== */
@@ -1433,6 +2132,7 @@ INT32 Usage()
               + KNOB_BASE::StringKnobSummary() + "\n");
     return -1;
 }
+
 
 /* ===================================================================== */
 /* Main                                                                  */
@@ -1449,6 +2149,29 @@ int main(int argc, char *argv[])
 
     PIN_InitLock(&mainLock);
     PIN_InitLock(&mallocIndexLock);
+
+	//    enable_memcomp = MemCompProfile.value();
+	//   memcomp_tracefile = MemCompTraceName();
+	//  memcomp_interval = MemCompTraceInterval();
+	warmup_insts = WarmupInstructions.Value();
+	max_insts = MaxInstructions.Value();
+	similarity_distance = SimilarityDistance.Value();
+
+	profilingMode = ProfilingMode.Value();
+	cache_sets=CacheSets.Value();
+	cache_ways=CacheWays.Value();
+
+	cache_repl_policy=CacheReplPolicy.Value();
+	cache=(MCache*) mcache_new(cache_sets,cache_ways,cache_repl_policy);
+	std::string profile_file=MemProfileName.Value();
+	if(profile_file!="none") {
+		outputFile = fopen(profile_file.c_str(), "w");
+		profile_file_out_en=true;
+	}
+	std::cout<<"cache_sets: "<<cache_sets<<std::endl;
+	std::cout<<"cache_ways: "<<cache_ways<<std::endl;
+	std::cout<<"profiling mode: "<<profilingMode<<std::endl;
+	std::cout<<"warmup_insts: "<<warmup_insts<<std::endl;
 
     if(SSTVerbosity.Value() > 0) {
         std::cout << "SSTARIEL: Loading Ariel Tool to connect to SST on pipe: " <<
@@ -1478,11 +2201,13 @@ int main(int argc, char *argv[])
 
     core_count = MaxCoreCount.Value();
 
-    tunnel = new ArielTunnel(SSTNamedPipe.Value());
+
+	if(profilingMode==false)
+    	tunnel = new ArielTunnel(SSTNamedPipe.Value());
+
     lastMallocSize = (UINT64*) malloc(sizeof(UINT64) * core_count);
     lastMallocLoc = (UINT64*) malloc(sizeof(UINT64) * core_count);
     mallocIndex = 0;
-
     if (KeepMallocStackTrace.Value() == 1) {
         arielStack.resize(core_count);  // Need core_count stacks
         rtnNameMap = fopen("routine_name_map.txt", "wt");
@@ -1531,13 +2256,7 @@ int main(int argc, char *argv[])
 		enable_output = true;
     }
 
-//    enable_memcomp = MemCompProfile.value();
- //   memcomp_tracefile = MemCompTraceName();
-  //  memcomp_interval = MemCompTraceInterval();
-    warmup_insts = WarmupInstructions.Value();
-	similarity_distance = SimilarityDistance.Value();
 
-	std::cout<<"warmup_insts: "<<warmup_insts<<std::endl;
 
     INS_AddInstrumentFunction(InstrumentInstruction, 0);
     RTN_AddInstrumentFunction(InstrumentRoutine, 0);
@@ -1547,10 +2266,9 @@ int main(int argc, char *argv[])
         TRACE_AddInstrumentFunction(InstrumentTrace, 0);
 
 
-    	int max_thread_count = 16;
+	int max_thread_count = 16;
 
 	posix_memalign((void**) &thread_instr_id, 64, sizeof(threadRecord) * max_thread_count);
-
 
     fprintf(stderr, "ARIEL: Starting program.\n");
     fflush(stdout);
@@ -1558,4 +2276,5 @@ int main(int argc, char *argv[])
 
     return 0;
 }
+
 

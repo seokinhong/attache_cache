@@ -35,45 +35,31 @@
 #include <bitset>
 
 
-#define MCACHE_SRRIP_MAX  7
-#define MCACHE_SRRIP_INIT 1
-#define MCACHE_PSEL_MAX    1023
-#define MCACHE_LEADER_SETS  32
-
 using namespace std;
 using namespace SST;
 using namespace SST::n_Bank;
 using namespace SST::MemHierarchy;
 
 c_Cache::c_Cache(ComponentId_t x_id, Params &params):Component(x_id) {
-    //*------ get parameters ----*//
+
     bool l_found=false;
 
-    m_simCycle=0;
-
-    int verbosity = params.find<int>("verbose", 0);
-    output = new SST::Output("CramSim.Cache[@f:@l:@p] ",
-                             verbosity, 0, SST::Output::STDOUT);
-
-    std::string l_clockFreqStr = (std::string)params.find<std::string>("ClockFreq", "1GHz", l_found);
-    enableAllHit = (bool)params.find<bool>("enableAllHit",false);
+    //set verbose output
+    int verbosity               =   params.find<int>("verbose", 0);
+    output                      =   new SST::Output("CramSim.Cache[@f:@l:@p] ", verbosity, 0, SST::Output::STDOUT);
 
     //set our clock
-    registerClock(l_clockFreqStr,
-                  new Clock::Handler<c_Cache>(this, &c_Cache::clockTic));
+    std::string l_clockFreqStr  =   (std::string)params.find<std::string>("ClockFreq", "1GHz", l_found);
+    registerClock(l_clockFreqStr, new Clock::Handler<c_Cache>(this, &c_Cache::clockTic));
 
-    uint64_t cache_size = params.find<uint64_t>("cache_size",4*1024*1024); //default:4MB
-    uint32_t assoc = params.find<uint32_t>("associativity",16);
-    string replacement=params.find<string>("repl_policy","LRU");
-    m_cacheLatency=params.find<uint32_t>("latency",20);
 
-    printf("[cramsim cache] cache_size(KB):%d\n", cache_size/1024);
-    printf("[cramsim cache] repl_policy:%s\n",replacement.c_str());
-    printf("[cramsim cache] latency:%d\n",m_cacheLatency);
-    printf("[cramsim cache] enableAllHit? %d\n", enableAllHit);
-
-    uns repl = MCache_ReplPolicy_Enum::REPL_LRU;
-    uns sets = cache_size/(assoc*64);
+    // set cache structure
+    uint64_t cache_size     =   params.find<uint64_t>("cache_size",4*1024*1024); //default:4MB
+    uint32_t assoc          =   params.find<uint32_t>("associativity",16);
+    string replacement      =   params.find<string>("repl_policy","LRU");
+    m_cacheLatency          =   params.find<uint32_t>("latency",20);
+    uns repl                =   MCache_ReplPolicy_Enum::REPL_LRU;
+    uns sets                =   cache_size/(assoc*64);
 
     if(replacement=="LRU")
         repl = MCache_ReplPolicy_Enum ::REPL_LRU;
@@ -91,32 +77,42 @@ c_Cache::c_Cache(ComponentId_t x_id, Params &params):Component(x_id) {
         exit(-1);
     }
 
-
     m_cache = mcache_new(sets,assoc,repl);
 
+    printf("[cramsim cache] cache_size(KB):%d\n", cache_size/1024);
+    printf("[cramsim cache] repl_policy:%s\n",replacement.c_str());
+    printf("[cramsim cache] latency:%d\n",m_cacheLatency);
+    printf("[cramsim cache] enableAllHit? %d\n", enableAllHit);
+
+    enableAllHit                =   (bool)params.find<bool>("enableAllHit",false);
+
     //---- configure link ----//
-    m_linkMem = configureLink("memLink",new Event::Handler<c_Cache>(this,&c_Cache::handleMemEvent));
-    m_linkCPU = configureLink("cpuLink",new Event::Handler<c_Cache>(this,&c_Cache::handleCpuEvent));
+    m_linkMem   =   configureLink("memLink",new Event::Handler<c_Cache>(this,&c_Cache::handleMemEvent));
+    m_linkCPU   =   configureLink("cpuLink",new Event::Handler<c_Cache>(this,&c_Cache::handleCpuEvent));
 
-    m_seqnum = 0;
+    m_seqnum    =   0;
+    m_simCycle  =   0;
 
-    s_accesses = registerStatistic<uint64_t>("accesses");
-    s_hit = registerStatistic<uint64_t>("hits");
-    s_miss = registerStatistic<uint64_t>("misses");
-    s_readRecv = registerStatistic<uint64_t>("reads");
+    // initialize statistics
+    s_accesses  =   registerStatistic<uint64_t>("accesses");
+    s_hit       =   registerStatistic<uint64_t>("hits");
+    s_miss      =   registerStatistic<uint64_t>("misses");
+    s_readRecv  =   registerStatistic<uint64_t>("reads");
     s_writeRecv = registerStatistic<uint64_t>("writes");
 
 }
-void c_Cache::init(unsigned int phase) {
 
+/*
+ * Setup the link between components
+ */
+void c_Cache::init(unsigned int phase) {
         MemEventInit *ev = NULL;
         while(ev=dynamic_cast<MemEventInit*>(m_linkCPU->recvInitData())) {
-            MemEventInit *res=new MemEventInit(this->getName(), MemHierarchy::MemEventInit::InitCommand::Region);
+            MemEventInit *res   =   new MemEventInit(this->getName(), MemHierarchy::MemEventInit::InitCommand::Region);
             res->setDst(ev->getSrc());
             m_linkCPU->sendInitData(res);
             delete ev;
         }
-
 }
 
 c_Cache::~c_Cache(){}
@@ -137,10 +133,13 @@ bool c_Cache::clockTic(Cycle_t clock)
 }
 
 
-//request from cpu
+/*
+ * CPU request handler :
+ * Insert request to a request queue
+ */
 void c_Cache::handleCpuEvent(SST::Event *ev) {
 
-    MemEvent *newReq = dynamic_cast<MemEvent *>(ev);
+    MemEvent *newReq    =   dynamic_cast<MemEvent *>(ev);
     assert(newReq->getCmd()==Command::GetS || newReq->getCmd()==Command::GetX);
 
     #ifdef __SST_DEBUG_OUTPUT__
@@ -153,16 +152,20 @@ void c_Cache::handleCpuEvent(SST::Event *ev) {
 }
 
 
-//processing events received from CPU
+
+/*
+ * Processing events received from CPU
+ */
 void c_Cache::eventProcessing()
 {
     while(!m_cpuReqQ.empty()&& m_cpuReqQ.front().first<=m_simCycle) {
-        MemEvent* newReq=m_cpuReqQ.front().second;
+        MemEvent* newReq    =   m_cpuReqQ.front().second;
         m_cpuReqQ.pop_front();
 
-        Addr req_addr = (newReq->getAddr() >> 3) << 3;
-        bool isWrite = (newReq->getCmd()==Command::GetX);
-        bool isHit = mcache_access(m_cache, req_addr, isWrite);
+        Addr req_addr       =   newReq->getAddr();
+        Addr tag            =   req_addr >> 3;  //tag is generated by shift the request address by 3 (byte offset)
+        bool isWrite        =   (newReq->getCmd()==Command::GetX);
+        bool isHit          =   mcache_access(m_cache, tag, isWrite);
 
         if(enableAllHit)
             isHit=true;
@@ -171,16 +174,18 @@ void c_Cache::eventProcessing()
         output->verbose(CALL_INFO, 1, 0, "[%lld] addr: %llx write:%d isHit:%d accesses:%lld\n", m_simCycle, req_addr, isWrite, isHit,s_accesses->getCollectionCount());
         #endif
 
-        // cache miss
+
+        ///// cache miss /////
         if (!isHit) {
-            MCache_Entry victim = mcache_install(m_cache, req_addr, isWrite);
+            MCache_Entry victim     =   mcache_install(m_cache, tag, isWrite);
 
             //if dirty, store the victim to the memory
             if (victim.dirty) {
-                Addr l_victim_addr = victim.tag;
-                c_Transaction *wbTxn = new c_Transaction(m_seqnum++, e_TransactionType::WRITE, l_victim_addr, 1);
-                c_TxnReqEvent *wbev = new c_TxnReqEvent();
-                wbev->m_payload=wbTxn;
+                //send a writeback request to the memory
+                Addr l_victim_addr      =   victim.tag << 3;  // regenerate the request address (cacheline address) from the tag
+                c_Transaction *wbTxn    =   new c_Transaction(m_seqnum++, e_TransactionType::WRITE, l_victim_addr, 1);
+                c_TxnReqEvent *wbev     =   new c_TxnReqEvent();
+                wbev->m_payload         =   wbTxn;
                 m_linkMem->send(wbev);
 
                 #ifdef __SST_DEBUG_OUTPUT__
@@ -189,9 +194,9 @@ void c_Cache::eventProcessing()
             }
 
             //send a read request to memory
-            c_Transaction *fillTxn = new c_Transaction(m_seqnum, e_TransactionType::READ, req_addr, 1);
-            c_TxnReqEvent *fillev = new c_TxnReqEvent();
-            fillev->m_payload=fillTxn;
+            c_Transaction *fillTxn      =   new c_Transaction(m_seqnum, e_TransactionType::READ, req_addr, 1);
+            c_TxnReqEvent *fillev       =   new c_TxnReqEvent();
+            fillev->m_payload           =   fillTxn;
             m_linkMem->send(fillev);
 
             #ifdef __SST_DEBUG_OUTPUT__
@@ -199,19 +204,18 @@ void c_Cache::eventProcessing()
                             fillTxn->getSeqNum());
             #endif
 
-            // register a response event in the response queue to keep track the corresponding memory request.
+            // store response events in the response queue to keep track of the outstanding memory requests.
             // When response comes from the memory, the request is removed from the queue
-            MemEvent *res = new MemEvent(this, req_addr, newReq->getVirtualAddress(), isWrite ? Command::GetX : Command::GetS);
+            MemEvent *res               =   new MemEvent(this, req_addr, newReq->getVirtualAddress(), isWrite ? Command::GetX : Command::GetS);
             res->setResponse(newReq);
             m_cpuResQ[m_seqnum]=res;
-
             m_seqnum++;
-        } else //cache hit
-        {
+
+        }/////cache hit //////
+        else {
             //queue the response to the cpu response queue
             MemEvent *res = new MemEvent(this, req_addr, newReq->getVirtualAddress(),
                                          isWrite ? Command::GetX : Command::GetS);
-
             res->setResponse(newReq);
 
             //send a response to cpu
@@ -235,13 +239,16 @@ void c_Cache::eventProcessing()
             s_readRecv->addData(1);
 
         s_accesses->addData(1);
+
     }
 }
 
-//handle responses from memory
+/*
+ * Memory Response Handler
+ */
 void c_Cache::handleMemEvent(SST::Event *ev) {
-    c_TxnResEvent* l_newRes=dynamic_cast<c_TxnResEvent*>(ev);
-    c_Transaction* newTxn=l_newRes->m_payload;
+    c_TxnResEvent* l_newRes     =   dynamic_cast<c_TxnResEvent*>(ev);
+    c_Transaction* newTxn       =   l_newRes->m_payload;
 
     #ifdef __SST_DEBUG_OUTPUT__
     output->verbose(CALL_INFO,1,0,"[%lld] res from memory addr: %llx seqnum:%lld, isWrite:%d\n",m_simCycle,newTxn->getAddress(),newTxn->getSeqNum(),newTxn->isWrite());
@@ -251,7 +258,7 @@ void c_Cache::handleMemEvent(SST::Event *ev) {
     {
         assert(m_cpuResQ.find(newTxn->getSeqNum())!=m_cpuResQ.end());
 
-        MemEvent* newRes=m_cpuResQ[newTxn->getSeqNum()];
+        MemEvent* newRes        =   m_cpuResQ[newTxn->getSeqNum()];
         m_linkCPU->send(newRes);
         m_cpuResQ.erase(newTxn->getSeqNum());
     }
@@ -313,7 +320,7 @@ void c_Cache::mcache_select_leader_sets(MCache *c, uns sets){
 
 
 
-Flag c_Cache::mcache_access(MCache *c, Addr addr, Flag dirty)
+bool c_Cache::mcache_access(MCache *c, Addr addr, Flag dirty)
 {
   Addr  tag  = addr; // full tags
   uns   set  = c_Cache::mcache_get_index(c,addr);
@@ -337,7 +344,7 @@ Flag c_Cache::mcache_access(MCache *c, Addr addr, Flag dirty)
 	{
 	  c_Cache::mcache_mark_dirty(c,tag);
 	}
-	return HIT;
+	return true;
       }
  }
 
@@ -347,7 +354,7 @@ Flag c_Cache::mcache_access(MCache *c, Addr addr, Flag dirty)
   c->touched_lineid = start;
 
   c->s_miss++;
-  return MISS;
+  return false;
 }
 
 ////////////////////////////////////////////////////////////////////

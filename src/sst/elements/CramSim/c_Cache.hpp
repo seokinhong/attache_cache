@@ -37,48 +37,40 @@
 #include "c_TxnResEvent.hpp"
 #include <sst/elements/memHierarchy/memEvent.h>
 
-#define FALSE 0
-#define TRUE  1
-
-#define HIT   1
-#define MISS  0
 
 
-#define CLOCK_INC_FACTOR 4
-
-#define MAX_UNS 0xffffffff
-
-#define ASSERTM(cond, msg...) if(!(cond) ){ printf(msg); fflush(stdout);} assert(cond);
-#define DBGMSG(cond, msg...) if(cond){ printf(msg); fflush(stdout);}
-
-#define SAT_INC(x,max)   (x<max)? x+1:x
-#define SAT_DEC(x)       (x>0)? x-1:0
-
-
-
-typedef unsigned	    uns;
-typedef unsigned char	    uns8;
-typedef unsigned short	    uns16;
-typedef unsigned	    uns32;
-typedef unsigned long long  uns64;
-typedef short		    int16;
-typedef int		    int32;
-typedef int long long	    int64;
-typedef int		    Generic_Enum;
-
-
-/* Conventions */
-//typedef uns64		    Addr;
-typedef uns32		    Binary;
-typedef uns8		    Flag;
-
-typedef uns64               Counter;
-typedef int64               SCounter;
 
 using namespace SST::MemHierarchy;
 
 namespace SST{
     namespace n_Bank{
+        #define FALSE 0
+        #define TRUE  1
+
+        #define HIT   1
+        #define MISS  0
+
+        #define MCACHE_SRRIP_MAX  7
+        #define MCACHE_SRRIP_INIT 1
+        #define MCACHE_PSEL_MAX    1023
+        #define MCACHE_LEADER_SETS  32
+
+        typedef unsigned	    uns;
+        typedef unsigned char	    uns8;
+        typedef unsigned short	    uns16;
+        typedef unsigned	    uns32;
+        typedef unsigned long long  uns64;
+        typedef short		    int16;
+        typedef int		    int32;
+        typedef int long long	    int64;
+        typedef int		    Generic_Enum;
+
+        /* Conventions */
+        typedef uns32		    Binary;
+        typedef uns8		    Flag;
+
+        typedef uns64               Counter;
+        typedef int64               SCounter;
 
         typedef struct MCache_Entry {
             Flag    valid;
@@ -87,8 +79,6 @@ namespace SST{
             uns     ripctr;
             uns64   last_access;
         }MCache_Entry;
-
-
 
         typedef enum MCache_ReplPolicy_Enum {
             REPL_LRU=0,
@@ -99,7 +89,6 @@ namespace SST{
             REPL_DIP=5,
             NUM_REPL_POLICY=6
         } MCache_ReplPolicy;
-
 
         typedef struct MCache{
             uns sets;
@@ -113,13 +102,14 @@ namespace SST{
 
             MCache_Entry *entries;
             uns *fifo_ptr; // for fifo replacement (per set)
-            int touched_wayid;
-            int touched_setid;
-            int touched_lineid;
 
             uns64 s_count; // number of accesses
             uns64 s_miss; // number of misses
             uns64 s_evict; // number of evictions
+
+            int touched_wayid;
+            int touched_setid;
+            int touched_lineid;
         } MCache;
 
 
@@ -129,7 +119,7 @@ namespace SST{
              ~c_Cache();
              void init(unsigned int phase);
              static MCache     *mcache_new(uns sets, uns assocs, uns repl );
-             static Flag       mcache_access (MCache *c, Addr addr, Flag dirty);
+             static bool       mcache_access (MCache *c, Addr addr, Flag dirty);  //true: hit, false: miss
              static MCache_Entry  mcache_install (MCache *c, Addr addr, Flag dirty);
 
 
@@ -137,8 +127,8 @@ namespace SST{
              c_Cache();
 
              virtual bool clockTic(Cycle_t);
-             void handleCpuEvent(SST::Event *ev);
-             void handleMemEvent(SST::Event *ev);
+             void handleCpuEvent(SST::Event *ev);       //cpu event handler (cpu --> l3 cache)
+             void handleMemEvent(SST::Event *ev);       //memory event handler (memory --> controller component of cramsim)
              void eventProcessing();
 
              static Flag    mcache_probe         (MCache *c, Addr addr);
@@ -169,7 +159,7 @@ namespace SST{
              //link to/from CPU
              SST::Link* m_linkCPU;
 
-             class MEM_REQ{
+             /*class MEM_REQ{
              public:
                  MEM_REQ(uint64_t t, c_Transaction* x_txn){time=t;txn=x_txn;}
                  uint64_t time;
@@ -184,7 +174,7 @@ namespace SST{
                  MemEvent*  ev;
                  string     dst;
                  bool       ready;
-             };
+             };*/
 
              // Response and Request Queue
              std::map<uint64_t,MemEvent*>               m_cpuResQ;
@@ -193,6 +183,7 @@ namespace SST{
              // Debug Output
              Output* output;
 
+             // Statistics
              Statistic<uint64_t>* s_accesses;
              Statistic<uint64_t>* s_hit;
              Statistic<uint64_t>* s_miss;
