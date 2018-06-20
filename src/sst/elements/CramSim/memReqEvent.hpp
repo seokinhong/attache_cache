@@ -32,6 +32,12 @@ class MemReqEvent : public SST::Event {
 		eventID  = generateUniqueId();
 	}
 
+	MemReqEvent(ReqId id, Addr addr, bool isWrite, unsigned numBytes, uint32_t flags,uint32_t thread_id, uint64_t inst_ip) :
+			SST::Event(), reqId(id), addr(addr), isWrite(isWrite), numBytes(numBytes), flags(flags),thread_id(thread_id),inst_ip(inst_ip)
+	{
+		eventID  = generateUniqueId();
+	}
+
 	ReqId getReqId() { return reqId; }
 	Addr getAddr() { return addr; }
 	bool getIsWrite() { return isWrite; }
@@ -48,6 +54,8 @@ class MemReqEvent : public SST::Event {
 	unsigned numBytes;
     uint32_t flags;
 	id_type eventID;
+	uint32_t thread_id;
+	uint64_t inst_ip;
 
   public:
     void serialize_order(SST::Core::Serialization::serializer &ser) {

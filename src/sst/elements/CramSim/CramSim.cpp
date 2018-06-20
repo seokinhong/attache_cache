@@ -450,6 +450,7 @@ static const ElementInfoPort c_ControllerPCA_ports[] = {
 
 static const ElementInfoStatistic c_ControllerPCA_stats[] = {
        {"compRatio","","",1}, // Name, Desc, Units, Enable Level
+	   {"simCycles","","",1}, // Name, Desc, Units, Enable Level
       {"rowsize0_cnt","","",1}, // Name, Desc, Units, Enable Level
      {"rowsize25_cnt","","",1}, // Name, Desc, Units, Enable Level
      {"rowsize50_cnt","","",1},
@@ -469,12 +470,19 @@ static const ElementInfoStatistic c_ControllerPCA_stats[] = {
 	   {"totalQueueingDelay","","",1},
 	   {"cmdQueueingDelay","","",1},
 	   {"txnQueueingDelay","","",1},
+	   {"predictor_ropr_hit","","",1},
+	   {"predictor_ropr_miss","","",1},
 	   {"predictor_lipr_hit","","",1},
 	   {"predictor_lipr_miss","","",1},
 	   {"predictor_lipr_success","","",1},
 	   {"predictor_lipr_fail","","",1},
 	   {"predictor_ropr_success","","",1},
 	   {"predictor_ropr_fail","","",1},
+	    {"predictor_global_success","","",1},
+	   {"predictor_global_fail","","",1},
+	   {"metacache_data_update","","",1},
+	   {"metacache_evict","","",1},
+	   {"metacache_wb","","",1},
  	   {NULL,NULL,NULL,1}
 };
 

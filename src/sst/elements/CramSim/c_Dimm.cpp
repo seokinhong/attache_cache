@@ -442,6 +442,12 @@ void c_Dimm::updateDynamicEnergy(c_BankCommand* x_bankCommandPtr)
 					energy_scale = 0.75;
 				else
 					energy_scale = 1;
+
+				if (chipAccessRatio <= 50)
+					energy_scale = 0.5;
+				else
+					energy_scale = 1;
+
 			}
 		}
 		else

@@ -78,7 +78,7 @@ c_MemhBridgeContent::c_MemhBridgeContent(ComponentId_t x_id, Params& x_params) :
 
 }
 
-
+/*
 void c_MemhBridgeContent::init(unsigned int phase) {
 
     if(!phase)
@@ -91,7 +91,7 @@ void c_MemhBridgeContent::init(unsigned int phase) {
     while((ev = m_linkCPU->recvInitData())!=NULL) {
         delete ev;
     }
-}
+}*/
 
 
 c_MemhBridgeContent::~c_MemhBridgeContent() {

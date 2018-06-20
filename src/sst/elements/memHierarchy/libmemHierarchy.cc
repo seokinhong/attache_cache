@@ -56,6 +56,8 @@
 #include "membackend/timingAddrMapper.h"
 #include "membackend/simpleMemScratchBackendConvertor.h"
 #include "membackend/cramSimBackend.h"
+#include "membackend/traceRecordBackend.h"
+#include "membackend/traceRecordBackendConvertor.h"
 #include "networkMemInspector.h"
 #include "memNetBridge.h"
 #include "multithreadL1Shim.h"
@@ -907,6 +909,7 @@ static const ElementInfoPort memctrl_ports[] = {
     {"cube_link",       "Link to VaultSim.", NULL}, /* TODO:  Make this generic */
     {"network",         "Network link to another component", net_port_events},
     { "pageLink_%(links)d", "link to/from links", NULL},
+    { "contentLink_%(links)d", "link to/from links", NULL},
     {NULL, NULL, NULL}
 };
 
@@ -1275,8 +1278,38 @@ static const ElementInfoParam vaultsimMem_params[] = {
 
 
 /*****************************************************************************************
+ *  SubComponent: memory trace recorder
+ *  Purpose: Memory backend, interface to memory trace recorder
+ *****************************************************************************************/
+static SubComponent* create_Mem_TraceRecordBackendConvertor(Component* comp, Params& params){
+    return new traceRecordBackendConvertor(comp, params);
+}
+
+static const ElementInfoStatistic traceRecorderBackendConvertor_statistics[] = {
+    /* Cache hits and misses */
+    { "cycles_with_issue",                  "Total cycles with successful issue to back end",   "cycles",   1 },
+    { "cycles_attempted_issue_but_rejected","Total cycles where an attempt to issue to backend was rejected (indicates backend full)", "cycles", 1 },
+    { "total_cycles",                       "Total cycles called at the memory controller",     "cycles",   1 },
+    { "requests_received_GetS",             "Number of GetS (read) requests received",          "requests", 1 },
+    { "requests_received_GetSX",           "Number of GetSX (read) requests received",        "requests", 1 },
+    { "requests_received_GetX",             "Number of GetX (read) requests received",          "requests", 1 },
+    { "requests_received_PutM",             "Number of PutM (write) requests received",         "requests", 1 },
+    { "outstanding_requests",               "Total number of outstanding requests each cycle",  "requests", 1 },
+    { "latency_GetS",                       "Total latency of handled GetS requests",           "cycles",   1 },
+    { "latency_GetSX",                     "Total latency of handled GetSX requests",         "cycles",   1 },
+    { "latency_GetX",                       "Total latency of handled GetX requests",           "cycles",   1 },
+    { "latency_PutM",                       "Total latency of handled PutM requests",           "cycles",   1 },
+    { NULL, NULL, NULL, 0 }
+};
+
+static SubComponent* create_Mem_TraceRecorder(Component* comp, Params& params){
+    return new traceRecordBackend(comp, params);
+}
+
+
+/*****************************************************************************************
  *  SubComponent: cramSimMemory
- *  Purpose: Memory backend, interface to VaultSim (vaulted memory)
+ *  Purpose: Memory backend, interface to CramSim (CramSim memory)
  *****************************************************************************************/
 static SubComponent* create_Mem_CramSim(Component* comp, Params& params){
     return new CramSimMemory(comp, params);
@@ -1832,6 +1865,24 @@ static const ElementInfoSubComponent subcomponents[] = {
         NULL, /* statistics */
         "SST::MemHierarchy::MemBackend"
     },
+{
+        "traceRecorderBackendConvertor",
+        "convert trace recorder backend",
+        NULL, /* Advanced help */
+      create_Mem_TraceRecordBackendConvertor, /* Module Alloc w/ params */
+        NULL,
+        traceRecorderBackendConvertor_statistics,
+        "SST::MemHierarchy::MemBackend"
+},
+{
+        "traceRecorder",
+        "trace recorder backend",
+        NULL, /* Advanced help */
+        create_Mem_TraceRecorder, /* Module Alloc w/ params */
+        NULL,
+        NULL,
+        "SST::MemHierarchy::MemBackend"
+},
      {
         "cramsim",
         "CramSim Memory timings",

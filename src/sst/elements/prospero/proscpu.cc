@@ -481,6 +481,7 @@ bool ProsperoComponent::tick(SST::Cycle_t currentCycle) {
 			currentEntry = reader->readNextEntry();
 			traceEnded=false;
 			baseCycle=currentCycle;
+			max_inst+=max_inst;
 		}
 	}
 	if(sim_started==false)

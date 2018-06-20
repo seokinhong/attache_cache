@@ -161,10 +161,10 @@ threadRecord* thread_instr_id;
 bool enable_memcomp;
 string memcomp_tracefile;
 UINT32 memcomp_interval;
-UINT64 cnt_cl_size16=0;
-UINT64 cnt_cl_size32=0;
-UINT64 cnt_cl_size48=0;
-UINT64 cnt_cl_size64=0;
+UINT64 cnt_cl_size25=0;
+UINT64 cnt_cl_size50=0;
+UINT64 cnt_cl_size75=0;
+UINT64 cnt_cl_size100=0;
 UINT64 cnt_page_all16=0;
 UINT64 cnt_page_all32=0;
 UINT64 cnt_page_all48=0;
@@ -1235,81 +1235,140 @@ VOID InstrumentTrace (TRACE trace, VOID* args) {
 /****************************************************************/
 /******************** END SHADOW STACK **************************/
 /****************************************************************/
+typedef struct page_compinfo{
+	std::map<uint8_t, uint64_t> column_comp_rate;
+	std::map<uint8_t, uint64_t> column_access;
+	uint64_t cnt_cl_size25_access;
+	uint64_t cnt_cl_size50_access;
+	uint64_t cnt_cl_size75_access;
+	uint64_t cnt_access;
+}PAGE_COMPINFO;
 
+std::map<uint64_t,PAGE_COMPINFO> page_comp_map;
 
-VOID recordCompression(UINT64 addr)
+VOID recordCompression(UINT64 word_addr)
 {
 	//get physical address
-	const uint64_t pageOffset = addr % pageSize;
-	const uint64_t virtPageStart = addr - pageOffset;
+	uint64_t cl_addr=(word_addr>>6)<<6;
+	const uint64_t pageOffset = cl_addr % pageSize;
+	const uint64_t virtPageStart = cl_addr - pageOffset;
 	int cl_size = 64;
 	int num_cl_in_page = pageSize/cl_size;
 	int cmp_size=0;
-	int tmp_cnt_cl_size16=0;
-	int tmp_cnt_cl_size32=0;
-	int tmp_cnt_cl_size48=0;
+	int tmp_cnt_cl_size25=0;
+	int tmp_cnt_cl_size50=0;
+	int tmp_cnt_cl_size75=0;
+	uint8_t column = pageOffset>>6;
 
 	//todo
-	uint64_t cl_comp_size= 0 ;
-	//getCompressedSize(addr);
-	cmp_size=cl_comp_size;
+	uint64_t *data = (uint64_t *) malloc(sizeof(uint64_t) * 8);
+	ReadCacheLine((uint64_t)cl_addr,data);
+	uint64_t comp_size=getCompressedSize((uint8_t*)data);
+	uint8_t cl_comp_ratio=((double)comp_size/(double)512)*100;
 
-	if(cl_comp_size<128) {
-		cnt_cl_size16++;
-	}
 
-	if(cl_comp_size<256) {
-		cnt_cl_size32++;
-	}
-
-	if(cl_comp_size<384) {
-		cnt_cl_size48++;
-	}
-
-	for(int i=0; i<num_cl_in_page;i++)
+	//allocate new entry in the page compression info map.
+	if(page_comp_map.find(virtPageStart)==page_comp_map.end())
 	{
-		//todo
-		uint64_t cl_addr=addr+i*cl_size;
-		//cl_comp_size= getCompressedSize(cl_addr);
+		PAGE_COMPINFO page_comp_info;
+		page_comp_info.cnt_cl_size25_access=0;
+		page_comp_info.cnt_cl_size50_access=0;
+		page_comp_info.cnt_cl_size75_access=0;
+		page_comp_info.cnt_access=0;
+		page_comp_map[virtPageStart]=page_comp_info;
+	}
+
+	//allocate new column in an entry of the page compression info map.
+	PAGE_COMPINFO &page_comp_info = page_comp_map[virtPageStart];
+	if(page_comp_info.column_comp_rate.find(column)==page_comp_info.column_comp_rate.end()) {
+		page_comp_info.column_comp_rate[column] = cl_comp_ratio;
+		page_comp_info.column_access[column] = 1;
+	}
+	else
+	{
+		page_comp_info.column_comp_rate[column] += cl_comp_ratio;
+		page_comp_info.column_access[column]++;
+	}
 
 
-		if(cl_comp_size<128) {
-			tmp_cnt_cl_size16++;
-		}
+	if(cl_comp_ratio<=25) {
+		cnt_cl_size25++;
+		page_comp_info.cnt_cl_size25_access++;
+	}
 
-		if(cl_comp_size<256) {
-			tmp_cnt_cl_size32++;
-		}
+	if(cl_comp_ratio<=50) {
+		cnt_cl_size50++;
+		page_comp_info.cnt_cl_size50_access++;
+	}
 
-		if(cl_comp_size<384) {
-			tmp_cnt_cl_size48++;
+	if(cl_comp_ratio<=75) {
+		cnt_cl_size75++;
+		page_comp_info.cnt_cl_size75_access++;
+	}
+	page_comp_info.cnt_access++;
+
+/*	printf("------------------------\n");
+	printf("page start address:%lld\n",virtPageStart);
+	printf("addr: %llx\n",cl_addr);
+	printf("pageSize: %d\n",pageSize);
+	printf("pageoffset: %llx\n",pageOffset);
+	printf("column: %d\n",column);
+	printf("comp size: %d\n",comp_size);
+	printf("comp ratio: %d\n",cl_comp_ratio);
+	printf("cnt_cl_size25_access:%lld\n",page_comp_map[virtPageStart].cnt_cl_size25_access);
+	printf("cnt_cl_size50_access:%lld\n",page_comp_map[virtPageStart].cnt_cl_size50_access);
+	printf("cnt_cl_size75_access:%lld\n",page_comp_map[virtPageStart].cnt_cl_size75_access);
+	printf("cnt_access:%lld\n",page_comp_map[virtPageStart].cnt_access);
+	for(uint8_t i=0;i<cl_size;i++)
+	{
+		std::map<uint8_t, uint64_t> & column_comp_rate = page_comp_map[virtPageStart].column_comp_rate;
+		std::map<uint8_t, uint64_t> & column_access = page_comp_map[virtPageStart].column_access;
+		if(column_comp_rate.find(i)!=column_comp_rate.end())
+		{
+			uint64_t accumulated_comp_rate = column_comp_rate[i];
+			uint64_t avg_comp_rate = (uint64_t)((double )accumulated_comp_rate/(double)column_access[i]);
+			printf("column id[%d] avg_com_rate: %d\n",i,avg_comp_rate);
 		}
 	}
-	if(tmp_cnt_cl_size16==num_cl_in_page)
-		cnt_page_all16++;
-	else if(tmp_cnt_cl_size32==num_cl_in_page)
-		cnt_page_all32++;
-	else if(tmp_cnt_cl_size48==num_cl_in_page)
-		cnt_page_all48++;
-	else
-		cnt_page_all64++;
+	printf("\n");*/
 
-	if(inst_cnt%10000000 ==0)
-		printf("c_addr: %llx p_start: %llx c_comp_size:%lld, c_size16:%lld,c_size32:%lld,c_size48:%lld,p_size16:%lld,p_size32:%lld,p_size48:%lld,p_size64:%lld\n",
-			   addr,virtPageStart,cmp_size,cnt_cl_size16,cnt_cl_size32,cnt_cl_size48,cnt_page_all16,cnt_page_all32,cnt_page_all48,cnt_page_all64);
+
+
+	free(data);
 }
 
 VOID PrintFiniMessage()
 {
-	std::cout<<"cache access:"<<cache->s_count<<std::endl;
-	std::cout<<"cache miss:"<<cache->s_miss<<std::endl;
-	std::cout<<"cache miss rate:"<<(double)cache->s_miss/(double)cache->s_count<<std::endl;
-	std::cout<<"allocated pages:"<<pageTable.size()<<std::endl;
+	std::cout<<"cache_access:"<<cache->s_count<<std::endl;
+	std::cout<<"cache_miss:"<<cache->s_miss<<std::endl;
+	std::cout<<"cache_miss_rate:"<<(double)cache->s_miss/(double)cache->s_count<<std::endl;
+	std::cout<<"allocated_pages:"<<pageTable.size()<<std::endl;
 
-	std::cout<<"cache access at trace:"<<cnt_cache_access_trace<<std::endl;
-	std::cout<<"cache miss at trace:"<<cnt_cache_miss_trace<<std::endl;
-	std::cout<<"cache miss rate at trace:"<<(double)cnt_cache_miss_trace/(double)cnt_cache_access_trace<<std::endl;
-	std::cout<<"allocated pages:"<<cnt_allocated_page_trace<<std::endl;
+	std::cout<<"cacheline_comp_rate_25:"<<cnt_cl_size25<<std::endl;
+	std::cout<<"cacheline_comp_rate_50:"<<cnt_cl_size50<<std::endl;
+	std::cout<<"cacheline_comp_rate_75:"<<cnt_cl_size75<<std::endl;
+	std::cout<<"page_comp_size_16B:"<<cnt_page_all16<<std::endl;
+	std::cout<<"page_comp_size_32B:"<<cnt_page_all32<<std::endl;
+	std::cout<<"page_comp_size_48B:"<<cnt_page_all48<<std::endl;
+	std::cout<<"mem accesses:"<<cache_access_cnt<<std::endl;
+    int pagenum=0;
+    for(auto it:page_comp_map)
+	{
+		PAGE_COMPINFO &page_compinfo=it.second;
+        printf("page_comp_info_page page:%d comp_rate_25:%lld comp_rate_50:%lld comp_rate_75:%lld access:%lld\n",
+               pagenum,page_compinfo.cnt_cl_size25_access,page_compinfo.cnt_cl_size50_access,page_compinfo.cnt_cl_size75_access,page_compinfo.cnt_access);
+
+        for(int j=0; j<pageSize/64;j++)
+        {
+            if(page_compinfo.column_comp_rate.find(j)!=page_compinfo.column_comp_rate.end())
+            {
+                uint8_t comprate = ((double)page_compinfo.column_comp_rate[j]/(double)page_compinfo.column_access[j]);
+                printf("page_comp_info_column page:%d column:%d comp_rate:%d\n",pagenum,j,comprate);
+            }
+        }
+		pagenum++;
+	}
+	fflush(stdout);
 	fclose(outputFile);
 }
 
@@ -1336,18 +1395,20 @@ VOID WriteInstructionRead(UINT64 addr, UINT32 size, THREADID thr, ADDRINT ip,
 
 
     //assume that cache line size is 64B
-    if(content_copy_en) {
-        uint64_t *data = (uint64_t *) malloc(sizeof(uint64_t) * 8);
-        ReadCacheLine(addr, data);
-        for (int i = 0; i < 8; i++) {
-            ac.inst.data[i] = *(data + i);
-#ifdef COMP_DEBUG
-            fprintf(stderr,"[PINTOOL] [%d] read addr:%llx data:%llx ac.inst.data:%llx\n", i, addr, *(data+i), ac.inst.data[i]);
-#endif
+	if(content_copy_en) {
+		//assume that cache line size is 64B
+		uint64_t *data = (uint64_t *) malloc(sizeof(uint64_t) * 8);
+		ReadCacheLine(addr, data);
+		int compressed_size=getCompressedSize((uint8_t*)data);
+		uint8_t comp_ratio = (uint8_t)(((double)compressed_size/(double)512)*100);
+		ac.inst.data[0]=comp_ratio;
+		//ac.inst.data[0]=255;
 
-        }
-        free(data);
-    }
+		/*for (int i = 0; i < 8; i++) {
+            ac.inst.data[i] = *(data + i);
+        }*/
+		free(data);
+	}
 	if(tunnel)
     	tunnel->writeMessage(thr, ac);
 }
@@ -1380,9 +1441,14 @@ VOID WriteInstructionWrite(UINT64 addr, UINT32 size, THREADID thr, ADDRINT ip,
         //assume that cache line size is 64B
         uint64_t *data = (uint64_t *) malloc(sizeof(uint64_t) * 8);
         ReadCacheLine(addr, data);
-        for (int i = 0; i < 8; i++) {
+		int compressed_size=getCompressedSize((uint8_t*)data);
+		uint8_t comp_ratio = (uint8_t)(((double)compressed_size/(double)512)*100);
+		ac.inst.data[0]=comp_ratio;
+		//ac.inst.data[0]=255;
+
+        /*for (int i = 0; i < 8; i++) {
             ac.inst.data[i] = *(data + i);
-        }
+        }*/
         free(data);
     }
 
@@ -1428,7 +1494,14 @@ VOID CycleTick()
 
 	//for sst mode, print final message at this point
 	if(inst_cnt==(warmup_insts+max_insts))
+	{
 		PrintFiniMessage();
+		if(profilingMode==1)
+		{
+			PIN_ExitApplication(1);
+		}
+
+	}
 }
 
 
@@ -1441,11 +1514,11 @@ VOID WriteInstructionReadWrite(THREADID thr, ADDRINT ip, UINT32 instClass,
         const uint32_t writeSize=(uint32_t) thread_instr_id[thr].wsize;
 
 	CycleTick();
-	if(profilingMode || enable_output) {
+	if(profilingMode&&enable_output) {
 		CacheAccess(readAddr);
 		CacheAccess(writeAddr);
-//		recordCompression(readAddr);
-//		recordCompression(writeAddr);
+		recordCompression(readAddr);
+		recordCompression(writeAddr);
 	}
 	if(enable_output) {
 		if(thr < core_count) {
@@ -1463,9 +1536,9 @@ VOID WriteInstructionReadOnly(THREADID thr, ADDRINT ip,
         const uint32_t readSize=(uint32_t) thread_instr_id[thr].rsize;
 
 		CycleTick();
-		if(profilingMode||enable_output) {
+		if(profilingMode&&enable_output) {
 			CacheAccess(readAddr);
-//			recordCompression(readAddr);
+			recordCompression(readAddr);
 		}
         if(enable_output) {
             if(thr < core_count) {
@@ -1498,9 +1571,9 @@ VOID WriteInstructionWriteOnly(THREADID thr, ADDRINT ip,
         const uint32_t writeSize=(uint32_t) thread_instr_id[thr].wsize;
        
 	CycleTick();
-	if(profilingMode||enable_output) {
+	if(profilingMode&&enable_output) {
 		CacheAccess(writeAddr);
-	//	recordCompression(writeAddr);
+		recordCompression(writeAddr);
 	}
 	if(enable_output) {
 		if(thr < core_count) {
@@ -2118,7 +2191,7 @@ VOID Fini(INT32 code, VOID* v)
 		}
 	}
 
-	PrintFiniMessage();
+	//PrintFiniMessage();
 
 }
 

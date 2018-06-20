@@ -366,41 +366,43 @@ VOID recordCompression(UINT64 addr)
 	int tmp_cnt_cl_size32=0;
 	int tmp_cnt_cl_size48=0;
 
-	for(int i=0; i<num_cl_in_page;i++)
-	{
-		uint64_t cl_addr=addr+i*cl_size;
-		uint64_t cl_comp_size= getDataSize(cl_addr);
+	if(inst_cnt>warmup_insts) {
+		for (int i = 0; i < num_cl_in_page; i++) {
+			uint64_t cl_addr = addr + i * cl_size;
+			uint64_t cl_comp_size = getDataSize(cl_addr);
 
-		if(addr==cl_addr)
-			cmp_size=cl_comp_size;
+			if (addr == cl_addr)
+				cmp_size = cl_comp_size;
 
-		if(cl_comp_size<128) {
-			cnt_cl_size16++;
-			tmp_cnt_cl_size16++;
+			if (cl_comp_size < 128) {
+				cnt_cl_size16++;
+				tmp_cnt_cl_size16++;
+			}
+
+			if (cl_comp_size < 256) {
+				cnt_cl_size32++;
+				tmp_cnt_cl_size32++;
+			}
+
+			if (cl_comp_size < 384) {
+				cnt_cl_size48++;
+				tmp_cnt_cl_size48++;
+			}
 		}
+		if (tmp_cnt_cl_size16 == num_cl_in_page)
+			cnt_page_all16++;
+		else if (tmp_cnt_cl_size32 == num_cl_in_page)
+			cnt_page_all32++;
+		else if (tmp_cnt_cl_size48 == num_cl_in_page)
+			cnt_page_all48++;
+		else
+			cnt_page_all64++;
 
-		if(cl_comp_size<256) {
-			cnt_cl_size32++;
-			tmp_cnt_cl_size32++;
-		}
-
-		if(cl_comp_size<384) {
-			cnt_cl_size48++;
-			tmp_cnt_cl_size48++;
-		}
+		if (inst_cnt % 100000 < 4)
+			printf("c_addr: %llx p_start: %llx c_comp_size:%lld, c_size16:%lld,c_size32:%lld,c_size48:%lld,c_size64:%lld,p_size16:%lld,p_size32:%lld,p_size48:%lld,p_size64:%lld\n",
+				   addr, virtPageStart, cmp_size, cnt_cl_size16, cnt_cl_size32, cnt_cl_size48, cnt_cl_size64,
+				   cnt_page_all16, cnt_page_all32, cnt_page_all48, cnt_page_all64);
 	}
-	if(tmp_cnt_cl_size16==num_cl_in_page)
-		cnt_page_all16++;
-	else if(tmp_cnt_cl_size32==num_cl_in_page)
-		cnt_page_all32++;
-	else if(tmp_cnt_cl_size48==num_cl_in_page)
-		cnt_page_all48++;
-	else
-		cnt_page_all64++;
-
-	if(inst_cnt%100000 <4)
-		printf("c_addr: %llx p_start: %llx c_comp_size:%lld, c_size16:%lld,c_size32:%lld,c_size48:%lld,c_size64:%lld,p_size16:%lld,p_size32:%lld,p_size48:%lld,p_size64:%lld\n",
-			   addr,virtPageStart,cmp_size,cnt_cl_size16,cnt_cl_size32,cnt_cl_size48,cnt_cl_size64,cnt_page_all16,cnt_page_all32,cnt_page_all48,cnt_page_all64);
 }
 
 //// Cache //////
@@ -1067,7 +1069,7 @@ VOID WriteInstructionRead(UINT64 addr, UINT32 size, THREADID thr, ADDRINT ip,
 
 	//RandomnessRecord(addr);
 	CacheAccess(addr);
-//	recordCompression(addr);
+	recordCompression(addr);
 }
 
 
@@ -1076,7 +1078,7 @@ VOID WriteInstructionWrite(UINT64 addr, UINT32 size, THREADID thr, ADDRINT ip,
 
 	//RandomnessRecord(addr);
 	CacheAccess(addr);
-	//recordCompression(addr);
+	recordCompression(addr);
 }
 
 

@@ -75,7 +75,7 @@ namespace SST {
             c_MemhBridgeContent(SST::ComponentId_t x_id, SST::Params& x_params);
             ~c_MemhBridgeContent();
             std::vector<SST::Link*> m_laneLinks;
-            void init(unsigned int phase);
+         //   void init(unsigned int phase);
 
 
         private:

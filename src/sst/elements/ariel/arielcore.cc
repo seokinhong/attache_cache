@@ -170,7 +170,7 @@ void ArielCore::commitReadEvent(uint64_t address,
 		cacheLink->sendRequest(req);
 		// send memory contents to the memory model
 		if(memContentLink)
-			sendMemContent(fetched_inst_count, address,virtAddress,64, data);
+			sendMemContent(fetched_inst_count, address,virtAddress, data);
 	}
 }
 
@@ -211,7 +211,8 @@ void ArielCore::commitWriteEvent(uint64_t address,
 		// Send memory contents to the memory model
 
 		if(memContentLink)
-			sendMemContent(fetched_inst_count, address,virtAddress,64, data);
+			sendMemContent(fetched_inst_count, address,virtAddress, data);
+
 	}
 }
 
@@ -275,7 +276,7 @@ void ArielCore::createReadEvent(uint64_t address, uint32_t length, uint64_t* dat
 }
 
 
-void ArielCore::sendMemContent(uint64_t instnum, uint64_t addr, uint64_t vaddr, uint32_t size, std::vector<uint8_t> &data) {
+void ArielCore::sendMemContent(uint64_t instnum, uint64_t addr, uint64_t vaddr, std::vector<uint8_t> &data) {
     SST::MemHierarchy::MemEvent *req = new SST::MemHierarchy::MemEvent(owner,addr,vaddr,SST::MemHierarchy::Command::Put,data);
 	req->setVirtualAddress(vaddr);
     req->setDst("MemController0");

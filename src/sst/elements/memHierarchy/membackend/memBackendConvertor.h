@@ -34,7 +34,7 @@ class MemBackendConvertor : public SubComponent {
     class MemReq {
       public:
         MemReq( MemEvent* event, uint32_t reqId ) : m_event(event),
-            m_reqId(reqId), m_offset(0), m_numReq(0)
+            m_reqId(reqId), m_offset(0), m_numReq(0), detail(false)
         { }
         ~MemReq() { }
 
@@ -56,6 +56,11 @@ class MemBackendConvertor : public SubComponent {
         bool isDone( ) {
             return ( m_offset >= m_event->getSize() && 0 == m_numReq );
         }
+
+        uint64_t    m_ip;
+        uint64_t    m_thread_id;
+        uint64_t    m_compRate;
+        bool        detail;
 
       private:
         MemEvent*   m_event;
@@ -134,11 +139,14 @@ class MemBackendConvertor : public SubComponent {
 
             if (dependsOn.empty()) return false;
             m_waitingFlushes.insert(std::make_pair(ev, dependsOn));
-            return true; 
+            return true;
         }
 
         uint32_t id = genReqId();
         MemReq* req = new MemReq( ev, id );
+        req->m_ip = ev->getInstructionPointer();
+        req->m_thread_id = ev->getVirtualAddress();
+        req->m_compRate = ev->getPayload()[0];
         m_requestQueue.push_back( req );
         m_pendingRequests[id] = req;
         return true;

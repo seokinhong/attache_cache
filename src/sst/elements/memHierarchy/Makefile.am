@@ -55,6 +55,10 @@ libmemHierarchy_la_SOURCES = \
 	membackend/simpleMemScratchBackendConvertor.cc \
 	membackend/cramSimBackend.h \
 	membackend/cramSimBackend.cc \
+	membackend/traceRecordBackend.h \
+    membackend/traceRecordBackend.cc \
+    membackend/traceRecordBackendConvertor.h \
+    membackend/traceRecordBackendConvertor.cc \
 	memEventBase.h \
 	memEvent.h \
 	moveEvent.h \

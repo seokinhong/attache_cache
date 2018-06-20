@@ -33,8 +33,10 @@
 #include "c_TxnReqEvent.hpp"
 #include "c_TxnResEvent.hpp"
 
+
 using namespace SST;
 using namespace SST::n_Bank;
+using namespace SST::CACHE;
 
 c_ControllerPCA::c_ControllerPCA(ComponentId_t id, Params &x_params) :
         c_Controller(id, x_params){
@@ -85,7 +87,7 @@ c_ControllerPCA::c_ControllerPCA(ComponentId_t id, Params &x_params) :
     m_isFixedCompressionMode=x_params.find<bool>("fixed_compression_mode",false);
 
     if(m_isFixedCompressionMode){
-        uint32_t compression_data_rate=x_params.find<uint32_t>("compression_data_rate",false,l_found);
+        uint32_t compression_data_rate=x_params.find<uint32_t>("compression_data_rate",50,l_found);
         if(!l_found)
         {
             fprintf(stderr,"[C_ControllerPCA] compression_data_rate is miss.. exit..");
@@ -109,7 +111,12 @@ c_ControllerPCA::c_ControllerPCA(ComponentId_t id, Params &x_params) :
         uint32_t dram_rowsize=m_deviceDriver->getNumColPerBank()*64;
         double hitrate= x_params.find<double>("metacache_hitrate",0,l_found);
         int metacache_way= x_params.find<int>("metacache_way",16,l_found);
-        metacache = new c_MetaCache(dram_rowsize,metacache_row_num,metacache_way,output,hitrate);
+        MCache_ReplPolicy_Enum metacache_rpl_policy = (MCache_ReplPolicy_Enum)x_params.find<int>("metacache_rpl_policy",MCache_ReplPolicy_Enum::REPL_LRU);
+        //metacache = new c_MetaCache(dram_rowsize,metacache_row_num,metacache_way,output,hitrate);
+        metacache = new SCache(metacache_row_num,metacache_way,metacache_rpl_policy,m_osPageSize);
+        m_metacache_update_cnt=0;
+        m_mcache_wb_cnt=0;
+        m_mcache_evict_cnt=0;
     }
     else if(metadata_predictor==2) //compression predictor
     {
@@ -122,6 +129,17 @@ c_ControllerPCA::c_ControllerPCA(ComponentId_t id, Params &x_params) :
 
         cmpSize_predictor = new c_2LvPredictor(ropr_entry_num,lipr_entry_num,lipr_entry_colnum,selectiveRepl,output);
     }
+    else if(metadata_predictor==3) //new compression predictor
+    {
+         bool found=false;
+
+        uint32_t ropr_entry_num = x_params.find<uint32_t>("ropr_entry_num",64*1024,found); //256KB, 16way, 2b per entry
+        uint32_t global_entry_num = x_params.find<uint32_t>("global_entry_num",32,found); //32KB, 8bit per entry
+        uint32_t global_pred_threshold = x_params.find<uint32_t>("global_pred_thres",100,found); //global prediction threshold
+        uint32_t ropr_col_num = x_params.find<uint32_t>("ropr_col_num",1,found); //global prediction threshold
+
+        cmpSize_predictor_new = new c_2LvPredictor_new(global_entry_num,ropr_entry_num,ropr_col_num,m_osPageSize,global_pred_threshold ,output);
+    }
 
     isMultiThreadMode=x_params.find<bool>("multiThreadMode",false);
     /*---- CONFIGURE LINKS ----*/
@@ -130,6 +148,7 @@ c_ControllerPCA::c_ControllerPCA(ComponentId_t id, Params &x_params) :
 
 
    s_CompRatio = registerStatistic<double>("compRatio");
+    s_simCycles= registerStatistic<uint64_t>("simCycles");
    s_RowSize0  = registerStatistic<uint64_t>("rowsize0_cnt");
    s_RowSize25 = registerStatistic<uint64_t>("rowsize25_cnt");
    s_RowSize50 = registerStatistic<uint64_t>("rowsize50_cnt");
@@ -148,13 +167,20 @@ c_ControllerPCA::c_ControllerPCA(ComponentId_t id, Params &x_params) :
    s_predicted_success_above50=registerStatistic<uint64_t>("predicted_success_above50");
    s_predicted_success_below50=registerStatistic<uint64_t>("predicted_success_below50");
    s_predicted_fail_above50=registerStatistic<uint64_t>("predicted_fail_above50");
-
+    s_predictor_ropr_hit = registerStatistic<uint64_t>("predictor_ropr_hit");
+   s_predictor_ropr_miss = registerStatistic<uint64_t>("predictor_ropr_miss");
    s_predictor_lipr_hit = registerStatistic<uint64_t>("predictor_lipr_hit");
    s_predictor_lipr_miss = registerStatistic<uint64_t>("predictor_lipr_miss");
    s_predictor_lipr_success=registerStatistic<uint64_t>("predictor_lipr_success");
    s_predictor_lipr_fail=registerStatistic<uint64_t>("predictor_lipr_fail");
    s_predictor_ropr_success=registerStatistic<uint64_t>("predictor_ropr_success");
    s_predictor_ropr_fail=registerStatistic<uint64_t>("predictor_ropr_fail");
+    s_predictor_global_success=registerStatistic<uint64_t>("predictor_global_success");
+   s_predictor_global_fail=registerStatistic<uint64_t>("predictor_global_fail");
+    s_metacache_data_update=registerStatistic<uint64_t>("metacache_data_update");
+    s_metacache_evict=registerStatistic<uint64_t>("metacache_evict");
+    s_metacache_wb=registerStatistic<uint64_t>("metacache_wb");
+
     //---- configure link ----//
 
     for (int i = 0; i < contentline_num; i++) {
@@ -308,13 +334,22 @@ void c_ControllerPCA::finish() {
     s_RowSize75->addData(size_75);
     s_RowSize100->addData(size_100);
     s_CompRatio->addData(compression_ratio);
+    s_simCycles->addData(m_simCycle);
+    s_metacache_data_update->addData(m_metacache_update_cnt);
+    s_metacache_evict->addData(m_mcache_evict_cnt);
+    s_metacache_wb->addData(m_mcache_wb_cnt);
+
     if(metacache&&metadata_predictor==1) {
-        s_MemzipMetaCacheHit->addData(metacache->getHitCnt());
+        /*s_MemzipMetaCacheHit->addData(metacache->getHitCnt());
         s_MemzipMetaCacheMiss->addData(metacache->getMissCnt());
         printf("memzip metacache hit: %lld\n",metacache->getHitCnt());
+        printf("memzip metacache miss: %lld\n",metacache->getMissCnt());*/
+        s_MemzipMetaCacheHit->addData(metacache->getAccessCnt()-metacache->getMissCnt());
+        s_MemzipMetaCacheMiss->addData(metacache->getMissCnt());
+        printf("memzip metacache hit: %lld\n",metacache->getAccessCnt()-metacache->getMissCnt());
         printf("memzip metacache miss: %lld\n",metacache->getMissCnt());
     }
-    else if(cmpSize_predictor&&metadata_predictor==2)
+    else if((cmpSize_predictor&&metadata_predictor==2))
     {
         printf("predictor metacache row hit: %lld\n",cmpSize_predictor->getHitCnt());
         printf("predictor metacache row miss: %lld\n",cmpSize_predictor->getMissCnt());
@@ -329,6 +364,23 @@ void c_ControllerPCA::finish() {
         s_predictor_ropr_success->addData(cmpSize_predictor->m_predictor_ropr_success);
         s_predictor_ropr_fail->addData(cmpSize_predictor->m_predictor_ropr_fail);
     }
+    else if((cmpSize_predictor_new&&metadata_predictor==3))
+    {
+        s_predictor_ropr_hit->addData(cmpSize_predictor_new->m_predictor_ropr_hit);
+        s_predictor_ropr_miss->addData(cmpSize_predictor_new->m_predictor_ropr_miss);
+
+        s_predictor_lipr_hit->addData(cmpSize_predictor_new->m_predictor_lipr_hit);
+        s_predictor_lipr_miss->addData(cmpSize_predictor_new->m_predictor_lipr_miss);
+
+        s_predictor_lipr_success->addData(cmpSize_predictor_new->m_predictor_lipr_success);
+        s_predictor_lipr_fail->addData(cmpSize_predictor_new->m_predictor_lipr_fail);
+
+        s_predictor_ropr_success->addData(cmpSize_predictor_new->m_predictor_ropr_success);
+        s_predictor_ropr_fail->addData(cmpSize_predictor_new->m_predictor_ropr_fail);
+
+        s_predictor_global_success->addData(cmpSize_predictor_new->m_predictor_global_success);
+        s_predictor_global_fail->addData(cmpSize_predictor_new->m_predictor_global_fail);
+    }
 
     printf("cacheline compression ratio:\t%lf\n",compression_ratio);
     printf("row size0:\t%lld\n",size_0);
@@ -342,6 +394,7 @@ void c_ControllerPCA::finish() {
     printf("weighted_row size75:\t%lld\n",weighted_size_75);
     printf("weighted_row size100:\t%lld\n",weighted_size_100);
 }
+
 
 // clock event handler
 bool c_ControllerPCA::clockTic(SST::Cycle_t clock) {
@@ -371,7 +424,7 @@ bool c_ControllerPCA::clockTic(SST::Cycle_t clock) {
 
         uint64_t addr = (newTxn->getAddress() >> 6) << 6;
         //calculate the compressed size of cacheline
-        if(compRatio_bdi.size()>0&&newTxn->getCompressedSize()<0) {
+        if((m_isFixedCompressionMode||compRatio_bdi.size()>0)&&newTxn->getCompressedSize()<0) {
 
                 if(!m_isFixedCompressionMode &&(compRatio_bdi.find(addr)==compRatio_bdi.end())) {
                     printf("Error!! cacheline is not found, %llx\n",addr);
@@ -394,18 +447,6 @@ bool c_ControllerPCA::clockTic(SST::Cycle_t clock) {
                 uint32_t row = newTxn->getHashedAddress().getRow();
                 int col = newTxn->getHashedAddress().getCol();
 
-                //record statistics
-            if(0)
-            {  if(m_row_stat.find(bankid)==m_row_stat.end()) {
-                    m_row_stat[bankid][row]= new c_RowStat(m_colnum);
-                }
-                else if(m_row_stat[bankid].find(row)==m_row_stat[bankid].end())
-                {
-                    m_row_stat[bankid][row] = new c_RowStat(m_colnum);
-                }
-
-                m_row_stat[bankid].at(row)->record(normalized_size, col);
-            }
 
         }
 
@@ -445,61 +486,7 @@ bool c_ControllerPCA::clockTic(SST::Cycle_t clock) {
             continue;
         }
 
-        if(memzip_mode)
-        {
-            if(metadata_predictor!=2)
-            {
-                if(!metacache->isHit(addr))
-                {
-                    //fetch metadata
-                    uint64_t fetch_addr = newTxn->getAddress();
-                    c_Transaction *fillTxn
-                            = new c_Transaction((ulong) newTxn->getSeqNum(), e_TransactionType::READ,
-                                                fetch_addr, 1);
 
-                    c_HashedAddress l_hashedAddress3 = newTxn->getHashedAddress();
-
-                    fillTxn->setMetaDataSkip();
-                    fillTxn->setHashedAddress(l_hashedAddress3);
-                    //fillTxn->setHelperFlag(true);
-                    fillTxn->donotRespond();
-                    fillTxn->setCompressedSize(50);
-                    fillTxn->setChipAccessRatio(50);
-                    fillTxn->setMetaDataTxn();
-
-                    newTxn->setChipAccessRatio(50);
-
-                    m_MReqQ.push_back(fillTxn);
-                    m_ResQ.push_back(fillTxn);
-
-
-                    //write back
-                    uint64_t victim_row_addr = metacache->fill(addr);
-                    uint64_t writeback_addr = metacache->getMetaDataAddress(victim_row_addr, true);
-
-                    c_Transaction *writebackTxn
-                            = new c_Transaction(newTxn->getSeqNum(), e_TransactionType::WRITE, writeback_addr,
-                                                1);
-
-                    c_HashedAddress l_hashedAddress2;
-                    m_addrHasher->fillHashedAddress(&l_hashedAddress2, writeback_addr);
-
-
-                    writebackTxn->setHashedAddress(l_hashedAddress2);
-
-                    writebackTxn->setMetaDataSkip();
-                    writebackTxn->setMetaDataTxn();
-                    //writebackTxn->setHelperFlag(true);
-                    writebackTxn->donotRespond();
-
-                    writebackTxn->setCompressedSize(50);
-                    writebackTxn->setChipAccessRatio(50);
-
-                    m_MReqQ.push_back(writebackTxn);
-                    m_ResQ.push_back(writebackTxn);
-                }
-            }
-        }
 
         //partial-chip access
         else if(pca_mode) {
@@ -551,68 +538,125 @@ bool c_ControllerPCA::clockTic(SST::Cycle_t clock) {
                      case 1:  //memzip metacache
                      {
                          assert(metacache != NULL);
+                         uint64_t cl_addr = (addr>>6)<<6;
 
-                         if (metacache->isHit(addr)) {
+                         bool metacache_data=false;
+                         bool isCompressible=false;
+                         bool doUpdate_metadata_cache= false;
+
+                         //check compressibility of current cacheline
+                         if(newTxn->getCompressedSize()<=50)
+                             isCompressible=true;
+                         else
+                             isCompressible=false;
+
+                         //read metacache data
+                         if(m_metacache_data.find(cl_addr)==m_metacache_data.end()) {
+                             m_metacache_data[cl_addr] = isCompressible;
+                             metacache_data=false;
+                         } else
+                             metacache_data=m_metacache_data[cl_addr];
+
+
+                         if(isCompressible!=metacache_data) {
+                             m_metacache_data[cl_addr]=isCompressible;
+                             if(newTxn->isWrite())
+                                 doUpdate_metadata_cache = true;
+                         }
+                         else
+                             doUpdate_metadata_cache=false;
+
+//                         printf("addr:%llx cl_addr:%llx pagenum:%lld iswrite:%d compsize:%d isCompressible:%d metacache_data:%d doUpate metadata cache:%d update count:%lld mcache_evict_cnt:%lld mcache_wb_cnt:%lld\n",
+  //                              addr,cl_addr,(cl_addr >>12)<<12, newTxn->isWrite(),newTxn->getCompressedSize(),isCompressible, metacache_data, doUpdate_metadata_cache,m_metacache_update_cnt,m_mcache_evict_cnt,m_mcache_wb_cnt);
+                         if (metacache->isHit(addr,doUpdate_metadata_cache)) {
+
                              isNeedHelper = newTxn->needHelper();
-                             newTxn->setChipAccessRatio(newTxn->getCompressedSize());
+                             int chip_access_ratio=100;
+                             if(newTxn->getCompressedSize()<=50)
+                                 chip_access_ratio=50;
+                             else
+                                 chip_access_ratio=100;
+
+                             uint64_t cl_addr = (addr>>6)<<6;
+
+                             newTxn->setChipAccessRatio(chip_access_ratio);
+
+                             if(doUpdate_metadata_cache) {
+                                 m_metacache_update_cnt++;
+                             }
+                           //  printf("addr:%llx hit access_cnt:%lld miss_cnt:%lld\n",addr,metacache->getAccessCnt(),metacache->getMissCnt());
                          } else {
+                             //access all chip
                              isNeedHelper = true;
+                             newTxn->setCompressedSize(100);
+                             newTxn->setChipAccessRatio(100);
 
-                             //write back metadata
-                             uint64_t victim_row_addr = metacache->fill(addr);
-                             uint64_t writeback_addr = metacache->getMetaDataAddress(victim_row_addr, true);
+                             //write back metadata if dirty
+                             MCache_Entry victim = metacache->install(addr,doUpdate_metadata_cache);
+                             m_mcache_evict_cnt++;
 
-                             // victim_row_addr ^(victim_row_addr >> 32);
-                             c_Transaction *writebackTxn
-                                     = new c_Transaction(newTxn->getSeqNum(), e_TransactionType::WRITE, writeback_addr,
-                                                         1);
+                             if(doUpdate_metadata_cache) {
+                                 m_metacache_update_cnt++;
+                             }
 
-                             c_HashedAddress l_hashedAddress2;
-                             m_addrHasher->fillHashedAddress(&l_hashedAddress2, writeback_addr);
+                             if(victim.dirty) {
+                                 m_mcache_wb_cnt++;
+                                 uint64_t writeback_addr_high = (uint64_t) rand();
+                                 uint64_t writeback_addr_low = (uint64_t) rand();
+                                 uint64_t writeback_addr =
+                                         (writeback_addr_high << 32 | (writeback_addr_low)) & (m_memsize - 1);
 
-                             //determine subrank
-                             uint32_t row2 = l_hashedAddress2.getRow();
-                             int Chs2 = m_deviceDriver->getNumChannel();
-                             int Pchs2 = m_deviceDriver->getNumPChPerChannel();
-                             int Ranks2 = m_deviceDriver->getNumRanksPerChannel();
-                             int BGs2 = m_deviceDriver->getNumBankGroupsPerRank();
-                             int Banks2 = m_deviceDriver->getNumBanksPerBankGroup();
+                                 c_Transaction *writebackTxn
+                                         = new c_Transaction(newTxn->getSeqNum(), e_TransactionType::WRITE,
+                                                             writeback_addr,
+                                                             1);
 
-                             unsigned pch = row2 & 0x1;
-                             l_hashedAddress2.setPChannel(pch);
+                                 c_HashedAddress l_hashedAddress2;
+                                 m_addrHasher->fillHashedAddress(&l_hashedAddress2, writeback_addr);
 
+                                 //determine subrank
+                                 uint32_t row2 = l_hashedAddress2.getRow();
+                                 int Chs2 = m_deviceDriver->getNumChannel();
+                                 int Pchs2 = m_deviceDriver->getNumPChPerChannel();
+                                 int Ranks2 = m_deviceDriver->getNumRanksPerChannel();
+                                 int BGs2 = m_deviceDriver->getNumBankGroupsPerRank();
+                                 int Banks2 = m_deviceDriver->getNumBanksPerBankGroup();
 
-                         unsigned l_bankId =
-                                 l_hashedAddress2.getBank()
-                                 + l_hashedAddress2.getBankGroup() * Banks2
-                                 + l_hashedAddress2.getRank() * Banks2 * BGs2
-                                 + l_hashedAddress2.getPChannel() * Banks2 * BGs2 * Ranks2
-                                 + l_hashedAddress2.getChannel() * (Pchs2+1) * Banks2 * BGs2 * (Ranks2 );
-                         //std::cout <<"row: "<<row<<" subrank: "<<subrank<<" bankid[old]: "<<l_hashedAddress.getBankId()<< " bankid[new]: "<<l_bankId<<std::endl;
-                         unsigned l_rankId =
-                                 +l_hashedAddress2.getRank()
-                                 + l_hashedAddress2.getPChannel() * Ranks2
-                                 + l_hashedAddress2.getChannel() * (Pchs2+1) * (Ranks2 );
+                                 unsigned pch = row2 & 0x1;
+                                 l_hashedAddress2.setPChannel(pch);
 
 
-                             l_hashedAddress2.setRankId(l_rankId);
-                             l_hashedAddress2.setBankId(l_bankId);
-                             writebackTxn->setHashedAddress(l_hashedAddress2);
+                                 unsigned l_bankId =
+                                         l_hashedAddress2.getBank()
+                                         + l_hashedAddress2.getBankGroup() * Banks2
+                                         + l_hashedAddress2.getRank() * Banks2 * BGs2
+                                         + l_hashedAddress2.getPChannel() * Banks2 * BGs2 * Ranks2
+                                         + l_hashedAddress2.getChannel() * (Pchs2 + 1) * Banks2 * BGs2 * (Ranks2);
 
-                             writebackTxn->setMetaDataSkip();
-                             writebackTxn->setMetaDataTxn();
-                             //writebackTxn->setHelperFlag(true);
-                             writebackTxn->donotRespond();
+                                 unsigned l_rankId =
+                                         +l_hashedAddress2.getRank()
+                                         + l_hashedAddress2.getPChannel() * Ranks2
+                                         + l_hashedAddress2.getChannel() * (Pchs2 + 1) * (Ranks2);
 
-                             writebackTxn->setCompressedSize(50);
-                             writebackTxn->setChipAccessRatio(50);
 
-                             m_MReqQ.push_back(writebackTxn);
-                             m_ResQ.push_back(writebackTxn);
+                                 l_hashedAddress2.setRankId(l_rankId);
+                                 l_hashedAddress2.setBankId(l_bankId);
+                                 writebackTxn->setHashedAddress(l_hashedAddress2);
 
+                                 writebackTxn->setMetaDataSkip();
+                                 writebackTxn->setMetaDataTxn();
+                                 writebackTxn->donotRespond();
+
+                                 writebackTxn->setCompressedSize(100);
+                                 writebackTxn->setChipAccessRatio(100);
+
+                                 m_MReqQ.push_back(writebackTxn);
+                                 m_ResQ.push_back(writebackTxn);
+
+                             }
 
                              //fetch metadata
-                             uint64_t fetch_addr = metacache->getMetaDataAddress(addr, false);
+                             uint64_t fetch_addr = addr;
                              c_Transaction *fillTxn
                                      = new c_Transaction((ulong) newTxn->getSeqNum(), e_TransactionType::READ,
                                                          fetch_addr, 1);
@@ -621,15 +665,15 @@ bool c_ControllerPCA::clockTic(SST::Cycle_t clock) {
 
                              fillTxn->setMetaDataSkip();
                              fillTxn->setHashedAddress(l_hashedAddress3);
-                             //fillTxn->setHelperFlag(true);
                              fillTxn->donotRespond();
-                             fillTxn->setCompressedSize(50);
-                             fillTxn->setChipAccessRatio(50);
+                             fillTxn->setCompressedSize(100);
+                             fillTxn->setChipAccessRatio(100);
                              fillTxn->setMetaDataTxn();
 
                              m_MReqQ.push_back(fillTxn);
                              m_ResQ.push_back(fillTxn);
 
+                             //printf("addr:%llx miss, metadata fill addr:%llx, metadata wb addr:%llx\n",addr,fetch_addr,writeback_addr);
                          }
                          break;
                      }
@@ -682,32 +726,51 @@ bool c_ControllerPCA::clockTic(SST::Cycle_t clock) {
                          cmpSize_predictor->update(col, rowid, newTxn->getCompressedSize());
 
                          newTxn->setChipAccessRatio(compSize);
+                         newTxn->setCompressedSize(50);
                          break;
                      }
-                     case 3:{  //every time metadata access
+                     case 3:{  //new predictor
 
-                         //fetch metadata
-                         uint64_t fetch_addr = newTxn->getAddress();
-                         c_Transaction *fillTxn
-                                 = new c_Transaction((ulong) newTxn->getSeqNum(), e_TransactionType::READ,
-                                                     fetch_addr, 1);
+                         assert(cmpSize_predictor_new != NULL);
+                         int col = newTxn->getHashedAddress().getCol();
+                         int row = newTxn->getHashedAddress().getRow();
+                         int bankid = newTxn->getHashedAddress().getBankId();
+                         int rowoffset = (int) log2(m_rownum);
 
-                         c_HashedAddress l_hashedAddress3 = newTxn->getHashedAddress();
+                         bool isWrite = newTxn->isWrite();
 
-                         fillTxn->setMetaDataSkip();
-                         fillTxn->setHashedAddress(l_hashedAddress3);
-                         //fillTxn->setHelperFlag(true);
-                         fillTxn->donotRespond();
-                         fillTxn->setCompressedSize(100);
-                         fillTxn->setChipAccessRatio(100);
-                         fillTxn->setMetaDataTxn();
+                         int compSize = 100;
 
-                         //no metadata support, we open full row every time
-                         s_DoubleRankAccess->addData(1);
+                         if (isWrite) {
+                             compSize = newTxn->getCompressedSize();
+                             isNeedHelper = newTxn->needHelper();
+                         } else {
+                             int actualSize = newTxn->getCompressedSize();
+                             int predSize = cmpSize_predictor_new->getPredictedSize(addr,actualSize);
 
+                             if (actualSize > 50) {
+                                 isNeedHelper = true;
+                                 compSize = actualSize;
+                                 if (predSize <= 50)
+                                     s_predicted_fail_below50->addData(1);
+                                 else
+                                     s_predicted_success_above50->addData(1);
+                             } else {
+                                 if (predSize <= 50) {
+                                     isNeedHelper = false;
+                                     compSize = predSize;
+                                     s_predicted_success_below50->addData(1);
+                                 } else {
+                                     isNeedHelper = true;
+                                     compSize = actualSize;
+                                     s_predicted_fail_above50->addData(1);
+                                 }
+                             }
+                         }
 
-                         m_MReqQ.push_back(fillTxn);
-                         m_ResQ.push_back(fillTxn);
+                         newTxn->setChipAccessRatio(compSize);
+                         newTxn->setCompressedSize(50);
+
                          break;
                      }
                      default: {
@@ -859,7 +922,7 @@ c_2LvPredictor::c_2LvPredictor(uint64_t robr_entries, int lipr_entries, int _num
 {
     m_rowtable.resize(robr_entries);
     for(int j=0; j<robr_entries;j++)
-    m_rowtable[j]=0;
+        m_rowtable[j]=0;
 
     m_num_cache_entries=lipr_entries;
     m_num_col_per_cache_entry=_num_col_per_lipr_entry;
@@ -891,6 +954,145 @@ c_2LvPredictor::c_2LvPredictor(uint64_t robr_entries, int lipr_entries, int _num
     m_predictor_ropr_success=0;
     //  cache_tag_offset=(int)log2(_num_col_per_cache_entry);
 }
+/*
+c_2LvPredictor::c_2LvPredictor(uint64_t global_predictor_entries,uint64_t robr_entries, int lipr_entries,int pageSize,Output* output)
+{
+    m_global_predictor = new SCache(global_predictor_entries,1,0,pageSize);
+    m_row_predictor = new SCache(robr_entries,16,0,pageSize);
+    m_line_predictor = new SCache(lipr_entries,16,0.pageSize);
+    m_output=output;
+    m_hit_cnt=0;
+    m_miss_cnt=0;
+    m_predictor_lipr_hit=0;
+    m_predictor_lipr_fail=0;
+    m_predictor_lipr_miss=0;
+    m_predictor_lipr_success=0;
+    m_predictor_ropr_fail=0;
+    m_predictor_ropr_success=0;
+    m_row_predictor= nullptr;
+    m_line_predictor=nullptr;
+}
+
+int c_2LvPredictor::update_v2(int col, int row, int compSize) {
+
+int c_2LvPredictor::getPredictedSize_v2(uint64_t addr, int col, uint32_t actual_size)
+{
+    int predict_size_linelv=-1;
+    int predict_size_rowlv=-1;
+
+    if(m_row_predictor)
+    {
+        if(m_row_predictor->isHit(addr,false))
+        {
+            uint64_t data = m_row_predictor->getData(addr);
+            if(data==3)
+                predict_size_rowlv=50;
+            else
+                predict_size_rowlv=100;
+
+            //update state
+            if(data<3) {
+                data++;
+                m_row_predictor->setData(addr,data);
+            }
+
+        }
+        else {
+            SST::CACHE::MCache_Entry victim = m_row_predictor->install(addr,false);
+            uint64_t victim_addr        =     m_row_predictor->getAddrFromTag(victim.tag);
+            m_row_predictor->install(addr,false);
+            m_row_predictor->setData(addr,0);
+            m_row_predictor->getData()
+            predict_size_rowlv          =     100;
+
+        }
+    }
+
+    //1. see line_level_predictor
+    if(m_line_predictor) {
+
+        if(m_line_predictor->isHit(addr,false)) {
+            uint64_t data = m_line_predictor->getData(addr);
+            if (((data >> col) & 1) == 1)
+                predict_size_line = 50;
+            else
+                predict_size = 100;
+        }
+        else
+        {
+            m_line_predictor->setData()
+            predict_size = 100;
+        }
+    }
+
+        //statistics
+        if(predict_size<0) {
+            m_predictor_lipr_miss++;
+            m_output->verbose(CALL_INFO,1,0,"LiPR miss, col:%d, row_:%d\n",col,row_);
+            //   printf("LiPR miss, misscount:%lld, col:%d, row_:%d\n",m_predictor_lipr_miss,col,row_);
+        }
+        else
+        {
+            m_predictor_lipr_hit++;
+            if(actual_size<=50 && predict_size<=50 || actual_size>50 && predict_size>50) {
+                m_predictor_lipr_success++;
+                m_output->verbose(CALL_INFO,1,0,"LiPR Hit prediction success, actual_size:%d predict_size:%d, col:%d, row_:%d, \n",actual_size, predict_size,col,row_);
+                //    printf("LiPR Hit prediction success, success:%lld, actual_size:%d predict_size:%d, col:%d, row_:%d, \n",m_predictor_lipr_success, actual_size, predict_size,col,row_);
+            }
+            else {
+                m_predictor_lipr_fail++;
+                m_output->verbose(CALL_INFO,1,0,"LiPR Hit prediction miss, actual_size:%d predict_size:%d, col:%d, row_:%d, \n",actual_size, predict_size,col,row_);
+                //    printf("LiPR Hit prediction miss, fail:%lld, actual_size:%d predict_size:%d, col:%d, row_:%d, \n",m_predictor_lipr_fail, actual_size, predict_size,col,row_);
+            }
+        }
+    }
+
+    //2. see rowtable
+    if(predict_size<0) {
+        int row_idx=row_ & m_row_table_mask;
+        int predict_bit = m_rowtable[row_idx];
+        if (predict_bit == 3)
+            predict_size = 50;
+        else
+            predict_size = 100;
+
+        if(actual_size<=50 && predict_size<=50 || actual_size>50 && predict_size>50) {
+            m_predictor_ropr_success++;
+            m_output->verbose(CALL_INFO,1,0,"RoPR prediction success, actual_size:%d predict_size:%d\n",actual_size, predict_size,col,row_);
+            //    printf("RoPR prediction success, success:%lld, actual_size:%d predict_size:%d\n",m_predictor_ropr_success,actual_size, predict_size,col,row_);
+        }
+        else {
+            m_predictor_ropr_fail++;
+            m_output->verbose(CALL_INFO,1,0,"RoPR prediction fail, actual_size:%d predict_size:%d\n",actual_size, predict_size,col,row_);
+            //    printf("RoPR prediction fail, fail:%lld, actual_size:%d predict_size:%d\n",m_predictor_ropr_fail,actual_size, predict_size,col,row_);
+        }
+    }
+
+    return predict_size;
+}
+
+
+uint8_t c_2LvPredictor::updateRowTable_v2(int cacheline_size, uint64_t addr)
+{
+
+
+    uint8_t prev_state=m_rowtable.at(row_idx);
+    uint8_t new_state=0;
+    if(cacheline_size<=50)
+        new_state=prev_state+1;
+    else
+        new_state=0;
+
+    if(new_state>3)
+        new_state=3;
+
+    m_rowtable.at(row_idx)=new_state;
+    m_output->verbose(CALL_INFO,1,0,"update row table, row:%lld, row_idx:%lld, newstate:%d\n",row_,row_idx,new_state);
+    //printf("update row table, row:%lld, row_idx:%lld, newstate:%d\n",row_,row_idx,new_state);
+    return new_state;
+}
+
+*/
 
 uint8_t c_2LvPredictor::updateRowTable(int cacheline_size, int row_)
 {
@@ -969,35 +1171,49 @@ int c_2LvPredictor::getPredictedSize(uint32_t col, uint32_t row_, uint32_t actua
 int c_2LvPredictor::getCompSizeFromCache(int col, int row)
 {
     int compSize=-1;
-    int index = row & cache_index_mask;
-    int tag = row >> cache_tag_offset;
-    int col_index = (int)((double)col / ((double)128/(double)m_num_col_per_cache_entry));  //assume that the number of dram column is 128
-    int col_tag = col >> (int)log2(m_num_col_per_cache_entry);
 
-    if(m_cache_tag.at(index)==tag)
+/*    if(isHighAssocRowTable)
     {
-        std::pair<uint8_t, uint64_t> comp_data= m_cache_data[index][col_index];
-
-        if(comp_data.first==col_tag) {
-            compSize = comp_data.second;
-            m_cl_hit_cnt++;
-        }
-        else {
-            m_cl_miss_cnt++;
-            compSize = comp_data.second;
+        uint64_t addr = row<<1 + (col/64);
+        if(m_highAssocRowTable.isHit(addr))
+        {
+            uint64_t data = 
         }
 
-        m_hit_cnt++;
-        m_output->verbose(CALL_INFO,1,0,"[Hit] col: %d, row:%d index: %d tag: %d, col_index: %d, col_tag:%d compSize:%d\n",col, row, index, tag, col_index, col_tag, compSize);
-    //    printf("[Hit] hitcount:%lld, col: %d, row:%d index: %d tag: %d, col_index: %d, col_tag:%d compSize:%d\n",this->m_predictor_lipr_hit, col, row, index, tag, col_index, col_tag, compSize);
-    } else {
-        m_miss_cnt++;
-        m_cl_miss_cnt++;
-        compSize = -1;
-        m_output->verbose(CALL_INFO,1,0,"[Miss] col: %d, row:%d index: %d tag: %d, col_index: %d, col_tag:%d compSize:%d\n",col, row, index, tag, col_index, col_tag, compSize);
-     //   printf("[Miss] misscount:%lld, col: %d, row:%d index: %d tag: %d, col_index: %d, col_tag:%d compSize:%d\n",m_predictor_lipr_miss, col, row, index, tag, col_index, col_tag, compSize);
     }
+    else */{
+        int index = row & cache_index_mask;
+        int tag = row >> cache_tag_offset;
+        int col_index = (int) ((double) col / ((double) 128 /
+                                               (double) m_num_col_per_cache_entry));  //assume that the number of dram column is 128
+        int col_tag = col >> (int) log2(m_num_col_per_cache_entry);
 
+        if (m_cache_tag.at(index) == tag) {
+            std::pair<uint8_t, uint64_t> comp_data = m_cache_data[index][col_index];
+
+            if (comp_data.first == col_tag) {
+                compSize = comp_data.second;
+                m_cl_hit_cnt++;
+            } else {
+                m_cl_miss_cnt++;
+                compSize = comp_data.second;
+            }
+
+            m_hit_cnt++;
+            m_output->verbose(CALL_INFO, 1, 0,
+                              "[Hit] col: %d, row:%d index: %d tag: %d, col_index: %d, col_tag:%d compSize:%d\n", col,
+                              row, index, tag, col_index, col_tag, compSize);
+            //    printf("[Hit] hitcount:%lld, col: %d, row:%d index: %d tag: %d, col_index: %d, col_tag:%d compSize:%d\n",this->m_predictor_lipr_hit, col, row, index, tag, col_index, col_tag, compSize);
+        } else {
+            m_miss_cnt++;
+            m_cl_miss_cnt++;
+            compSize = -1;
+            m_output->verbose(CALL_INFO, 1, 0,
+                              "[Miss] col: %d, row:%d index: %d tag: %d, col_index: %d, col_tag:%d compSize:%d\n", col,
+                              row, index, tag, col_index, col_tag, compSize);
+            //   printf("[Miss] misscount:%lld, col: %d, row:%d index: %d tag: %d, col_index: %d, col_tag:%d compSize:%d\n",m_predictor_lipr_miss, col, row, index, tag, col_index, col_tag, compSize);
+        }
+    }
     return compSize;
 }
 
@@ -1036,3 +1252,144 @@ int c_2LvPredictor::update(int col, int row, int compSize) {
         m_cache_data[index][col_index] = comp_data;
     }
 }
+
+
+//////////////////////////////////////////////////////////////////
+c_2LvPredictor_new::c_2LvPredictor_new(uint64_t global_predictor_entries, uint64_t ropr_entries, int ropr_cols, int pageSize, int  g_predictor_threshold, Output* output) {
+    m_row_predictor = new SCache(ropr_entries, 16, 0, pageSize);
+    m_row_predictor_data.clear();
+//m_line_predictor = new SCache(lipr_entries,16, 0, pageSize);
+    m_pageSize=pageSize;
+    m_page_offset_size = log2(pageSize);
+    m_ropr_col_offset_size = log2(ropr_cols);
+    m_ropr_col_num=ropr_cols;
+
+    if(global_predictor_entries>0)
+        m_global_predictor.resize(global_predictor_entries);
+
+    m_global_predictor_mask=global_predictor_entries;
+    m_global_prediction_threadhold=g_predictor_threshold;
+    for(auto &it:m_global_predictor) {
+        it = 0;
+    }
+}
+
+int c_2LvPredictor_new::getPredictedSize(uint64_t addr, uint32_t actual_size)
+{
+
+    int predict_size=-1;
+    uint8_t global_prediction=0;
+    int global_predictor_index=0;
+    int global_predictor_data = 0 ;
+    uint64_t page_addr = addr >> m_page_offset_size;
+    int col_num=(m_pageSize/64);
+
+    int col = (addr >> 6) % col_num;
+    int col_idx = (int) ((double) col / ((double) col_num /
+                                           (double) m_ropr_col_num));  //assume that the number of dram column is 128
+
+    if(m_global_predictor.size()>0) {
+        global_predictor_index=(addr>>m_page_offset_size)%m_global_predictor_mask;
+        global_predictor_data = m_global_predictor[global_predictor_index];
+    }
+
+ //   printf("\n[before] addr:%llx m_global_index:%d m_global_data:%d m_row_predictor_data:%d\n",addr,global_predictor_data);
+
+
+    //get global prediction
+    if(global_predictor_data>m_global_prediction_threadhold)
+        global_prediction=3;
+    else
+        global_prediction=0;
+
+    //statistic for global predictor
+    if((global_prediction==3 && actual_size<=50 )|| (global_prediction!=3 && actual_size>50))
+        m_predictor_global_success++;
+    else
+        m_predictor_global_fail++;
+
+    //update global predictor
+    if(m_global_predictor.size()>0) {
+        if (actual_size <= 50 && m_global_predictor[global_predictor_index] < 255)
+            m_global_predictor[global_predictor_index]++;
+        else if (actual_size > 50 && m_global_predictor[global_predictor_index] > 0)
+            m_global_predictor[global_predictor_index]--;
+    }
+
+    //row_comp_predictor
+    bool ishit=false;
+    if(m_row_predictor && predict_size<0) {
+        ishit=m_row_predictor->isHit(addr, true);
+        if (ishit) {
+
+            if (m_row_predictor_data.find(page_addr) == m_row_predictor_data.end()) {
+                printf("no data in row predictor, addr:%llx page_addr:%llx\n",addr, page_addr);
+                exit(1);
+            }
+
+
+            uint8_t data = m_row_predictor_data[page_addr].at(col_idx);
+            if (data == 3)
+                predict_size = 50;
+            else
+                predict_size = 100;
+
+            //update state
+            if (data < 3) {
+                data++;
+                m_row_predictor_data[page_addr].at(col_idx) = data;
+            }
+        } else {
+            CACHE::MCache_Entry victim = m_row_predictor->install(addr, true);
+            uint64_t victim_page_addr = victim.tag;
+
+            //clean victim
+            if (victim.valid && (m_row_predictor_data.find(victim_page_addr) != m_row_predictor_data.end()))
+                m_row_predictor_data.erase(victim_page_addr);
+
+            //set new page
+            std::vector<uint8_t> data_tmp;
+            for(int i=0; i<m_ropr_col_num;i++) {
+                data_tmp.push_back(global_prediction);
+            }
+            m_row_predictor_data[page_addr]=data_tmp;
+
+            //default prediction on predictor miss
+            if (global_prediction == 3)
+                predict_size = 50;
+            else
+                predict_size = 100;
+        }
+
+
+        //update state
+ //       printf("before:%lld\n",m_row_predictor_data[page_addr]);
+        if (actual_size<=50 && m_row_predictor_data[page_addr].at(col_idx)  < 3)
+            m_row_predictor_data[page_addr].at(col_idx)++;
+        else if(actual_size>50 && m_row_predictor_data[page_addr].at(col_idx)>0)
+            m_row_predictor_data[page_addr].at(col_idx)--;
+   //     printf("after:%lld\n",m_row_predictor_data[page_addr]);
+    }
+/*
+    if(m_predictor_ropr_success%1000==0)
+        printf("addr:%llx global_index:%d m_global_data:%lld m_row_predictor_data:%d actual_size:%d predic_size:%d success:%lld fail%lld success?:%d\n",
+            addr,global_predictor_index,global_predictor_data,m_row_predictor_data[page_addr],actual_size,predict_size,
+                m_predictor_ropr_success,m_predictor_ropr_fail, (actual_size<=50 && predict_size<=50 || actual_size>50 && predict_size>50)?1:0);
+  */
+    //statistics
+        if(!ishit) {
+            m_predictor_ropr_miss++;
+        }
+        else
+        {
+            m_predictor_ropr_hit++;
+        }
+       if(actual_size<=50 && predict_size<=50 || actual_size>50 && predict_size>50) {
+            m_predictor_ropr_success++;
+        }
+        else {
+            m_predictor_ropr_fail++;
+        }
+    return predict_size;
+}
+

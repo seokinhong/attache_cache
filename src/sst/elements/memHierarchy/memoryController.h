@@ -25,6 +25,9 @@
 #include "sst/elements/memHierarchy/cacheListener.h"
 #include "sst/elements/memHierarchy/memLinkBase.h"
 #include "sst/elements/memHierarchy/membackend/backing.h"
+#include "sst/elements/CramSim/c_CompressEngine.hpp"
+
+using namespace SST;
 
 namespace SST {
 namespace MemHierarchy {
@@ -33,6 +36,33 @@ class MemBackendConvertor;
 
 class MemController : public SST::Component {
 public:
+
+    class c_Cacheline{
+    public:
+        c_Cacheline(std::vector<uint8_t> &new_data)
+        {
+            char size=new_data.size();
+            data=(uint8_t*)malloc(sizeof(uint8_t*)*size);
+            for(int i=0;i<size;i++)
+            {
+                *(data+i)=new_data[i];
+            }
+        }
+
+        ~c_Cacheline(){
+            delete data;
+        }
+
+        uint8_t* getData()
+        {
+
+            return data;
+        }
+
+    private:
+        uint8_t *data;
+    };
+
     typedef uint64_t ReqId;
 
     MemController(ComponentId_t id, Params &params);
@@ -94,8 +124,8 @@ private:
     Addr translateToLocal(Addr addr);
     Addr translateToGlobal(Addr addr);
 
-
-    bool isPageAllocLink;
+    bool hasContentLink;
+    bool hasPageAllocLink;
     bool isMultiThreadMode;
     std::vector<SST::Link*> m_pageLinks;
     int corenum;
@@ -108,6 +138,12 @@ private:
     void handlePageAllocation(SST::Event*);
     Addr getPageAddress(Addr VirtAddr);
 
+    bool boolStoreCompRate;
+    bool boolStoreContent;
+    std::map<uint64_t, uint8_t> compratio_bdi;
+    std::map<uint64_t, uint32_t> compratio_fpc;
+    std::map<uint64_t, uint32_t> compratio_fvc;
+    void storeContent(SST::Event *ev);
 
 };
 

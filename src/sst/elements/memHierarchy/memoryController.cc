@@ -18,10 +18,9 @@
 #include <sst/core/params.h>
 #include <sst/core/simulation.h>
 #include <map>
-
+#include <vector>
 #include "memoryController.h"
 #include "util.h"
-
 #include "membackend/memBackendConvertor.h"
 #include "memEventBase.h"
 #include "memEvent.h"
@@ -184,13 +183,14 @@ MemController::MemController(ComponentId_t id, Params &params) : Component(id), 
 
 
 
-    isPageAllocLink      = params.find<bool>("isPageAllocLink", false);
+    hasPageAllocLink      = params.find<bool>("hasPageAllocLink", false);
+    hasContentLink      = params.find<bool>("hasContentLink", false);
     corenum = params.find<int>("corenum", false);
     isMultiThreadMode      = params.find<bool>("isMultiThreadMode", false);
     m_osPageSize      = params.find<uint64_t>("pagesize", false);
     m_nextPageAddress = 0;
 
-    if(isPageAllocLink=true) {
+    if(hasPageAllocLink==true) {
         for (int i = 0; i < corenum; i++) {
             string l_linkName = "pageLink_" + to_string(i);
             Link *l_link = configureLink(l_linkName,
@@ -206,7 +206,55 @@ MemController::MemController(ComponentId_t id, Params &params) : Component(id), 
             }
         }
     }
+
+    if(hasContentLink==true) {
+        for (int i = 0; i < corenum; i++) {
+            string l_linkName = "contentLink_" + to_string(i);
+            Link *l_link = configureLink(l_linkName,
+                                         new Event::Handler<MemController>(this,
+                                                                           &MemController::storeContent));
+
+            if (l_link) {
+                m_pageLinks.push_back(l_link);
+                cout << l_linkName << " is connected" << endl;
+            } else {
+                cout << l_linkName << " is not found.. exit" << endl;
+                exit(-1);
+            }
+        }
+    }
 }
+
+
+
+void MemController::storeContent(SST::Event *ev)
+{
+    SST::MemHierarchy::MemEvent* req=dynamic_cast<SST::MemHierarchy::MemEvent*>(ev);
+
+
+    uint64_t req_addr=req->getAddr();
+    if(req->getCmd()==MemHierarchy::Command::Put) {
+        uint64_t cacheline_addr = (req_addr >> 6) << 6;
+
+        //store compression ratio of memory content
+        if(boolStoreCompRate) {
+
+            uint64_t *mem_ptr_64;
+            int size=req->getSize();
+            std::vector<uint8_t> data= std::vector<uint8_t>(req->getPayload());
+            uint8_t comp_ratio_bdi = data[0];
+
+            compratio_bdi[cacheline_addr] = comp_ratio_bdi;
+        }
+
+    } else
+    {
+        fprintf(stderr,"[c_ControllerPCA] cpu command error!\n");
+        exit(1);
+    }
+    delete req;
+}
+
 
 
 void MemController::handlePageAllocation(SST::Event* event)
@@ -302,6 +350,15 @@ void MemController::handleEvent(SST::Event* event) {
     }
 
     Command cmd = ev->getCmd();
+    uint64_t addr = ev->getAddr();
+
+    if(hasContentLink)
+    {
+        uint64_t cacheline_addr=(addr>>6)<<6;
+        std::vector<uint8_t> data;
+        data.push_back(compratio_bdi[cacheline_addr]);
+        ev->setPayload(data);
+    }
 
     // Notify our listeners that we have received an event
     switch (cmd) {
@@ -330,7 +387,6 @@ void MemController::handleEvent(SST::Event* event) {
                 outstandingEvents_.insert(std::make_pair(ev->getID(), ev));
                 ev->setCmd(Command::FlushLine);
                 memBackendConvertor_->handleMemEvent( ev );
-
             }
             break;
 
