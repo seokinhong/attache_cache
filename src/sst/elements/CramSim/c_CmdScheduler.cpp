@@ -91,7 +91,7 @@ c_CmdScheduler::~c_CmdScheduler(){
 }
 
 
-
+uint64_t totalQueueing_delay_acc=0;
 void c_CmdScheduler::run(){
 
     bool isSuccess = false;
@@ -113,8 +113,12 @@ void c_CmdScheduler::run(){
                         l_cmdQueue.pop_front();
                         if(!l_cmdPtr->isHelper() && !l_cmdPtr->isMetadataCmd() && (l_cmdPtr->getCommandMnemonic()==e_BankCommandType::READ || l_cmdPtr->getCommandMnemonic()==e_BankCommandType::WRITE))
                         {
+
                             l_cmdPtr->getTransaction()->m_time_issued_CmdQ=m_owner->getSimCycle();
-                            uint64_t totalQueueing_delay = m_owner->getSimCycle() - l_cmdPtr->getTransaction()->m_time_arrived_Controller;
+                            uint64_t totalQueueing_delay = m_owner->getSimCycle() - l_cmdPtr->getTransaction()->m_time_inserted_TxnQ;
+                            totalQueueing_delay_acc+=totalQueueing_delay;
+                            //printf("cmd issued, txn_id: %lld txnq_inserted_time: %lld queueing delay_acc:%lld\n",
+                            //       l_cmdPtr->getTransaction()->getSeqNum(),l_cmdPtr->getTransaction()->m_time_inserted_TxnQ,totalQueueing_delay_acc);
                             uint64_t cmdQueueing_delay = m_owner->getSimCycle() - l_cmdPtr->getTransaction()->m_time_inserted_CmdQ;
                             uint64_t txnQueueing_delay = l_cmdPtr->getTransaction()->m_time_inserted_CmdQ - l_cmdPtr->getTransaction()->m_time_inserted_TxnQ;
                             m_owner->s_totalQueueing_delay->addData(totalQueueing_delay);

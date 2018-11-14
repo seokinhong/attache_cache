@@ -80,6 +80,7 @@ private:
     bool m_hasHashedAddr;
 
     int8_t m_compressed_size; //0,25,50,75,100
+    int8_t m_pred_compressed_size;
     c_Transaction* m_helper;
     bool m_helper_flag;
     bool m_isResponseRequired;
@@ -151,6 +152,12 @@ bool needHelper()
         int8_t getCompressedSize(){
             return m_compressed_size;
         }
+
+        void setPredCompressedSize(int8_t size)
+        {
+            m_pred_compressed_size=size;
+        }
+
 
 
   unsigned getDataWidth() const;

@@ -39,6 +39,7 @@
 #include <assert.h>
 #include <iostream>
 #include <stdlib.h>
+#include <math.h>
 
 #include <sst/core/stringize.h>
 

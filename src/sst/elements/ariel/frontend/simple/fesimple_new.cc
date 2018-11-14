@@ -201,8 +201,8 @@ VOID ReadCacheLine(uint64_t addr, uint64_t * data)
 		fprintf(stderr, "ariel memory copy fail\n");
 }
 
-uint32_t getCompressedSize(uint8_t *cacheline) {
 
+uint32_t getCompressedSize(uint8_t *cacheline) {
 
 	int min_compressed_size = 512;
 

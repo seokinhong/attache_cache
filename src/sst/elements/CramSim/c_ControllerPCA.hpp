@@ -421,6 +421,7 @@ namespace SST {
             bool isMemzipMode(){return memzip_mode;}
 
 
+
         private:
             uint64_t isMultiThreadMode;
             std::map<uint64_t, uint64_t> pageTable;

@@ -32,6 +32,7 @@
 #include "c_ControllerPCA.hpp"
 #include "c_TxnReqEvent.hpp"
 #include "c_TxnResEvent.hpp"
+#include "c_CmdResEvent.hpp"
 
 
 using namespace SST;
@@ -363,7 +364,7 @@ void c_ControllerPCA::finish() {
         s_predictor_lipr_fail->addData(cmpSize_predictor->m_predictor_lipr_fail);
         s_predictor_ropr_success->addData(cmpSize_predictor->m_predictor_ropr_success);
         s_predictor_ropr_fail->addData(cmpSize_predictor->m_predictor_ropr_fail);
-    }
+    }// new predictor that has set-associated cache structure
     else if((cmpSize_predictor_new&&metadata_predictor==3))
     {
         s_predictor_ropr_hit->addData(cmpSize_predictor_new->m_predictor_ropr_hit);
@@ -729,8 +730,9 @@ bool c_ControllerPCA::clockTic(SST::Cycle_t clock) {
                          newTxn->setCompressedSize(50);
                          break;
                      }
-                     case 3:{  //new predictor
-
+                     case 3:  //new predictor or
+                     case 4:  //no predictor
+                     {
                          assert(cmpSize_predictor_new != NULL);
                          int col = newTxn->getHashedAddress().getCol();
                          int row = newTxn->getHashedAddress().getRow();
@@ -746,15 +748,30 @@ bool c_ControllerPCA::clockTic(SST::Cycle_t clock) {
                              isNeedHelper = newTxn->needHelper();
                          } else {
                              int actualSize = newTxn->getCompressedSize();
-                             int predSize = cmpSize_predictor_new->getPredictedSize(addr,actualSize);
+                             int predSize = 100;
+
+
+                             if(metadata_predictor==3)
+                                 //if new predictor is enabled, get the predicted size with the predictor
+                                 predSize=cmpSize_predictor_new->getPredictedSize(addr,actualSize);
+                             else if(metadata_predictor==4)
+                                 // disabled. always predict as compressed cacheline
+                                 predSize=50;
+
+
 
                              if (actualSize > 50) {
-                                 isNeedHelper = true;
+                                // isNeedHelper = true;
                                  compSize = actualSize;
-                                 if (predSize <= 50)
+                                 if (predSize <= 50) {
                                      s_predicted_fail_below50->addData(1);
+                                     isNeedHelper = false;
+                                 }
                                  else
+                                 {
                                      s_predicted_success_above50->addData(1);
+                                     isNeedHelper = true;
+                                 }
                              } else {
                                  if (predSize <= 50) {
                                      isNeedHelper = false;
@@ -1258,7 +1275,7 @@ int c_2LvPredictor::update(int col, int row, int compSize) {
 c_2LvPredictor_new::c_2LvPredictor_new(uint64_t global_predictor_entries, uint64_t ropr_entries, int ropr_cols, int pageSize, int  g_predictor_threshold, Output* output) {
     m_row_predictor = new SCache(ropr_entries, 16, 0, pageSize);
     m_row_predictor_data.clear();
-//m_line_predictor = new SCache(lipr_entries,16, 0, pageSize);
+
     m_pageSize=pageSize;
     m_page_offset_size = log2(pageSize);
     m_ropr_col_offset_size = log2(ropr_cols);
@@ -1278,9 +1295,9 @@ int c_2LvPredictor_new::getPredictedSize(uint64_t addr, uint32_t actual_size)
 {
 
     int predict_size=-1;
-    uint8_t global_prediction=0;
-    int global_predictor_index=0;
-    int global_predictor_data = 0 ;
+    uint8_t global_prediction = 0;
+    int global_predictor_index = 0;
+    int global_predictor_data = 0;
     uint64_t page_addr = addr >> m_page_offset_size;
     int col_num=(m_pageSize/64);
 
@@ -1293,7 +1310,6 @@ int c_2LvPredictor_new::getPredictedSize(uint64_t addr, uint32_t actual_size)
         global_predictor_data = m_global_predictor[global_predictor_index];
     }
 
- //   printf("\n[before] addr:%llx m_global_index:%d m_global_data:%d m_row_predictor_data:%d\n",addr,global_predictor_data);
 
 
     //get global prediction
@@ -1393,3 +1409,63 @@ int c_2LvPredictor_new::getPredictedSize(uint64_t addr, uint32_t actual_size)
     return predict_size;
 }
 
+
+void c_ControllerPCA::handleInDeviceResPtrEvent(SST::Event *ev){
+    c_CmdResEvent* l_cmdResEventPtr = dynamic_cast<c_CmdResEvent*>(ev);
+    if (l_cmdResEventPtr) {
+        uint64_t l_resSeqNum = l_cmdResEventPtr->m_payload->getSeqNum();
+        // need to find which txn matches the command seq number in the txnResQ
+        c_Transaction* l_txnRes = nullptr;
+        std::deque<c_Transaction*>::iterator l_txIter;
+
+        for(l_txIter=m_ResQ.begin() ; l_txIter!=m_ResQ.end();l_txIter++) {
+            if((*l_txIter)->matchesCmdSeqNum(l_resSeqNum)) {
+                l_txnRes = *l_txIter;
+                break;
+            }
+        }
+
+        if(l_txnRes == nullptr) {
+            std::cout << "Error! Couldn't find transaction to match cmdSeqnum " << l_resSeqNum << std::endl;
+            std::cout << "meta data txn?" << l_cmdResEventPtr->m_payload->isMetadataCmd() << std::endl;
+            std::cout << " helper?" << l_cmdResEventPtr->m_payload->isHelper() << std::endl;
+            l_cmdResEventPtr->m_payload->print(m_simCycle);
+            l_cmdResEventPtr->m_payload->getTransaction()->print();
+
+            exit(-1);
+        }
+        else
+        {
+            output->verbose(CALL_INFO,1,0, "Cycle: %lld, txn is found, txnNum:%lld cmdSeq:%lld, addr:%lld, helper:%d\n",m_simCycle,l_txnRes->getSeqNum(),l_txnRes->getAddress(), l_txnRes->isHelper());
+        }
+
+        const unsigned l_cmdsLeft = l_txnRes->getWaitingCommands() - 1;
+        l_txnRes->setWaitingCommands(l_cmdsLeft);
+        if (l_cmdsLeft == 0) {
+            l_txnRes->setResponseReady();
+
+            // With quick response mode, controller sends a response to a requester for a write request as soon as the request is pushed to a transaction queue
+            // So, we don't need to send another response at this time. Just erase the request in the response queue.
+            if ( k_enableQuickResponse && l_txnRes->isWrite()) {
+                m_ResQ.erase(l_txIter);
+                delete l_txnRes;
+            }
+            else {
+                if (!l_txnRes->isResponseRequired()) {
+                    m_ResQ.erase(l_txIter);
+                    delete l_txnRes;
+                } else {
+                    sendResponse(l_txnRes);
+                    m_ResQ.erase(l_txIter);
+                }
+            }
+        }
+
+        delete l_cmdResEventPtr->m_payload;         //now, free the memory space allocated to the commands for a transaction
+        delete l_cmdResEventPtr;
+
+    } else {
+        std::cout << __PRETTY_FUNCTION__ << "ERROR:: Bad event type!"
+                  << std::endl;
+    }
+}
