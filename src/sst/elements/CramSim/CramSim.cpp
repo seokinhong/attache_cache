@@ -190,29 +190,7 @@ static const ElementInfoStatistic c_MemhBridge_stats[] = {
   {NULL, NULL, NULL, 0}
 };
 
-/*----SETUP c_MemhBridge STRUCTURES----*/
-static const ElementInfoParam c_Cache_params[] = {
-		{"cache_size", "size of cache", NULL},
-		{"repl_policy", "size of cache", NULL},
-		{"associativity", "size of cache", NULL},
-		{ NULL, NULL, NULL } };
 
-static const char* c_Cache_Mem_port_events[] = { "c_TxnReqEvent", NULL };
-static const char* c_Cache_CPU_port_events[] = {"c_TxnResEvent", NULL};
-
-static const ElementInfoPort c_Cache_ports[] = {
-		{ "cpuLink", "link to/from CPU",c_Cache_CPU_port_events},
-		{ "memLink", "link to memory-side components (txn dispatcher or controller)", c_Cache_Mem_port_events },
-		{ NULL, NULL, NULL } };
-
-static const ElementInfoStatistic c_Cache_stats[] = {
-		{"accesses", "total number of cache accesses", "accesses", 1}, // Name, Desc, Units, Enable Level
-		{"hits", "Number of hits", "accesses", 1}, // Name, Desc, Units, Enable Level
-		{"misses", "Number of misses", "accesses", 1}, // Name, Desc, Units, Enable Level
-		{"reads", "Number of reads", "accesses", 1}, // Name, Desc, Units, Enable Level
-		{"writes", "Number of writes", "accesses", 1}, // Name, Desc, Units, Enable Level
-		{NULL, NULL, NULL, 0}
-};
 
 /*----SETUP c_MemhBridge STRUCTURES----*/
 static const ElementInfoPort c_PageAllocator_ports[] = {
@@ -290,6 +268,34 @@ static const ElementInfoStatistic c_TxnGen_stats[] = {
   {"txnsLatency", "Average latency of (read/write) transactions", "cycles", 1},
   {"cycles", "total execution cycles","cycles",1},
   {NULL, NULL, NULL, 0}
+};
+
+
+/*----SETUP c_MemhBridge STRUCTURES----*/
+static const ElementInfoParam c_Cache_params[] = {
+		{"cache_size", "size of cache", NULL},
+		{"repl_policy", "size of cache", NULL},
+		{"associativity", "size of cache", NULL},
+		{ NULL, NULL, NULL } };
+
+static const char* c_Cache_Mem_port_events[] = { "c_TxnReqEvent", NULL };
+static const char* c_Cache_CPU_port_events[] = {"c_TxnResEvent", NULL};
+
+static const ElementInfoPort c_Cache_ports[] = {
+		{ "cpuLink", "link to/from CPU",c_Cache_CPU_port_events},
+		{ "memLink", "link to memory-side components (txn dispatcher or controller)", c_Cache_Mem_port_events },
+		{ "contentLink", "link from CPU for receiving memory contents", c_MemhBridgeContent_Content_events},
+		{ "lane_%(lanes)d", "link to/from lanes", c_MemhBridgeContent_Content_events},
+		{ NULL, NULL, NULL } };
+
+static const ElementInfoStatistic c_Cache_stats[] = {
+		{"accesses", "total number of cache accesses", "accesses", 1}, // Name, Desc, Units, Enable Level
+		{"hits", "Number of hits", "accesses", 1}, // Name, Desc, Units, Enable Level
+		{"misses", "Number of misses", "accesses", 1}, // Name, Desc, Units, Enable Level
+		{"reads", "Number of reads", "accesses", 1}, // Name, Desc, Units, Enable Level
+		{"writes", "Number of writes", "accesses", 1}, // Name, Desc, Units, Enable Level
+		{"backing_store_miss","","",1},
+		{NULL, NULL, NULL, 0}
 };
 
 /*----SETUP c_TracefileReader STRUCTURES----*/

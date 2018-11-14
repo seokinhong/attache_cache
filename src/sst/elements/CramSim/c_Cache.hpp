@@ -52,6 +52,7 @@ namespace SST{
              c_Cache( ComponentId_t id, Params& params);
              ~c_Cache();
              void init(unsigned int phase);
+             void finish();
 
 
          private:
@@ -61,7 +62,11 @@ namespace SST{
              void handleCpuEvent(SST::Event *ev);       //cpu event handler (cpu --> l3 cache)
              void handleMemEvent(SST::Event *ev);       //memory event handler (memory --> controller component of cramsim)
              void eventProcessing();
+             void storeContent();
+             int getCompressedSize(uint64_t addr);
 
+             //compression ratio storage
+             std::map<uint64_t, uint8_t> compRatio_bdi;
 
              SCache* m_cache;
              SimTime_t  m_simCycle;
@@ -73,6 +78,10 @@ namespace SST{
              SST::Link* m_linkMem;
              //link to/from CPU
              SST::Link* m_linkCPU;
+
+             // link for getting data content (compression info) from core
+             std::vector<SST::Link*> m_laneLinks;
+
 
              /*class MEM_REQ{
              public:
@@ -99,11 +108,13 @@ namespace SST{
              Output* output;
 
              // Statistics
+             std::map<int, uint64_t> m_normalized_size;
              Statistic<uint64_t>* s_accesses;
              Statistic<uint64_t>* s_hit;
              Statistic<uint64_t>* s_miss;
              Statistic<uint64_t>* s_readRecv;
              Statistic<uint64_t>* s_writeRecv;
+             Statistic<uint64_t>* s_BackingMiss;
         };
     }
 }

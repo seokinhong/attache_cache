@@ -31,6 +31,9 @@
 #include "c_Cache.hpp"
 #include <bitset>
 #include "Cache.hpp"
+#include "c_TxnReqEvent.hpp"
+#include "c_TxnResEvent.hpp"
+#include "c_CmdResEvent.hpp"
 
 
 using namespace std;
@@ -85,11 +88,36 @@ c_Cache::c_Cache(ComponentId_t x_id, Params &params):Component(x_id) {
     printf("[cramsim cache] line size:%d\n", cache_linesize);
     printf("[cramsim cache] enableAllHit? %d\n", enableAllHit==true?1:0);
 
+
+
     enableAllHit                =   (bool)params.find<bool>("enableAllHit",false);
 
     //---- configure link ----//
     m_linkMem   =   configureLink("memLink",new Event::Handler<c_Cache>(this,&c_Cache::handleMemEvent));
     m_linkCPU   =   configureLink("cpuLink",new Event::Handler<c_Cache>(this,&c_Cache::handleCpuEvent));
+
+    // link for the content delivery
+    int contentline_num= params.find<int>("contentline_num",0,l_found);
+    if(l_found==false)
+    {
+        fprintf(stderr,"[C_Cache] contentline_num is miss\n");
+    }
+
+
+    for (int i = 0; i < contentline_num; i++) 
+    {
+        string l_linkName = "lane_" + to_string(i);
+        Link *l_link = configureLink(l_linkName);
+
+        if (l_link) {
+            m_laneLinks.push_back(l_link);
+            cout<<l_linkName<<" is connected"<<endl;
+        } else {
+            cout<<l_linkName<<" is not found.. exit"<<endl;
+            exit(-1);
+        }
+    }
+
 
     m_seqnum    =   0;
     m_simCycle  =   0;
@@ -100,6 +128,7 @@ c_Cache::c_Cache(ComponentId_t x_id, Params &params):Component(x_id) {
     s_miss      =   registerStatistic<uint64_t>("misses");
     s_readRecv  =   registerStatistic<uint64_t>("reads");
     s_writeRecv = registerStatistic<uint64_t>("writes");
+    s_BackingMiss = registerStatistic<uint64_t>("backing_store_miss");
 
 }
 
@@ -128,6 +157,7 @@ c_Cache::c_Cache() :
 bool c_Cache::clockTic(Cycle_t clock)
 {
     m_simCycle++;
+    storeContent();
     eventProcessing();
 
     return false;
@@ -262,5 +292,85 @@ void c_Cache::handleMemEvent(SST::Event *ev) {
     }
     delete newTxn;
     delete ev;
+}
+
+uint64_t clock_tmp=0;
+//void c_ControllerPCA::handleContentEvent(SST::Event *ev)
+void c_Cache::storeContent()
+{
+    clock_tmp++;
+    for(auto &link: m_laneLinks)
+    {
+        SST::Event* ev = 0;
+        while(ev=link->recv())
+        {
+            SST::MemHierarchy::MemEvent* req=dynamic_cast<SST::MemHierarchy::MemEvent*>(ev);
+            uint64_t req_addr=req->getAddr();
+            if(req->getCmd()==MemHierarchy::Command::Put) {
+                uint64_t cacheline_addr = (req_addr >> 6) << 6;
+
+                std::vector<uint8_t> compRatio_vector=(std::vector<uint8_t>)req->getPayload();
+                compRatio_bdi[cacheline_addr] = compRatio_vector[0];
+               
+                printf("c_Cache] cacheline addr:%llx comp_ratio:%d\n",cacheline_addr,compRatio_vector[0]);
+
+            } else
+            {
+                fprintf(stderr,"[c_Cache] cpu command error!\n");
+                exit(1);
+            }
+
+            delete req;
+        }
+    }
+}
+
+/*return normalized size of the compressed cacheline
+  0 <= normalized size <= 100
+*/
+int c_Cache::getCompressedSize(uint64_t addr)
+{
+
+    //calculate the compressed size of cacheline
+    if(compRatio_bdi.size()>0) {
+        int64_t cacheline_addr = (addr >> 6) << 6;
+        if(compRatio_bdi.find(cacheline_addr)==compRatio_bdi.end()) {
+                printf("Error!! cacheline is not found, %llx\n",addr);
+                compRatio_bdi[cacheline_addr] = 0;
+                s_BackingMiss->addData(1);
+        }
+
+        int normalized_size=compRatio_bdi[cacheline_addr];   // 0 <= normalized_size <= 100
+
+        m_normalized_size[normalized_size]++;
+        return normalized_size;
+    }
+    return -1;
+}
+
+
+
+void c_Cache::finish()
+{
+    uint64_t compressed_size_50;
+    uint64_t compressed_size_100;
+
+    for(int i=0;i<=50;i++)
+    {
+        compressed_size_50+=m_normalized_size[i];
+    }
+
+     for(int i=51;i<=100;i++)
+    {
+        compressed_size_100+=m_normalized_size[i];
+    }
+    /*for(int i=0;i<100;i++)
+    {
+        printf("compressed_size_count: %d/%lld\n",i,m_normalized_size[i]);
+        normalized_size_sum+=i*m_normalized_size[i];
+        cnt+=m_normalized_size[i];
+    }*/
+    fprintf(stderr,"compressed_size<=50 : %lld\n",compressed_size_50);
+    fprintf(stderr,"compressed_size>50 : %lld\n",compressed_size_100);
 }
 
